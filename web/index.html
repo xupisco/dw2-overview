@@ -46,6 +46,7 @@
   ::selection { background: var(--acc-d); }
   button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px solid var(--acc); outline-offset: 1px; }
   button, select, input { font: inherit; color: inherit; }
+  small { font-size: 12px; }   /* nothing on the page is smaller than 12px */
 
   /* Header: brand, tabs with counts, tools; then the status line */
   header { position: sticky; top: 0; z-index: 5; background: var(--hdr); backdrop-filter: blur(6px); }
@@ -59,16 +60,16 @@
     color: var(--mut); font-family: var(--cond); font-weight: 600; font-size: 14px; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
   .tabs button:hover { color: var(--tx); }
   .tabs button.on { color: var(--tx); border-bottom-color: var(--acc); }
-  .tabs button em { font: 500 11px Barlow, sans-serif; letter-spacing: 0; color: var(--mut); font-style: normal; font-variant-numeric: tabular-nums; }
+  .tabs button em { font: 500 12px Barlow, sans-serif; letter-spacing: 0; color: var(--mut); font-style: normal; font-variant-numeric: tabular-nums; }
   .tools { display: flex; gap: 6px; align-items: center; margin-left: auto; order: 2; }
   .tool { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 28px; height: 28px; padding: 0 8px;
     border: 0; background: var(--panel); color: var(--mut); font-size: 12px; cursor: pointer; white-space: nowrap; }
   .tool:hover, .tool.on { background: var(--hover); color: var(--tx); }
-  .tool kbd { font: 10px Barlow, sans-serif; background: var(--track); padding: 0 4px; }
+  .tool kbd { font: 12px Barlow, sans-serif; background: var(--track); padding: 0 4px; }
   .tool .badge { position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; background: var(--warn); color: #1a1205;
-    font-size: 10px; font-weight: 600; line-height: 15px; text-align: center; }
+    font-size: 12px; font-weight: 600; line-height: 15px; text-align: center; }
   .tool .badge[hidden] { display: none; }
-  .statusline { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 2px 12px 8px; font-size: 11px; color: var(--mut); font-variant-numeric: tabular-nums; }
+  .statusline { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 2px 12px 8px; font-size: 12px; color: var(--mut); font-variant-numeric: tabular-nums; }
   .statusline b { color: var(--tx); font-weight: 500; }
   .statusline .up { color: var(--ok); } .statusline .down { color: var(--bad); } .statusline .paused { color: var(--warn); }
   .dot { display: inline-block; width: 6px; height: 6px; background: var(--bad); margin-right: 5px; vertical-align: middle; }
@@ -79,7 +80,7 @@
   .alertpanel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 6; width: 290px; background: var(--panel); padding: 10px 12px;
     display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.45); color: var(--tx); font-size: 12px; text-align: left; }
   .alertpanel[hidden] { display: none; }
-  .alertpanel h4 { margin: 4px 0 0; font: 600 11px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
+  .alertpanel h4 { margin: 4px 0 0; font: 600 12px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
   .alertpanel select { width: 100%; height: 28px; background: var(--panel-h); border: 0; padding: 0 6px; }
   .mutelist { display: flex; flex-direction: column; gap: 3px; max-height: 40vh; overflow-y: auto; }
   .mutelist label { white-space: nowrap; cursor: pointer; }
@@ -116,7 +117,7 @@
   .go:hover { color: var(--tx); }
 
   /* Status tags: colored text on a faint tint */
-  .tag { display: inline-block; padding: 0 6px; font: 600 11px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
+  .tag { display: inline-block; padding: 0 6px; font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
   .tag.outsideYard, .tag.latest { color: var(--acc); background: var(--acc-d); }
@@ -129,7 +130,7 @@
   .caret { display: inline-block; width: 18px; color: var(--mut); cursor: pointer; text-align: center; }
   .caret:hover { background: var(--hover); color: var(--tx); }
   .caret.blank { cursor: default; background: none; }
-  .more { display: inline-block; margin-left: 6px; padding: 0 6px; background: var(--track); color: var(--mut); font-size: 11px; }
+  .more { display: inline-block; margin-left: 6px; padding: 0 6px; background: var(--track); color: var(--mut); font-size: 12px; }
   tr.child td { background: var(--bg) !important; }
   tr.child td:first-child { padding-left: 24px; }
   .sub { color: var(--mut); padding-left: 18px; }
@@ -149,15 +150,15 @@
   .ovhead { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--panel-h); }
   .ovhead > span { display: flex; align-items: center; gap: 7px; font: 600 13px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--c); }
   .ovhead > span i { width: 3px; height: 12px; background: var(--c); }
-  .ovnote { font-size: 11px; color: var(--mut); }
-  .ovlink { border: 0; background: transparent; color: var(--acc); font-size: 11px; cursor: pointer; white-space: nowrap; padding: 0; }
+  .ovnote { font-size: 12px; color: var(--mut); }
+  .ovlink { border: 0; background: transparent; color: var(--acc); font-size: 12px; cursor: pointer; white-space: nowrap; padding: 0; }
   .ovlink:hover { color: var(--tx); }
   .ovrow { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: var(--pad) 10px; border: 0; background: transparent; text-align: left; cursor: pointer; }
   .ovrow:hover { background: var(--hover); }
   .ovrow > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .ovrow b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ovrow small { font-size: 11px; color: var(--mut); }
-  .ovrow em { flex: none; font-style: normal; font-size: 11px; color: var(--acc); white-space: nowrap; }
+  .ovrow small { font-size: 12px; color: var(--mut); }
+  .ovrow em { flex: none; font-style: normal; font-size: 12px; color: var(--acc); white-space: nowrap; }
   .ovrow.att > i { flex: none; width: 6px; height: 6px; margin-top: 6px; transform: rotate(45deg); background: var(--acc); }
   .ovrow.att > i.warn { background: var(--warn); } .ovrow.att > i.bad { background: var(--bad); }
   .ovrow.att small { font-size: 12px; }
@@ -171,7 +172,7 @@
   .ovres { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
   .ovres .pt b { font: 600 18px var(--cond); }
   .ovres .pt em { font: 600 18px var(--cond); }
-  .ovres small { font-size: 11px; color: var(--mut); }
+  .ovres small { font-size: 12px; color: var(--mut); }
   .ovsmall { padding: 6px 10px 10px; font-size: 12px; color: var(--mut); }
   .ovrow.col { display: grid; grid-template-columns: minmax(0, 1fr) 60px 44px 60px; align-items: center; font-variant-numeric: tabular-nums; }
   .ovrow.col > span:not(:first-child) { text-align: right; }
@@ -184,9 +185,9 @@
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 2px; }
   .kpi { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border: 0; background: var(--panel); text-align: left; cursor: pointer; min-width: 0; }
   .kpi:hover { background: var(--hover); }
-  .kpi span { font: 600 11px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
+  .kpi span { font: 600 12px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
   .kpi b { font: 600 22px/1.1 var(--cond); font-variant-numeric: tabular-nums; }
-  .kpi small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kpi small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ovfoot { display: flex; justify-content: flex-end; padding-top: 4px; }
   .ovfoot .ovlink { font-size: 12px; color: var(--mut); }
   .ovdrawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 8; width: min(400px, 100%); background: var(--panel); box-shadow: -10px 0 30px rgba(0,0,0,.4);
@@ -198,9 +199,9 @@
   .ovitem { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--panel-h); }
   .ovitem.off > span:nth-child(2) { opacity: .5; }
   .ovitem > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
-  .ovitem small { color: var(--mut); font-size: 11px; }
+  .ovitem small { color: var(--mut); font-size: 12px; }
   .sizes, .moves { display: flex; gap: 2px; }
-  .sizes button, .moves button { width: 24px; height: 22px; border: 0; background: var(--panel); color: var(--mut); cursor: pointer; font-size: 11px; }
+  .sizes button, .moves button { width: 24px; height: 22px; border: 0; background: var(--panel); color: var(--mut); cursor: pointer; font-size: 12px; }
   .sizes button.on { background: var(--acc-d); color: var(--acc); }
   .sizes button:hover, .moves button:hover { color: var(--tx); }
   .moves { flex-direction: column; }
@@ -213,9 +214,16 @@
   .switch input:checked + i::after { left: 17px; background: var(--acc); }
 
   /* Resources */
+  .psub { color: var(--bad); font-size: 13px; margin-right: 6px; }
+  .psub:empty { display: none; }
+  .filters .seg button em { font-style: normal; color: var(--mut); margin-left: 4px; }
+  .catsq { display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--acc); }
+  .catsq[data-cat="fuel"] { background: var(--warn); }
+  .catsq[data-cat="luxury"] { background: oklch(var(--L) 0.11 330); }
+  #resMining .srow { grid-template-columns: 30px minmax(150px, 1.1fr) minmax(220px, 1.7fr) 110px 120px 130px 30px; }
   .restop { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
   .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
-  .supply th { background: transparent; font-size: 11px; padding: 2px 10px; cursor: default; }
+  .supply th { background: transparent; font-size: 12px; padding: 2px 10px; cursor: default; }
   .supply td { padding: 0; background: transparent !important; }
   .supply td:first-child { padding: 0 12px 0 0; color: var(--mut); font-size: 12px; }
   .supply button { width: 130px; height: 28px; border: 0; background: var(--panel); text-align: left; padding: 0 10px; font: 600 16px var(--cond); cursor: pointer; }
@@ -234,12 +242,12 @@
   .rrow .num, .rhead .num { text-align: right; }
   .rname { display: flex; flex-direction: column; min-width: 0; }
   .rname b { font-weight: 500; }
-  .rname small { color: var(--mut); font-size: 11px; }
+  .rname small { color: var(--mut); font-size: 12px; }
   .rout { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
   .rout em { font-style: normal; }
   .rout .pb { height: 3px; }
   .rout .pb > i { box-shadow: none; }
-  .rstat { font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .06em; text-align: right; }
+  .rstat { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .06em; text-align: right; }
   .rico { display: inline-grid; place-items: center; width: 26px; height: 26px; background: var(--track); font: 600 12px var(--cond); color: var(--acc); }
   .rico[data-cat="fuel"] { color: var(--warn); } .rico[data-cat="luxury"] { color: oklch(var(--L) 0.11 330); }
   .rico.big { width: 36px; height: 36px; font-size: 15px; }
@@ -251,13 +259,13 @@
   .rdhead small { color: var(--mut); }
   .rdnums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .rdnums span { display: flex; flex-direction: column; }
-  .rdnums small { font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
+  .rdnums small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
   .rdnums b { font: 600 18px var(--cond); }
-  .rdetail h4 { margin: 6px 0 0; font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .rdetail h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .dsite { display: grid; grid-template-columns: minmax(0, 1fr) 70px 36px auto; gap: 8px; align-items: center; width: 100%; border: 0; background: transparent; padding: 4px 0; text-align: left; cursor: pointer; }
   .dsite:hover { background: var(--hover); }
   .dsite span:first-child { display: flex; flex-direction: column; min-width: 0; }
-  .dsite small { color: var(--mut); font-size: 11px; }
+  .dsite small { color: var(--mut); font-size: 12px; }
   .dsite em { font-style: normal; font-size: 12px; text-align: right; }
   .dsite .pb > i { box-shadow: none; }
   .heat th { text-align: center; padding: 6px 4px; }
@@ -297,12 +305,12 @@
   .sgroup .sicon { background: transparent; width: auto; height: auto; }
   .sname, .ssys { display: flex; flex-direction: column; min-width: 0; }
   .sname b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sname small, .ssys small { color: var(--mut); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sname small, .ssys small { color: var(--mut); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .smission { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; }
   .smission > i { width: 7px; height: 7px; flex: none; }
   .smission .warn { color: var(--warn); }
   .smission .arrow { color: var(--mut); }
-  .chip { font-size: 11px; color: var(--mut); background: var(--track); padding: 0 5px; }
+  .chip { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; }
   .sorders { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sfuel { display: flex; align-items: center; gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
   .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
@@ -324,7 +332,7 @@
   .toast.prio-High { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--warn); }
   .toast.prio-Critical { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--bad); }
   .toast span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .toast .mute { align-self: flex-end; color: var(--mut); font-size: 11px; text-decoration: none; }
+  .toast .mute { align-self: flex-end; color: var(--mut); font-size: 12px; text-decoration: none; }
   .toast .mute:hover { color: var(--tx); }
 
   /* Command palette (Ctrl+K) */
@@ -341,11 +349,11 @@
   .pitem .pname b { color: var(--acc); font-weight: 600; }
   .pitem .pmeta { color: var(--mut); font-size: 12px; white-space: nowrap; }
   .pitem .own { color: var(--ok); }
-  .pfoot { color: var(--mut); font-size: 11px; padding: 6px 16px; background: var(--panel-h); }
+  .pfoot { color: var(--mut); font-size: 12px; padding: 6px 16px; background: var(--panel-h); }
   .pscope { margin-left: 16px; padding: 2px 8px; background: var(--acc-d); color: var(--acc); white-space: nowrap; }
   .pscope[hidden] { display: none; }
-  .psec { color: var(--mut); font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .1em; padding: 10px 16px 4px; }
-  .pkey { font-size: 10px; color: var(--mut); background: var(--track); padding: 0 5px; visibility: hidden; }
+  .psec { color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; padding: 10px 16px 4px; }
+  .pkey { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; visibility: hidden; }
   .pitem.on .pkey { visibility: visible; }
 </style>
 </head>
@@ -403,7 +411,7 @@
 
 <main>
 <div class="filters">
-  <h2 id="ptitle">Construction</h2>
+  <h2 id="ptitle">Construction</h2><span id="psub" class="psub"></span>
   <input id="search" type="search" placeholder="Filter…" autofocus>
   <span id="cfilters" class="group">
   <select id="state">
@@ -442,6 +450,9 @@
   </select>
   </span>
   <span id="gfilters" class="group"></span>
+  <span id="resfilters" class="group" hidden>
+    <span id="resViews" class="seg"><button type="button" data-view="resources">Resources <em></em></button><button type="button" data-view="deposits">Deposits <em></em></button><button type="button" data-view="mining">Mining ships <em></em></button></span>
+  </span>
   <span id="sfilters" class="group" hidden>
     <span id="sgroupby" class="seg" title="Group the ships by">
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
@@ -471,7 +482,6 @@
 <div id="tab-resources" hidden>
   <div class="restop">
     <div id="resSupply"></div>
-    <span id="resViews" class="seg"><button type="button" data-view="resources">Resources</button><button type="button" data-view="deposits">Deposits</button></span>
   </div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
@@ -481,6 +491,7 @@
     <div id="resDetail" class="rdetail"></div>
   </div>
   <div id="resDeposits" class="wrap" hidden></div>
+  <div id="resMining" hidden></div>
 </div>
 <div id="tab-ships" hidden>
   <div id="shipStatus" class="sstatus"></div>
@@ -690,6 +701,7 @@ function setTab(name) {
   $('search').hidden = tab === 'overview';
   if (tab !== 'overview') $('ovPanel').hidden = true;
   $('sfilters').hidden = tab !== 'ships';
+  $('resfilters').hidden = tab !== 'resources';
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
   $('mfilters').hidden = tab !== 'messages';
@@ -697,6 +709,7 @@ function setTab(name) {
   $('gfilters').dataset.sig = '';
   $('hint').textContent = hints[tab];
   $('ptitle').textContent = name.charAt(0).toUpperCase() + name.slice(1);
+  $('psub').textContent = '';
   try { localStorage.setItem('overview.tab', tab); } catch (e) { }
   lastSnapshot = null;
   other = { rows: [] };
@@ -737,6 +750,7 @@ async function refresh() {
       $('empire').style.display = 'contents';
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
+      if (tab === 'resources') refreshResourceShips();
       if (info.counts) {
         Object.assign(tabCounts, info.counts);
         if (tab === 'resources') tabCounts.resources = countFor('resources', rows);   // collected only while that tab is open
@@ -1488,7 +1502,9 @@ $('ovList').addEventListener('change', e => {
 // CriticalMissingResources empty, so the status comes from the rates instead (still to be compared with the
 // game's Adequate / Low / Critical counts); the raw values are in each row's tooltip.
 
-let resView = 'resources', resPick = null, resSupply = null, resData = { items: [], deposits: [] };
+let resView = 'resources', resPick = null, resSupply = null, resData = { items: [], deposits: [] }, resShips = null;
+/** Mining ships: by role (mining ships, gas miners) or by what they are doing. */
+const isMiner = s => !s.isBase && (/Mining|Miner/.test(s.kind || '') || ['Mine', 'MineLoad'].includes(s.mission));
 try { resView = localStorage.getItem('overview.resView') || 'resources'; } catch (e) { }
 
 const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury']];
@@ -1526,17 +1542,49 @@ function renderResources() {
   const all = (resData.items || []).filter(resRelevant), deps = resData.deposits || [];
   const q = $('search').value.trim().toLowerCase();
 
-  // Supply table
+  // Supply table; the fuel row is named after the fuel in use, as in the game ("Fuel (Caslon)").
+  const fuels = all.filter(r => r.category === 'fuel' && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
+  const catLabel = (key, label) => key === 'fuel' && fuels.length ? `${label} (${fuels.join(', ')})` : label;
   $('resSupply').innerHTML = `<table class="supply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${
-    RES_CATS.map(([key, label]) => `<tr><td>${label}</td>${['adequate', 'low', 'critical'].map(st => {
+    RES_CATS.map(([key, label]) => `<tr><td><i class="catsq" data-cat="${key}"></i>${esc(catLabel(key, label))}</td>${['adequate', 'low', 'critical'].map(st => {
       const n = all.filter(r => r.category === key && resStatus(r) === st).length;
       const on = resSupply && resSupply.cat === key && resSupply.status === st;
       return `<td><button type="button" class="${on ? 'on' : ''}" data-cat="${key}" data-st="${st}" style="color:${n && st !== 'adequate' ? STATUS_COLOR[st] : ''}">${n}</button></td>`;
     }).join('')}</tr>`).join('')}</tbody></table>`;
 
-  document.querySelectorAll('#resViews button').forEach(b => b.classList.toggle('on', b.dataset.view === resView));
+  const critical = all.filter(r => resStatus(r) === 'critical').length;
+  $('psub').textContent = critical ? `${critical} critical` : '';
+  const miners = (resShips || []).filter(isMiner);
+  const counts = { resources: all.length, deposits: deps.length, mining: miners.length };
+  document.querySelectorAll('#resViews button').forEach(b => {
+    b.classList.toggle('on', b.dataset.view === resView);
+    b.querySelector('em').textContent = counts[b.dataset.view] ?? '';
+  });
   $('resListWrap').hidden = resView !== 'resources';
   $('resDeposits').hidden = resView !== 'deposits';
+  $('resMining').hidden = resView !== 'mining';
+
+  if (resView === 'mining') {
+    // Mining ships, from the Ships data: where each one mines and its state. Cargo comes later.
+    const rows = miners.filter(s => !q || [s.name, s.target, s.system, missionPhrase(s.mission)].some(v => v && v.toLowerCase().includes(q)))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    shipRowsShown = rows;
+    $('resMining').innerHTML = `<div class="slist">${rows.map((s, n) => {
+      const bucket = shipBucket(s), color = SHIP_BUCKETS.find(b => b.key === bucket).color;
+      const target = s.target ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
+      const fuel = s.fuel == null ? '<span class="none">–</span>'
+        : `<span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+      return `<div class="srow" data-n="${n}">
+        <span class="sicon">${icon(shipCategory(s), 15)}</span>
+        <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+        <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(missionPhrase(s.mission) || '')}</span>${target}</span>
+        <span class="sorders mut">cargo: later</span>
+        <span class="ssys">${esc(s.system || '')}</span>
+        <span class="sfuel">${fuel}</span><span class="sflags">${s.docked ? '⚓' : ''}</span></div>`;
+    }).join('') || `<div class="empty">${resShips ? 'No mining ships.' : 'Loading the ships…'}</div>`}</div>`;
+    $('count').textContent = `${rows.length} of ${miners.length}`;
+    return;
+  }
 
   if (resView === 'resources') {
     const rows = all.filter(r => (!resSupply || (r.category === resSupply.cat && resStatus(r) === resSupply.status))
@@ -1614,6 +1662,28 @@ $('resList').addEventListener('click', e => {
 $('resDetail').addEventListener('click', e => {
   const b = e.target.closest('[data-orb]');
   if (b) goTo('orb', +b.dataset.orb);
+});
+/** The Mining ships view uses the Ships data; redrawn only when it changed. */
+let resShipsSig = '';
+async function refreshResourceShips() {
+  try {
+    const items = (await getJson('/api/ships')).items || [];
+    const sig = JSON.stringify(items);
+    if (sig === resShipsSig) return;
+    resShipsSig = sig;
+    resShips = items;
+    if (tab === 'resources') renderResources();
+  } catch (e) { }
+}
+$('resMining').addEventListener('click', e => {
+  const row = e.target.closest('.srow');
+  if (!row) return;
+  e.preventDefault();
+  const tgt = e.target.closest('[data-tt]');
+  if (tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
+  else goTo('ship', shipRowsShown[+row.dataset.n].id);
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 400);
 });
 $('resDeposits').addEventListener('click', e => {
   const tr = e.target.closest('tr[data-orb]');
