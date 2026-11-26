@@ -1543,9 +1543,10 @@ function resStatus(r) {
   if (r.critical) return 'critical';
   if (r.maintain != null) {
     // Matches the game's supply table (2026-11-26: Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2): critical
-    // below half the level to maintain, or needed with nothing in stock; low below the level to maintain.
+    // with nothing in stock (a construction or fuel resource, or one in demand), or below half the level to
+    // maintain; low below the level to maintain.
     const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
-    if (req > 0 && stock <= 0) return 'critical';
+    if (stock <= 0 && (req > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
     if (r.maintain <= 0) return 'adequate';
     return stock < r.maintain / 2 ? 'critical' : stock < r.maintain ? 'low' : 'adequate';
   }
@@ -1557,7 +1558,8 @@ function resStatus(r) {
 /** Leaves out the resources the empire has nothing to do with (the game lists every one with a zero rate). */
 /** A resource can be in several categories (Caslon: fuel and construction), as the game counts it. */
 const inCat = (r, cat) => (r.categories && r.categories.length ? r.categories : [r.category]).includes(cat);
-const resRelevant = r => (r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || (r.known ?? 0) > 0 || r.deposits > 0;
+const resRelevant = r => (r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || (r.known ?? 0) > 0 || r.deposits > 0
+  || inCat(r, 'construction') || inCat(r, 'fuel');   // the game lists every construction and fuel resource
 function resRunsOut(r) {
   const net = resNet(r);
   if (!(net < 0) || !r.stock) return null;
