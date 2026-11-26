@@ -332,8 +332,8 @@
   .toast.prio-High { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--warn); }
   .toast.prio-Critical { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--bad); }
   .toast span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .toast .mute { align-self: flex-end; color: var(--mut); font-size: 12px; text-decoration: none; }
-  .toast .mute:hover { color: var(--tx); }
+  .toast .mute { align-self: flex-end; margin-top: 4px; height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
+  .toast .mute:hover { background: var(--hover); color: var(--tx); }
 
   /* Command palette (Ctrl+K) */
   #palette { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 10; }
@@ -849,7 +849,7 @@ function toast(m, onClick) {
   const el = document.createElement('div');
   el.className = 'toast prio-' + (m.priority || 'Normal');
   el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.text))}</span>
-    <a class="mute" href="#" title="No more alerts for this type of message">mute "${esc(human(m.type))}"</a>`;
+    <button type="button" class="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button>`;
   el.title = 'Click to go to it · right-click to dismiss';
   el.querySelector('.mute').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setMuted(m.type, true); el.remove(); });
   el.addEventListener('click', () => { onClick(); el.remove(); });
