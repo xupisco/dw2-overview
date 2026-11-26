@@ -25,6 +25,8 @@ internal sealed class ResourceRow
     public double? BaseCost { get; set; }
     public bool? RateMet { get; set; }
     public bool Critical { get; set; }
+    /// <summary>In the game's critical shortages (Empire.DetermineCriticalResourceShortages).</summary>
+    public bool Shortage { get; set; }
     /// <summary>Known deposits of this resource, and how many of them the empire mines.</summary>
     public int Deposits { get; set; }
     public int Mined { get; set; }
@@ -117,6 +119,15 @@ internal static class ResourcesView
         var sell = Amounts(Safe(() => empire.ResourcePricesSell));
         var buy = Amounts(Safe(() => empire.ResourcePricesBuy));
         var critical = Amounts(Safe(() => empire.CriticalMissingResources));
+        // The game's own list of critical shortages; a candidate for the one critical construction resource the
+        // supply table showed (15/0/1) while every stock lasted years (2026-11-26). Logged when it changes.
+        var shortages = Amounts(Safe(() => empire.DetermineCriticalResourceShortages()));
+        string sig = string.Join(",", shortages.Keys.OrderBy(k => k));
+        if (sig != lastShortages)
+        {
+            lastShortages = sig;
+            Log.Info($"Critical resource shortages (DetermineCriticalResourceShortages): {(shortages.Count == 0 ? "none" : string.Join(", ", shortages.Select(kv => $"{Safe(() => galaxy.Resources.GetById(kv.Key)?.Name) ?? kv.Key.ToString()} {kv.Value:0.#}")))}; CriticalMissingResources: {critical.Count}.");
+        }
         var met = Safe(() => empire.ResourceRateRequirementsMet);
         // Categories are the resource's own flags (checked 2026-11-26 against the game's supply table: its
         // Construction row is every IsConstruction resource, 16 in the game, even those the empire has none of;
@@ -152,12 +163,15 @@ internal static class ResourcesView
                 BaseCost = Num(res.BaseCost),
                 RateMet = met != null && id >= 0 && id < met.Length ? met[id] : null,
                 Critical = critical.ContainsKey(id),
+                Shortage = shortages.ContainsKey(id),
                 Deposits = depositCount,
                 Mined = deposits.Count(d => d.MinedBy != null && d.Resources.Any(r => r.Id == id)),
             });
         }
         return (rows, deposits);
     }
+
+    private static string lastShortages;
 
     private static Dictionary<short, float> Amounts(ResourceQuantityList list)
     {

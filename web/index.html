@@ -2539,28 +2539,25 @@ let resPick = null;          // set by the palette: open this one and bring it i
 const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury']];
 /** Net change per second, as the game shows it: current minus required. */
 const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
-/**
- * Matches the game's supply table (2026-11-26: Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2): critical with
- * nothing in stock (a construction or fuel resource, or one in demand) or below half the level to maintain
- * (the game's "Maintain" column; it shows the stock in red below it, e.g. Caslon 4,627 of 20,000); low below
- * that level. Without a maintain level (older mod), the rates decide.
- */
+// The game's supply table counts resources by how long their stock lasts at the current pace (its tooltips:
+// "more than one years supply", "less than one years supply", "less than X months supply"). A game year is
+// 600 seconds of game time (600,000 star date units; rates are per second), so a month is 50 s. Checked on
+// 2026-11-26 against the game: Fuel 1/0/0, Luxury 27/8/1 (8 luxuries at ~375 s are low, Caslon at 1,023 s is
+// adequate). X is not known yet: under 7 months; 3 is a guess (the game shows it on the Critical tooltip).
+const GAME_YEAR_S = 600, CRITICAL_MONTHS = 3;
+/** How long the stock lasts, in seconds of game time; null when nothing is used up (production covers it). */
+function resLasts(r) {
+  const net = (r.rateRequired ?? 0) - (r.rateCurrent ?? 0);
+  if (!(net > 0)) return null;
+  return (r.stock ?? 0) / net;
+}
 function resStatus(r) {
   if (r.critical) return 'critical';
-  const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
-  if (stock <= 0 && (req > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
-  // No level to maintain (the game sets none for most luxuries: 31 of them read critical, 2026-11-26) means
-  // nothing to fall below: with stock it is adequate. Only an older mod without maintain data uses the rates.
-  if (r.maintain != null || stock > 0) {
-    const m = r.maintain ?? 0;
-    if (m <= 0) return 'adequate';
-    return stock < m / 2 ? 'critical' : stock < m ? 'low' : 'adequate';
-  }
-  if (r.stock == null && r.rateRequired == null && r.rateCurrent == null) return 'adequate';
-  const cur = r.rateCurrent ?? 0;
-  if (req > 0 && cur <= 0) return 'critical';
-  if (cur < req) return 'low';
-  return 'adequate';
+  if ((r.stock ?? 0) <= 0 && ((r.rateRequired ?? 0) > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
+  const t = resLasts(r);
+  if (t == null) return 'adequate';
+  if (t < GAME_YEAR_S * CRITICAL_MONTHS / 12) return 'critical';
+  return t < GAME_YEAR_S ? 'low' : 'adequate';
 }
 /** Every category of a resource (the game's flags: fuel, construction, luxury). */
 const inCat = (r, cat) => (r.categories && r.categories.length ? r.categories : [r.category]).includes(cat);
@@ -2571,7 +2568,8 @@ function resRunsOut(r) {
   if (!(net < 0) || !r.stock) return null;
   return r.stock / -net;   // seconds, at the current game speed
 }
-const dur = s => s == null ? '' : s < 120 ? `≈ ${Math.round(s)} s` : s < 7200 ? `≈ ${Math.round(s / 60)} min` : `≈ ${Math.round(s / 3600)} h`;
+/** A duration of game time (seconds at speed 1) as the game would say it: months, or years. */
+const dur = s => { if (s == null) return ''; const months = s / (GAME_YEAR_S / 12); return months < 1 ? '< 1 month' : months < 24 ? `≈ ${Math.round(months)} month${Math.round(months) === 1 ? '' : 's'}` : `≈ ${(months / 12).toFixed(1)} years`; };
 const resAbbr = n => (n || '?').replace(/[^A-Za-z]/g, '').slice(0, 2);
 const STATUS_COLOR = { adequate: 'var(--tx)', low: 'var(--warn)', critical: 'var(--bad)' };
 
@@ -2612,7 +2610,8 @@ function resNext(r) {
 function resRateCell(r) {
   const net = resNet(r), out = resRunsOut(r);
   const rate = net ? `<b style="color:${net < 0 ? 'var(--bad)' : 'var(--ok)'}">${net > 0 ? '+' : ''}${net.toFixed(2)}/s</b>` : '<span class="none">–</span>';
-  return rate + (out != null ? ` <span style="color:${out < 1800 ? 'var(--bad)' : 'var(--warn)'}">${dur(out)}</span>` : '');
+  const st = resStatus(r);
+  return rate + (out != null ? ` <span style="color:${st === 'critical' ? 'var(--bad)' : st === 'low' ? 'var(--warn)' : 'var(--mut)'}">${dur(out)}</span>` : '');
 }
 
 /** The opened row: the numbers behind it, the prices, where it is mined and the known deposits. */
