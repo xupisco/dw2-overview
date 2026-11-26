@@ -64,3 +64,13 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 | Não servem | `ResourceRateRequirementsMet` (false para tudo), `CriticalMissingResources` (vazia) | confirmado |
 | "Sources" do jogo | conta algo além dos depósitos conhecidos (Emeros "0 of 1" sem depósito conhecido); a nossa coluna se chama Deposits | a investigar |
 | Depósitos | `Empire.ExplorationMap.GetAllKnownOrbs(galaxy, empire, 1)`; `Orb.Resources` (`OrbResource.ResourceId`, `Abundance` em %, `DiscoveryLevel` comparado a `ExplorationMap.CheckExplorationLevel(orb)`); estação de mineração = base própria com role de mineração e `Ship.Parent` no orbe | 15 depósitos no save de teste |
+
+## Sugestões do conselheiro
+
+| O quê | Como | Estado |
+|---|---|---|
+| Onde ficam | `Empire.EvaluationQueue` (com `IsAdvisorSuggestion`), não em `Empire.Messages`. Toda mensagem passa por essa fila por alguns segundos antes de ir para o log, por isso só as do conselheiro contam | confirmado |
+| Na tela | quando o jogo mostra a sugestão no diálogo, ela sai da fila; `UserInterfaceController.EmpireMessageDialogGetActiveMessage()` devolve a que está na tela | confirmado (oferta de contrato) |
+| Ação | `GameTask` da mensagem (`Text`: "Build MS-1 (Large Mining Station) at Kintaris 4"); `RelatedObject` vem vazio | confirmado |
+| Responder | `ScaledRenderer.OpenMessage(msg, true, false)`, depois o botão do próprio diálogo: `UserInterfaceController.EmpireMessageDialog.YesButton` ("Assign Mission") ou `NoButton` ("Decline"), chamando `PreClickEvent` e `ClickEvent` com `new DWEventArgs(button.ExtraClickData)` (o `ExtraClickData` é a própria `EmpireMessage`) | confirmado (2026-11-26): Accept atribuiu a missão de construção à Shining Lady |
+| Alvo da missão de construir | a missão aparece como Build sem alvo na nossa aba Ships (o alvo não é um objeto que resolvemos) | a melhorar |
