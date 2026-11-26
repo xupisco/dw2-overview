@@ -29,7 +29,7 @@ Write-Host "Copied $modName $($manifest.version) to $target"
 
 if ($LiveWeb) {
     $config = Join-Path $target 'overview.json'
-    $settings = if (Test-Path $config) { Get-Content $config -Raw | ConvertFrom-Json } else { [pscustomobject]@{ port = 4722 } }
+    $settings = if (Test-Path $config) { Get-Content $config -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
     $settings | Add-Member -Force NoteProperty webRoot (Join-Path $projDir 'web')
     ($settings | ConvertTo-Json) | Set-Content $config -Encoding utf8NoBOM
     Write-Host "overview.json: page served from $(Join-Path $projDir 'web')"

@@ -1,0 +1,5 @@
+{
+  "Server": [
+    {"key": "Port", "type": "float", "label": "Web page port", "description": "The page opens at http://localhost:<port> (4722 by default). Change it only if another program already uses that port; a whole number from 1024 to 65535. Takes effect the next time the game starts.", "default": 4722}
+  ]
+}

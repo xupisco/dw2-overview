@@ -47,7 +47,9 @@ While the game is running its DLL is locked: close the game to install a new DLL
 
 ## Settings
 
-Optional `overview.json` in the mod's folder:
+In the DW2 Mod Launcher, the mod's settings have **Web page port** (4722 by default; a whole number from 1024 to 65535, used the next time the game starts).
+
+For development, an optional `overview.json` in the mod's folder; the keys it has win over the launcher's:
 
 ```json
 { "port": 4722, "webRoot": "D:\\path\\to\\web" }

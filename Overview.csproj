@@ -32,6 +32,7 @@
   <ItemGroup>
     <None Include="mod.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="description.bbcode" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="settings.schema.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="preview.jpg" CopyToOutputDirectory="PreserveNewest" Condition="Exists('preview.jpg')" />
     <None Include="web\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
