@@ -395,7 +395,8 @@
   .mresblock { margin-top: 10px; }
   /* The place modal (palette, Shift+Enter) */
   #resModalBody .pltags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  #resModalBody .lres .lchip[data-res] { cursor: pointer; }
+  .lchip[data-res] { cursor: pointer; }
+  .lchip[data-res]:hover { background: var(--hover); filter: brightness(1.25); }
   #resModalBody .plgo { margin-top: 16px; }
   .lchip b { font-weight: 500; }
   .lchip.st-short { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
@@ -1781,7 +1782,7 @@ function placeResources(m) {
     `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
       const st = resKnow.get(x.name) || 'adequate', mk = chipMark(resSurplus.get(x.name));
       const note = [mk.note, st !== 'adequate' ? 'supply ' + st : ''].filter(Boolean).join(' · ');
-      return `<span class="lchip ${mk.cls}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}"><i class="catsq" data-cat="${esc(resCat.get(x.name) || '')}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
+      return `<span class="lchip ${mk.cls}" data-res="${x.id}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}"><i class="catsq" data-cat="${esc(resCat.get(x.name) || '')}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
     }).join('')}</span>`).join('');
 }
 async function refreshResKnow() {
@@ -2961,15 +2962,15 @@ async function refreshResBuilds() {
 }
 /**
  * A place's resources as chips: the resource's type colour (as in the list), the game's production mark as an
- * outline, faded when the empire does not use it. byId: resource rows by id. With asLinks, a chip opens that
- * resource (data-res).
+ * outline, faded when the empire does not use it. byId: resource rows by id. A chip opens its resource
+ * (data-res, see the click handler on document).
  */
-function depChips(d, byId, asLinks) {
+function depChips(d, byId) {
   return [...d.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
     const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
     const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
     const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
-    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}"${asLinks ? ` data-res="${x.id}"` : ''} title="${esc(x.name)} · ${esc(note)}"><i class="catsq" data-cat="${r ? esc(r.category) : ''}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-res="${x.id}" title="${esc(x.name)} · ${esc(note)}"><i class="catsq" data-cat="${r ? esc(r.category) : ''}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
   }).join('');
 }
 /** Who is on a place: mining ships there (no station needed), a station being built, a ship on its way, an order. */
@@ -3415,7 +3416,7 @@ function openPlaceModal(orbId, item) {
     <div class="rmnext">${[kind, system, d?.minedBy ? 'mined: ' + d.minedBy : ''].filter(Boolean).map(esc).join(' · ')}</div>
     ${d && depTags(d) ? `<div class="pltags">${depTags(d)}</div>` : ''}
     <h4>Resources · ${d ? d.resources.length : 0}</h4>
-    ${d ? `<div class="lres">${depChips(d, byId, true)}</div>` : '<div class="none">No resources known here (not explored, or none).</div>'}
+    ${d ? `<div class="lres">${depChips(d, byId)}</div>` : '<div class="none">No resources known here (not explored, or none).</div>'}
     <div class="plgo"><button type="button" class="abtn" data-orb="${orbId}">Go to ${esc(name)} in the game ›</button></div>`;
   $('resModal').hidden = false;
 }
@@ -3462,6 +3463,17 @@ document.addEventListener('keydown', e => {
     palette.open ? closePalette() : openPalette();
   }
 });
+
+// ---- A resource chip anywhere (location cards, palette, suggestions, toasts, modals) opens that resource. Caught
+// first (capture), so the card, row or toast around it does not also act (go to the place, dismiss...).
+document.addEventListener('click', e => {
+  const chip = e.target.closest?.('.lchip[data-res]');
+  if (!chip) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (palette.open) closePalette();
+  openResourceModal(+chip.dataset.res);
+}, true);
 
 // ---- Tooltip: the page's own, in place of the browser's. Any element with a title gets it: on the first hover
 // the title moves to data-tip (so the browser's never shows); code that sets .title later is picked up the same way.
