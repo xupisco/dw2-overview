@@ -290,8 +290,9 @@
   .ovtable tbody tr:hover td { background: var(--hover); }
   .ovtable .ovname { font-weight: 500; }
   .ovtable .ovrole { white-space: nowrap; }
-  .ovtable .ovprog { width: 32%; min-width: 140px; }
-  @media (max-width: 760px) { .ovtable .ovrole, .ovtable th:nth-child(3) { display: none; } .ovtable .ovprog { min-width: 90px; } }
+  .ovtable .ovprog { width: 26%; min-width: 120px; }
+  .ovtable .ovby { color: var(--mut); }
+  @media (max-width: 760px) { .ovtable .ovrole, .ovtable .ovby, .ovtable th:nth-child(3), .ovtable th:nth-child(4) { display: none; } .ovtable .ovprog { min-width: 90px; } }
   .ovsort { margin-left: auto; margin-right: 10px; }
   .ovsort button { height: 20px; border: 0; background: transparent; color: var(--mut); padding: 0 6px; font-size: 12px; cursor: pointer; }
   .ovsort button.on { background: var(--acc-d); color: var(--acc); }
@@ -532,6 +533,7 @@
   .smission > i { width: 7px; height: 7px; flex: none; }
   .smission .warn { color: var(--warn); }
   .smission .arrow { color: var(--mut); }
+  .smission .smtext { overflow: hidden; text-overflow: ellipsis; }
   .chip { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; }
   .sorders { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sfuel { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -2085,6 +2087,18 @@ function miniBar(rows) {
   }).join('');
 }
 
+/**
+ * A ship's mission as the game words it ("Build MS-3 (Large Mining Station) at Kintaris 2"), and where it is
+ * heading right now when that place is not in the text (a construction ship fetches its materials first:
+ * "· now → Goma"). An older mod without the game's text: the mission's name and target.
+ */
+function missionHtml(s, bucket, phrase, target) {
+  if (!s.missionText) return `<span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}`;
+  const now = s.heading && !s.missionText.toLowerCase().includes(s.heading.toLowerCase())
+    ? ` <span class="arrow">· now →</span> ${s.headingId != null ? `<a class="go" href="#" data-tt="${esc(s.headingType)}" data-tid="${s.headingId}">${esc(s.heading)}</a>` : esc(s.heading)}` : '';
+  return `<span class="smtext" title="${esc(s.missionText)}">${esc(s.missionText)}</span>${now}`;
+}
+
 /** Fuel as the game draws it: a ship can carry more than its range needs (251 of 100), shown as full. */
 const fuelPct = s => Math.round(Math.min(Math.max(s.fuel, 0), 1) * 100);
 /** The reactor's energy as a second line under fuel (shields in its tooltip); nothing with an older mod. */
@@ -2102,7 +2116,7 @@ function renderShips() {
   const rows = all.filter(s =>
     (!shipBucketFilter.size || shipBucketFilter.has(shipBucket(s))) &&
     (!shipRoleFilter.size || shipRoleFilter.has(shipCategory(s))) &&
-    (!q || [s.name, s.kind && human(s.kind), s.design, missionPhrase(s.mission), s.target, s.system, s.fleet]
+    (!q || [s.name, s.kind && human(s.kind), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet]
       .some(v => v && v.toLowerCase().includes(q))));
 
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
@@ -2161,7 +2175,7 @@ function renderShips() {
         <div class="schead"><span class="sicon">${icon(shipCategory(s), 15)}</span>
           <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
-        <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}${next}</span>
+        <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="scmeta">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}${s.system ? ' · ' + esc(s.system) : ''}${s.fleet ? ' · ' + esc(s.fleet) : ''}</span>
         <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
       </div>`;
@@ -2170,7 +2184,7 @@ function renderShips() {
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
         <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
-        <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}${next}</span>
+        <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
         <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
         <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
@@ -2385,10 +2399,11 @@ function blockHtml(id) {
     const rows = all.slice(0, OV_BUILD_LINES), more = all.length - rows.length;
     const sorter = `<span class="seg ovsort">${['progress', 'yard', 'name'].map(k => `<button type="button" class="${ovBuildSort === k ? 'on' : ''}" ${act(() => { ovBuildSort = k; try { localStorage.setItem('overview.buildSort', k); } catch (e) { } renderOverview(); })}>${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
-      `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
+      `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Built by</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
         <td><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
-        <td class="ovname">${esc(i.name || i.design || 'Not started')}</td>
+        <td class="ovname">${esc(i.name || i.design || 'Not started')}${i.site && !(i.name || '').toLowerCase().includes(i.site.toLowerCase()) ? ` <span class="mut">at ${esc(i.site)}</span>` : ''}</td>
         <td class="ovrole">${roleCell(i)}</td>
+        <td class="ovby">${esc(i.where || '')}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
       || '<div class="ovempty">No yard is building anything.</div>');
   }

@@ -478,9 +478,22 @@ internal static class Snapshot
             Design = Safe(() => design?.Name),
             Role = Safe(() => design?.GetRole(galaxy).ToString()),
         };
-        if (Safe(() => mission.PrimaryTarget.Resolve(galaxy)) is Orb orb)
+        // The mission has two targets (where the materials come from, where to build); the site is the one the
+        // game's description names ("Build MS-3 (Large Mining Station) at Kintaris 2"), else the secondary, else the primary.
+        string text = Safe(() => TextHelper.ResolveMissionDescription(galaxy, empire, owner, mission)) ?? "";
+        var first = Safe(() => mission.PrimaryTarget.Resolve(galaxy)) as Orb;
+        var second = Safe(() => mission.SecondaryTarget.Resolve(galaxy)) as Orb;
+        bool Named(Orb o) => o != null && !string.IsNullOrEmpty(o.Name) && text.Contains("at " + o.Name, StringComparison.OrdinalIgnoreCase);
+        var orb = Named(second) ? second : Named(first) ? first : second ?? first;
+        if (orb != null)
         {
             OrbSite(empire, orb, item);
+        }
+        if (!string.IsNullOrEmpty(text))
+        {
+            item.Name = text.StartsWith("Build ", StringComparison.OrdinalIgnoreCase) && text.Contains(" at ")
+                ? text[6..text.LastIndexOf(" at ", StringComparison.Ordinal)]   // "MS-3 (Large Mining Station)"
+                : item.Name;
         }
         return item;
     }

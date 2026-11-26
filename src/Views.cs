@@ -102,6 +102,14 @@ internal sealed class DialogButton
 /// <summary>One of the empire's own ships or bases, with what it is doing.</summary>
 internal sealed class ShipRow
 {
+    /// <summary>The mission in the game's own words (TextHelper.ResolveMissionDescription), e.g. "Build MS-3
+    /// (Large Mining Station) at Kintaris 2".</summary>
+    public string MissionText { get; set; }
+    /// <summary>Where the ship is heading right now (ShipMission.GetCurrentTarget), when it is not the mission's
+    /// target: a construction ship first fetches its materials (Goma), then builds (Kintaris 2).</summary>
+    public string Heading { get; set; }
+    public string HeadingType { get; set; }
+    public int? HeadingId { get; set; }
     public int Id { get; set; }
     public string Name { get; set; }
     public string Kind { get; set; }
@@ -301,6 +309,7 @@ internal static class Views
                 System = SystemName(galaxy, ship),
                 Fleet = Safe(() => ship.Fleet?.Name),
                 Mission = MissionName(ship),
+                MissionText = idle ? null : Safe(() => TextHelper.ResolveMissionDescription(galaxy, empire, ship, mission)),
                 Target = Safe(() => (target as INamed)?.Name),
                 TargetType = targetType,
                 TargetId = targetId,
@@ -314,6 +323,23 @@ internal static class Views
                 Energy = Ratio(Safe(() => (float)ship.Energy), Safe(() => ship.Summary.ReactorEnergyStorageCapacity)),
                 Shields = Ratio(Safe(() => (float)ship.Shields), Safe(() => ship.Summary.ShieldCapacity)),
             });
+            var row = rows[^1];
+            if (!idle)
+            {
+                var now = Safe(() => mission.GetCurrentTarget(galaxy));
+                if (now != null)
+                {
+                    var (nowType, nowId) = Target(now);
+                    row.Heading = Safe(() => (now as INamed)?.Name);
+                    row.HeadingType = nowType;
+                    row.HeadingId = nowId;
+                }
+                if (mission.Type == ShipMissionType.Build && buildLogged.Add(ship.ShipId))
+                {
+                    Log.Info($"Build mission of {row.Name}: '{row.MissionText}'; primary {Safe(() => (mission.PrimaryTarget.Resolve(galaxy) as INamed)?.Name)}, " +
+                        $"secondary {Safe(() => (mission.SecondaryTarget.Resolve(galaxy) as INamed)?.Name)}, now {row.Heading ?? row.Target}, design {mission.BuildDesignId}.");
+                }
+            }
         }
         return rows;
     }
@@ -471,6 +497,7 @@ internal static class Views
     }
 
     private static readonly HashSet<int> colonyLogged = new();
+    private static readonly HashSet<int> buildLogged = new();
 
     private static string Hex(Stride.Core.Mathematics.Color c) => c.A == 0 ? null : $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 
