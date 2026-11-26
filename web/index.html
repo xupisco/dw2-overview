@@ -73,6 +73,15 @@
   .statusline { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; padding: 2px 12px 8px; font-size: 12px; color: var(--mut); font-variant-numeric: tabular-nums; }
   .statusline b { color: var(--tx); font-weight: 500; }
   .statusline .up { color: var(--ok); } .statusline .down { color: var(--bad); } .statusline .paused { color: var(--warn); }
+  .clockbtn { background: var(--panel); border: 0; color: var(--mut); padding: 1px 8px; cursor: pointer; font-size: 12px; }
+  .clockbtn:hover { background: var(--hover); color: var(--tx); }
+  .clockbtn.paused { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); font-weight: 600; }
+  /* Game paused: a glow around the whole window (no layout change, clicks pass through) */
+  body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: 0; transition: opacity .3s;
+    box-shadow: inset 0 0 0 2px var(--warn), inset 0 0 28px color-mix(in srgb, var(--warn) 35%, transparent); }
+  body.game-paused::after { opacity: 1; animation: paused-glow 2.4s ease-in-out infinite; }
+  @keyframes paused-glow { 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { body.game-paused::after { animation: none; } }
   .dot { display: inline-block; width: 6px; height: 6px; background: var(--bad); margin-right: 5px; vertical-align: middle; }
   .dot.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 
@@ -815,6 +824,8 @@ async function refresh() {
   try {
     const [info, data] = await Promise.all([getJson('/api/info'), tab === 'overview' ? loadOverview() : getJson('/api/' + tab)]);
     $('dot').classList.add('on');
+    // The page's edges light up while the game is paused, so it shows from across the desk.
+    document.body.classList.toggle('game-paused', !!(info.loaded && info.paused));
     token = info.token;
     let rows = [];
     if (!info.loaded) {
@@ -828,8 +839,10 @@ async function refresh() {
       for (const k of ["cashflowActual", "cashflowState"]) if (eco[k] != null && Math.abs(eco[k]) >= 1e12) eco[k] = null;
       const money = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
       const flow = eco.cashflowActual;
-      const clock = info.paused ? '<span class="paused">Game paused</span>'
-        : info.speed != null ? `Speed <b>×${+info.speed.toFixed(2)}</b>` : '';
+      // The game's clock, with play / pause (the game's own pause shortcut, as from the palette).
+      const clock = info.paused
+        ? `<button type="button" class="clockbtn paused" data-clock title="Resume the game">▶ Game paused${info.autoPaused ? ' (by the game)' : ''}</button>`
+        : `<button type="button" class="clockbtn" data-clock title="Pause the game">❚❚ ${info.speed != null ? `Speed <b>×${+info.speed.toFixed(2)}</b>` : 'Running'}</button>`;
       $('empire').innerHTML = [
         `<b>${esc(info.empire)}</b>`,
         `Date <b>${esc(info.starDateText || info.starDate)}</b>`,
@@ -895,6 +908,7 @@ async function refresh() {
     $('dot').classList.remove('on');
     $('status').textContent = 'game not reachable (is it running with the mod?)';
     setFavicon(false, 0);
+    document.body.classList.remove('game-paused');
   }
 }
 
@@ -1409,6 +1423,16 @@ function notice(text) {
   showToast(el, 6);
 }
 let lastAnswerSeen;
+
+/** Play / pause: the game's own pause shortcut (found by name among its key mappings), as from the palette. */
+async function toggleGamePause() {
+  if (!palette.commands.length) { try { palette.commands = (await getJson('/api/commands')).items || []; } catch (e) { } }
+  const c = palette.commands.find(c => /pause/i.test(c.action));
+  if (!c) { notice('The game has no pause shortcut to press'); return; }
+  await pressKey(c.index);
+  setTimeout(refresh, 300);
+}
+$('empire').addEventListener('click', e => { if (e.target.closest('[data-clock]')) toggleGamePause(); });
 
 async function pressKey(index) {
   if (!token) return;
