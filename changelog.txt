@@ -1,0 +1,16 @@
+Empire Overview - changelog
+
+0.1.1-alpha (2026-11-26)
+- Ctrl+Alt+9 in the game opens the page in your default browser; the game shows
+  the shortcut once when a save loads. (The game's own shortcuts ignore Ctrl and
+  Alt and use every letter, so the shortcut uses a number.)
+- Mining ships count as mining. They mine without a station, so a resource mined
+  only by ships showed "Not mined": now its next step says "Mined by ship at
+  <place> (<ship>)", new mining locations show "<ship> mining", the "Mined"
+  filter includes it, and Needs attention no longer says "nobody on it".
+- Square preview image.
+
+0.1.0-alpha (2026-11-26)
+- First public alpha: Overview, Construction, Ships, Colonies, Resources,
+  Research and Messages; alerts and Watch rules; command palette; game controls;
+  the port in the launcher's settings.
