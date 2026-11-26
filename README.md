@@ -6,9 +6,9 @@ The idea is a helper, not a second game: each screen answers "what needs me?" or
 
 > **ALPHA.** This is an early version: it works and is played with every day, but expect rough edges, screens that change between versions, and numbers that may not match the game in every case.
 >
-> A confession: I'm fairly new to Distant Worlds 2. I built this while learning the game (and learned more about it building this than in my first 40 hours of playing), so some things here may not make much sense to a seasoned player: a number read the wrong way, a screen that misses what really matters, an alert nobody needs. If something looks off, or you miss something you check all the time in the game, please [open an issue](https://github.com/xupisco/dw2-overview/issues) or comment on the Steam Workshop page. Feedback and suggestions are very welcome; a screenshot of the page next to the game's own screen helps the most.
+> A confession: I'm fairly new to Distant Worlds 2. I built this while learning the game (and learned more about it building this than in my first 40 hours of playing), so some things here may not make much sense to a seasoned player: a number read the wrong way, a screen that misses what really matters, an alert nobody needs. If something looks off, or you miss something you check all the time in the game, please [open an issue](https://github.com/xupisco/dw2-overview/issues) or comment on the [Steam Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=3846464373). Feedback and suggestions are very welcome; a screenshot of the page next to the game's own screen helps the most.
 
-Requires the [DW2 Mod Launcher](https://github.com/lucky-wolf/DW2-Mod-Launcher/releases). Tested with Distant Worlds 2 version 1.3.8.4.
+Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3846464373). Requires the [DW2 Mod Launcher](https://github.com/lucky-wolf/DW2-Mod-Launcher/releases). Tested with Distant Worlds 2 version 1.3.8.4.
 
 ## What it shows
 

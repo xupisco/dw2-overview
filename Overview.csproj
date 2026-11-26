@@ -33,6 +33,8 @@
     <None Include="mod.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="description.bbcode" CopyToOutputDirectory="PreserveNewest" />
     <None Include="settings.schema.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="dw2modlauncher.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="dw2modlauncher.hooks.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('dw2modlauncher.hooks.json')" />
     <None Include="preview.jpg" CopyToOutputDirectory="PreserveNewest" Condition="Exists('preview.jpg')" />
     <None Include="web\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
