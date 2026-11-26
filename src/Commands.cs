@@ -159,8 +159,84 @@ internal static class Commands
         }
     }
 
+    // ---- Research: the game's research screen, scrolled to one project ----
+    // Opened with the game's own shortcut (the key mapping whose UiSection is the research screen); from the
+    // next frame on, the tree (UserInterfaceController.ResearchScreen) is scrolled so the project sits in the
+    // middle and shows as hovered. Positions are logged: the tree's coordinates are still to be confirmed.
+    private static int researchTarget, researchFrames;
+
+    public static void OpenResearch(int projectId) => jobs.Enqueue(_ => { researchTarget = projectId; researchFrames = 0; });
+
+    private static void RunResearch(DWGame game)
+    {
+        if (researchTarget == 0)
+        {
+            return;
+        }
+        researchFrames++;
+        try
+        {
+            var screen = DistantWorlds.UI.UserInterfaceController.ResearchScreen;
+            if (researchFrames == 1 && (screen == null || !screen.Visible))
+            {
+                var mappings = game.DWSettings?.KeyMappings;
+                int index = -1;
+                for (int i = 0; mappings != null && i < mappings.Count; i++)
+                {
+                    if (mappings[i] != null && mappings[i].CockpitTaskType == CockpitTaskType.Undefined && mappings[i].UiSection.ToString().Contains("Research"))
+                    {
+                        index = i;
+                        break;
+                    }
+                }
+                Log.Info($"Research {researchTarget}: opening the research screen (key mapping {index}).");
+                if (index >= 0)
+                {
+                    keyPresses.Enqueue(index);
+                }
+                return;
+            }
+            if (screen == null || !screen.Visible)
+            {
+                if (researchFrames > 60)
+                {
+                    Log.Warn($"Research {researchTarget}: the research screen did not open.");
+                    researchTarget = 0;
+                }
+                return;
+            }
+            var empire = (game.Renderer as ScaledRenderer)?.PlayerEmpire;
+            var project = Snapshot.Copy(empire?.Research?.Projects).FirstOrDefault(p => p.ResearchProjectId == researchTarget);
+            if (project == null)
+            {
+                Log.Warn($"Research {researchTarget}: no such project for this empire.");
+                researchTarget = 0;
+                return;
+            }
+            var before = screen.ScrollOffset;
+            var posBefore = screen.CalculateProjectPosition(project);
+            screen.ScrollOffset = Stride.Core.Mathematics.Vector2.Zero;
+            var pos = screen.CalculateProjectPosition(project);
+            var rect = screen.DisplayRectangle;
+            var size = screen.ProjectDrawSizeScaled;
+            var max = screen.MaximumScrollOffset;
+            var target = new Stride.Core.Mathematics.Vector2(pos.X + size.X / 2 - rect.Width / 2, pos.Y + size.Y / 2 - rect.Height / 2);
+            target = Stride.Core.Mathematics.Vector2.Clamp(target, Stride.Core.Mathematics.Vector2.Zero, max);
+            screen.ScrollOffset = target;
+            screen.HoveredProject = project;
+            Log.Info($"Research '{project.Definition?.Name}': position {posBefore} at scroll {before}, {pos} at scroll 0; project size {size}; view {rect}; " +
+                $"scroll set to {target} (now {screen.ScrollOffset}, max {max}); after: {screen.CalculateProjectPosition(project)}.");
+        }
+        catch (Exception e)
+        {
+            Log.Warn($"Research {researchTarget}: {e.Message}");
+        }
+        researchTarget = 0;
+    }
+
     public static void Run(DWGame game, Stride.Games.GameTime gameTime)
     {
+        RunResearch(game);
         RunAnswers(game);
         while (jobs.TryDequeue(out var job))
         {

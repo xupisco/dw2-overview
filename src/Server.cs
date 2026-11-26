@@ -182,7 +182,7 @@ internal static class Server
             Send(response, 403, contentTypes[".json"], "{\"error\":\"forbidden\"}");
             return;
         }
-        if (path != "/api/goto" && path != "/api/key" && path != "/api/suggestion" && path != "/api/audio")
+        if (path != "/api/goto" && path != "/api/key" && path != "/api/suggestion" && path != "/api/audio" && path != "/api/research")
         {
             Send(response, 404, contentTypes[".json"], "{\"error\":\"unknown command\"}");
             return;
@@ -216,6 +216,18 @@ internal static class Server
             }
             var state = Commands.OnGameThread(game => Audio.Set(game, body.Mute, body.Music));
             Send(response, state == null ? 503 : 200, contentTypes[".json"], JsonSerializer.Serialize(state ?? new { error = "game busy" }, apiJson));
+            return;
+        }
+        if (path == "/api/research")
+        {
+            // {"id": a research project id from /api/research}: the game's research screen, on that project
+            if (body == null || body.Id <= 0)
+            {
+                Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {id}\"}");
+                return;
+            }
+            Commands.OpenResearch(body.Id);
+            Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
             return;
         }
         if (path == "/api/key")

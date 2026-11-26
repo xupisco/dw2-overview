@@ -880,7 +880,7 @@ const hints = {
   colonies: 'Click a colony to go to it in the game. Cards put colonies in trouble first; in Rows, hover a value for the raw number.',
   messages: 'The game\'s message log, newest first. Click a message to read it whole (and answer a suggestion, or go to what it is about). Notifications need the browser\'s permission once.',
   ships: 'Your ships and bases and what each is doing. Mission "Idle" = nothing to do. Click a ship to go to it, or its target to go there.',
-  research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
+  research: "Click a project to open it in the game's research screen. Active = within the first N of the queue, N being how many projects your empire researches at once. \"Available, not queued\" is the game's NextProjects list.",
 };
 
 function renderOther() {
@@ -1768,6 +1768,15 @@ function pageCommands() {
   return list;
 }
 
+/** Opens the game's research screen on a project (the mod scrolls the tree to it). */
+async function openResearch(id) {
+  if (!token || !id) return;
+  try {
+    const r = await fetch('/api/research', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token }, body: JSON.stringify({ id }) });
+    if (!r.ok) notice(r.status === 404 ? 'This needs the newer mod (open research)' : `The mod refused it (${r.status})`);
+  } catch (e) { notice('Game not reachable'); }
+}
+
 async function pressKey(index) {
   if (!token) return;
   try {
@@ -1890,6 +1899,7 @@ $('orows').addEventListener('click', e => {
   if (answer) { answerSuggestion(row.key, answer.dataset.answer === 'accept'); return; }
   const tgt = e.target.closest('[data-tt]');
   if (tab === 'colonies') goTo('orb', row.orbId);
+  else if (tab === 'research') openResearch(row.id);
   else if (tab === 'messages') openMessage(row);
   else if (tab === 'ships' && tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
   else if (tab === 'ships') goTo('ship', row.id);
