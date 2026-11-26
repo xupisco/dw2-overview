@@ -284,11 +284,8 @@
   .ovtable td { padding: 6px 10px; vertical-align: middle; border-top: 1px solid var(--line); }
   .ovtable tbody tr { cursor: pointer; }
   .ovtable tbody tr:hover td { background: var(--hover); }
-  .ovtable .ovname b { display: block; font-weight: 500; }
-  .ovtable .ovname small { color: var(--mut); font-size: 12px; }
+  .ovtable .ovname { font-weight: 500; }
   .ovtable .ovrole { white-space: nowrap; }
-  .rolecell { display: flex; flex-direction: column; line-height: 1.25; }
-  .rolecell small { color: var(--mut); font-size: 12px; }
   .ovtable .ovprog { width: 32%; min-width: 140px; }
   @media (max-width: 760px) { .ovtable .ovrole, .ovtable th:nth-child(3) { display: none; } .ovtable .ovprog { min-width: 90px; } }
   .ovsort { margin-left: auto; margin-right: 10px; }
@@ -1548,11 +1545,10 @@ function whereCell(i, kind, key, more) {
   return `<span class="caret" data-toggle="${esc(key)}" title="${open ? 'Fold' : 'Show'} the other ${more}">${open ? '▾' : '▸'}</span>${place}<span class="more">+${more}</span>`;
 }
 
-/** Role: the group the filter chips use (Exploration, Logistics...), and under it the game's exact type. */
+/** Role: the group the filter chips use (Exploration, Logistics, Military...), one line like the other columns. */
 function roleCell(i) {
-  const group = buildRole(i), exact = human(i.role || '');
-  if (!group) return '<span class="none">–</span>';
-  return `<span class="rolecell">${esc(group)}${exact && exact.toLowerCase() !== group.toLowerCase() ? `<small>${esc(exact)}</small>` : ''}</span>`;
+  const group = buildRole(i);
+  return group ? esc(group) : '<span class="none">–</span>';
 }
 
 function nameCell(i) {
@@ -2379,7 +2375,7 @@ function blockHtml(id) {
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
       `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
         <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
-        <td class="ovname"><b>${esc(i.name || i.design || 'Not started')}</b><small>${esc([i.design, i.where && 'by ' + i.where].filter(Boolean).join(' · '))}${i.site ? ' · at ' + esc(i.site) : ''}${i.queue ? ' · queue #' + i.queue : ''}</small></td>
+        <td class="ovname">${esc(i.name || i.design || 'Not started')}</td>
         <td class="ovrole">${roleCell(i)}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
       || '<div class="ovempty">No yard is building anything.</div>');
