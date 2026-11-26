@@ -69,6 +69,8 @@ internal static class Snapshot
 
     public static volatile string InfoJson = "{\"loaded\":false}";
     public static volatile string ConstructionJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string ColoniesJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string ResearchJson = "{\"loaded\":false,\"items\":[]}";
 
     /// <summary>Called by the server on each API request, so collection runs only while a page is open.</summary>
     public static void Touch() => Volatile.Write(ref lastRequest, clock.Elapsed.TotalSeconds);
@@ -96,7 +98,7 @@ internal static class Snapshot
             if (!loaded)
             {
                 InfoJson = Serialize(new { api = 1, mod = Core.Version, loaded = false, token = Commands.Token });
-                ConstructionJson = "{\"loaded\":false,\"items\":[]}";
+                ConstructionJson = ColoniesJson = ResearchJson = "{\"loaded\":false,\"items\":[]}";
                 return;
             }
 
@@ -109,7 +111,12 @@ internal static class Snapshot
             var sw = Stopwatch.StartNew();
             var stats = new Dictionary<string, int>();
             var items = Collect(galaxy, empire, stats);
+            double constructionMs = sw.Elapsed.TotalMilliseconds;
+            var colonies = Views.Colonies(galaxy, empire);
+            double coloniesMs = sw.Elapsed.TotalMilliseconds - constructionMs;
+            var (research, concurrent) = Views.Research(empire);
             sw.Stop();
+            double researchMs = sw.Elapsed.TotalMilliseconds - constructionMs - coloniesMs;
 
             var collectedAt = DateTime.Now.ToString("HH:mm:ss");
             InfoJson = Serialize(new
@@ -123,14 +130,19 @@ internal static class Snapshot
                 token = Commands.Token,
                 collectedAt,
                 collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
+                timings = new { construction = Math.Round(constructionMs, 2), colonies = Math.Round(coloniesMs, 2), research = Math.Round(researchMs, 2) },
                 stats,
             });
             ConstructionJson = Serialize(new { loaded = true, collectedAt, items });
+            ColoniesJson = Serialize(new { loaded = true, collectedAt, items = colonies });
+            ResearchJson = Serialize(new { loaded = true, collectedAt, concurrent, items = research });
 
             if (!dumped)
             {
                 dumped = true;
                 Dump(items, stats, sw.Elapsed.TotalMilliseconds);
+                Log.Info($"Colonies ({coloniesMs:0.00} ms): {ColoniesJson}");
+                Log.Info($"Research ({researchMs:0.00} ms): {ResearchJson}");
             }
         }
         catch (Exception e)
@@ -264,7 +276,7 @@ internal static class Snapshot
         };
     }
 
-    private static string SystemName(Galaxy galaxy, StellarObject obj)
+    internal static string SystemName(Galaxy galaxy, StellarObject obj)
     {
         return Safe(() =>
         {
@@ -289,7 +301,7 @@ internal static class Snapshot
     private static void Count(Dictionary<string, int> stats, string key) => stats[key] = stats.GetValueOrDefault(key) + 1;
 
     /// <summary>Copies a game list; the game may change it while we read, so a failure just ends the copy early.</summary>
-    private static List<T> Copy<T>(IEnumerable<T> source)
+    internal static List<T> Copy<T>(IEnumerable<T> source)
     {
         var list = new List<T>();
         if (source == null)
@@ -316,7 +328,7 @@ internal static class Snapshot
         return list;
     }
 
-    private static T Safe<T>(Func<T> read)
+    internal static T Safe<T>(Func<T> read)
     {
         try
         {

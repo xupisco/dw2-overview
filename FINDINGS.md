@@ -22,8 +22,8 @@ Notas internas, em português. O ambiente, o carregamento de mods e o código pr
 | Nave em construção | já é uma `Ship` (`Galaxy.Ships.GetById`), com `ConstructionLevel` de 0 a 1 subindo ao vivo | confirmado |
 | Base feita por nave de construção | fica no estaleiro da própria nave de construção | confirmado |
 | Instalações planetárias | `Empire.Colonies` → `Orb.Facilities` → `PlanetaryFacility.ConstructionProgress` | lido, nenhuma em construção vista |
-| Pesquisa | `Empire.Research` (`ResearchSystem`): `ResearchQueue`, `NextProjects`, `LatestProjects`, `GetTopMostQueuedProject()`; `ResearchProject.Progress`, `ProgressRatio`; `Empire.ConcurrentResearchProjects` | só nomes |
-| Colônias | `Colony`: `Population`, `MaximumPopulation`, `DevelopmentLevel`, `TaxRate`, `Corruption`, `EmpireApprovalRating`, `RacialHappiness`, `IsRebelling`, `Automate*` | só nomes |
+| Pesquisa | `Empire.Research` (`ResearchSystem`): `ResearchQueue` (a fila do jogador), `LatestProjects` (pesquisadas, inclusive as iniciais, com `ProgressRatio` 0 nessas), `NextProjects` (disponíveis fora da fila; o Leandro não as enfileirou). `ResearchProject.ProgressRatio` 0 a 1, `Definition.Name`, `Definition.Size`, `Speed`; `Empire.ConcurrentResearchProjects` = 1 no início | confirmado (2026-11-26) |
+| Colônias | `Colony`: `Population.TotalAmount`, `MaximumPopulation`, `DevelopmentLevel`, `TaxRate`, `Corruption`, `EmpireApprovalRating`, `RacialHappiness`, `Unrest`, `IsRebelling`, `Automate*`; `CalculateAnnualRevenue(orb, empire, corruption, true)`; `Orb.Quality`. Goma no início: pop 2,3 bi / máx 5,67 bi, development 0,576, approval 6,76, corruption 0,249, tax 0,16, revenue 31.743, quality 0,82 | lidos; escalas a conferir com a tela |
 | Império | `Policy`, `GovernmentId`, `ResourcesKnown`, `CriticalMissingResources`, `ResourceShortages`, listas por tipo de nave | só nomes; dinheiro e renda ainda não achados |
 
 ## Comandos

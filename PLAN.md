@@ -20,7 +20,9 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
    - [ ] Ainda não vista no jogo: instalação em construção.
 3. [x] Repositório próprio (`xupisco/dw2-overview`).
 4. [ ] Colônias e pesquisa: novas abas com tabela (população, aprovação, corrupção, impostos; fila de pesquisa com %). Conferir as escalas contra a tela do jogo.
-5. [ ] Command palette v1: `/api/index` (sistemas, colônias, naves, bases, frotas) e Ctrl+K com busca fuzzy, setas e Enter indo pelo `/api/goto`.
-6. [ ] Comandos na palette, um por vez (pausa e velocidade, abrir telas).
-7. [ ] Mais visões: naves e frotas paradas, recursos em falta.
-8. [ ] Acabamento para publicar: opções pelo launcher (porta), descrição da Workshop em inglês com crédito ao Claude, nome final.
+   - 2026-11-26: abas Colonies e Research feitas (`/api/colonies`, `/api/research`) e testadas no jogo (coleta total 0,14 ms). Research mostra só a fila por padrão. Falta conferir as escalas das colônias contra a tela do jogo e formatar (%).
+5. [ ] Mensagens e alertas (pedido do Leandro): `Empire.Messages` / `RecentMessages` (`EmpireMessage`: `Title`, `Text`, `Type`, `SubType`, `Priority`, `StarDate`, `RelatedObject`). Aba com a lista (clique vai até o `RelatedObject`) e notificações do navegador (`Notification` API, funciona em localhost) para as de prioridade alta, com filtro por tipo.
+6. [ ] Command palette v1: `/api/index` (sistemas, colônias, naves, bases, frotas) e Ctrl+K com busca fuzzy, setas e Enter indo pelo `/api/goto`.
+7. [ ] Comandos na palette, um por vez (pausa e velocidade, abrir telas).
+8. [ ] Mais visões: naves e frotas paradas, recursos em falta.
+9. [ ] Acabamento para publicar: opções pelo launcher (porta), descrição da Workshop em inglês com crédito ao Claude, nome final.

@@ -113,6 +113,14 @@ internal static class Server
                     Snapshot.Touch();
                     Send(response, 200, contentTypes[".json"], Snapshot.ConstructionJson);
                     return;
+                case "/api/colonies":
+                    Snapshot.Touch();
+                    Send(response, 200, contentTypes[".json"], Snapshot.ColoniesJson);
+                    return;
+                case "/api/research":
+                    Snapshot.Touch();
+                    Send(response, 200, contentTypes[".json"], Snapshot.ResearchJson);
+                    return;
             }
             if (path.StartsWith("/api/", StringComparison.Ordinal))
             {

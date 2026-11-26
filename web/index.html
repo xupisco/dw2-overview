@@ -50,6 +50,14 @@
   .bar > em { position: absolute; inset: 0; text-align: center; font-size: 11px; font-style: normal; line-height: 14px; }
   .none { color: var(--dim); }
   .empty { padding: 40px 16px; color: var(--dim); text-align: center; }
+  .tabs { display: flex; gap: 4px; margin-left: auto; }
+  .tabs button { background: none; color: var(--dim); border: 1px solid transparent; border-radius: 4px; padding: 4px 12px; font: inherit; cursor: pointer; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { color: var(--text); border-color: var(--line); background: var(--bg); }
+  .group { display: contents; }
+  .group[hidden] { display: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .flag { color: var(--bad); }
 </style>
 </head>
 <body>
@@ -57,10 +65,16 @@
   <h1>Empire Overview</h1>
   <span class="meta"><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
   <span class="meta" id="empire"></span>
+  <nav class="tabs">
+    <button type="button" data-tab="construction">Construction</button>
+    <button type="button" data-tab="colonies">Colonies</button>
+    <button type="button" data-tab="research">Research</button>
+  </nav>
 </header>
 
 <div class="filters">
-  <input id="search" type="search" placeholder="Search name, design, place, system…" autofocus>
+  <input id="search" type="search" placeholder="Search…" autofocus>
+  <span id="cfilters" class="group">
   <select id="state">
     <option value="">Everything</option>
     <option value="active">Active (no idle yards)</option>
@@ -84,12 +98,28 @@
     <option value="yard">One row per yard</option>
     <option value="flat">Every item</option>
   </select>
+  </span>
+  <span id="rfilters" class="group" hidden>
+  <select id="rstate">
+    <option value="queue">Queue (active + queued)</option>
+    <option value="latest">Researched</option>
+    <option value="next">Available, not queued</option>
+    <option value="">Everything</option>
+  </select>
+  </span>
   <button id="pause" type="button">Pause</button>
   <span class="count" id="count"></span>
 </div>
 
-<div class="hint">Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.</div>
-<div class="wrap">
+<div class="hint" id="hint"></div>
+<div class="wrap" id="tab-other" hidden>
+  <table>
+    <thead><tr id="ohead"></tr></thead>
+    <tbody id="orows"></tbody>
+  </table>
+  <div id="oempty" class="empty" hidden></div>
+</div>
+<div class="wrap" id="tab-construction">
   <table>
     <thead><tr>
       <th data-key="state">State</th>
@@ -116,6 +146,102 @@ const yardKey = i => `${i.whereType}:${i.whereId}`;
 try { $('view').value = localStorage.getItem('overview.view') || 'yard'; } catch (e) { }
 const stateOrder = { building: 0, outsideYard: 1, queued: 2, facility: 3, idle: 4 };
 
+// Colonies and research share one generic table. Values are shown raw (2 decimals) until each scale is
+// checked against the game's own screens.
+let tab = 'construction', other = { rows: [] };
+const otherSort = { colonies: { key: 'name', asc: true }, research: { key: 'state', asc: true } };
+const researchOrder = { active: 0, queued: 1, latest: 2, next: 3 };
+const fmt = {
+  num: v => v == null ? null : (Math.abs(v) >= 1000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2)),
+  big: v => {
+    if (v == null) return null;
+    const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+    for (const [n, s] of units) if (Math.abs(v) >= n) return (v / n).toFixed(1) + s;
+    return String(v);
+  },
+  bool: v => v ? 'yes' : '',
+};
+const columns = {
+  colonies: [
+    { key: 'name', label: 'Colony' },
+    { key: 'system', label: 'System' },
+    { key: 'race', label: 'Race' },
+    { key: 'population', label: 'Population', f: fmt.big, num: true },
+    { key: 'maxPopulation', label: 'Max pop.', f: fmt.big, num: true },
+    { key: 'development', label: 'Development', f: fmt.num, num: true },
+    { key: 'approval', label: 'Approval', f: fmt.num, num: true },
+    { key: 'happiness', label: 'Happiness', f: fmt.num, num: true },
+    { key: 'unrest', label: 'Unrest', f: fmt.num, num: true },
+    { key: 'corruption', label: 'Corruption', f: fmt.num, num: true },
+    { key: 'taxRate', label: 'Tax', f: fmt.num, num: true },
+    { key: 'revenue', label: 'Revenue/yr', f: fmt.num, num: true },
+    { key: 'quality', label: 'Quality', f: fmt.num, num: true },
+    { key: 'facilities', label: 'Facilities', num: true },
+    { key: 'rebelling', label: 'Rebelling', f: v => v ? '<span class="flag">REBELLING</span>' : '', html: true },
+    { key: 'autoTax', label: 'Auto tax', f: fmt.bool },
+  ],
+  research: [
+    { key: 'state', label: 'State', f: v => `<span class="tag ${esc(v)}">${esc(v)}</span>`, html: true, order: researchOrder },
+    { key: 'order', label: 'Queue', num: true },
+    { key: 'name', label: 'Project' },
+    // Researched projects keep whatever progress they had (0 for the ones the empire started with), so no bar.
+    { key: 'progress', label: 'Progress', f: (v, r) => r.state === 'latest' ? '<span class="none">researched</span>' : progressCell(v), html: true },
+    { key: 'size', label: 'Size', f: fmt.num, num: true },
+    { key: 'speed', label: 'Speed', f: fmt.num, num: true },
+    { key: 'rushing', label: 'Rushing', f: fmt.bool },
+    { key: 'atStation', label: 'At station', f: fmt.bool },
+  ],
+};
+const hints = {
+  construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
+  colonies: 'Click a colony to go to it in the game. Values are the game\'s raw numbers for now.',
+  research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
+};
+
+function renderOther() {
+  const cols = columns[tab], s = otherSort[tab];
+  const q = $('search').value.trim().toLowerCase();
+  const col = cols.find(c => c.key === s.key);
+  const rs = $('rstate').value;
+  const stateOk = r => tab !== 'research' || !rs || (rs === 'queue' ? r.state === 'active' || r.state === 'queued' : r.state === rs);
+  const rows = other.rows.filter(r => stateOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
+    .sort((a, b) => {
+      let x = a[s.key], y = b[s.key];
+      if (col?.order) { x = col.order[x] ?? 9; y = col.order[y] ?? 9; }
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+      return s.asc ? r : -r;
+    });
+  $('ohead').innerHTML = cols.map(c => `<th data-okey="${c.key}" class="${c.key === s.key ? 'sorted' + (s.asc ? ' asc' : '') : ''}">${esc(c.label)}</th>`).join('');
+  $('orows').innerHTML = rows.map((r, n) => `<tr data-n="${n}">${cols.map(c => {
+    const v = r[c.key], out = c.f ? c.f(v, r) : v;
+    const text = out == null || out === '' ? (c.f && out === '' ? '' : '<span class="none">–</span>') : (c.html ? out : esc(out));
+    return `<td class="${c.num ? 'num' : ''}" title="${v == null ? '' : esc(v)}">${text}</td>`;
+  }).join('')}</tr>`).join('');
+  otherShown = rows;
+  $('count').textContent = `${rows.length} of ${other.rows.length}` + (tab === 'research' && other.concurrent ? ` · ${other.concurrent} at once` : '');
+  $('oempty').hidden = rows.length > 0;
+  $('oempty').textContent = other.rows.length ? 'Nothing matches the search.' : 'Nothing to show (or no game loaded).';
+}
+let otherShown = [];
+
+function setTab(name) {
+  tab = name;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $('tab-construction').hidden = tab !== 'construction';
+  $('tab-other').hidden = tab === 'construction';
+  $('cfilters').hidden = tab !== 'construction';
+  $('rfilters').hidden = tab !== 'research';
+  $('hint').textContent = hints[tab];
+  try { localStorage.setItem('overview.tab', tab); } catch (e) { }
+  lastSnapshot = null;
+  other = { rows: [] };
+  if (tab === 'construction') render(); else renderOther();
+  refresh();
+}
+
 async function getJson(url) {
   const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) throw new Error(r.status);
@@ -125,24 +251,30 @@ async function getJson(url) {
 async function refresh() {
   if (paused) return;
   try {
-    const [info, data] = await Promise.all([getJson('/api/info'), getJson('/api/construction')]);
+    const [info, data] = await Promise.all([getJson('/api/info'), getJson('/api/' + tab)]);
     $('dot').classList.add('on');
     token = info.token;
+    let rows = [];
     if (!info.loaded) {
       $('status').textContent = 'connected · no game loaded';
       $('empire').textContent = '';
-      items = [];
     } else {
       $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)`;
       $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate}`;
-      items = data.items || [];
+      rows = data.items || [];
     }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
-    const snapshot = JSON.stringify(items);
+    const snapshot = tab + JSON.stringify(rows) + (data.concurrent ?? '');
     if (snapshot === lastSnapshot) return;
     lastSnapshot = snapshot;
-    fillWorkOptions();
-    render();
+    if (tab === 'construction') {
+      items = rows;
+      fillWorkOptions();
+      render();
+    } else {
+      other = { rows, concurrent: data.concurrent };
+      renderOther();
+    }
   } catch (e) {
     $('dot').classList.remove('on');
     $('status').textContent = 'game not reachable (is it running with the mod?)';
@@ -220,7 +352,7 @@ function render() {
   $('count').textContent = `${shown.length} of ${items.length}`;
   $('empty').hidden = shown.length > 0;
   $('empty').textContent = items.length ? 'Nothing matches the filters.' : 'Nothing under construction (or no game loaded).';
-  document.querySelectorAll('th').forEach(th => {
+  document.querySelectorAll('#tab-construction th').forEach(th => {
     th.classList.toggle('sorted', th.dataset.key === sortKey);
     th.classList.toggle('asc', th.dataset.key === sortKey && sortAsc);
   });
@@ -275,11 +407,13 @@ $('rows').addEventListener('click', e => {
   setTimeout(() => tr.classList.remove('flash'), 400);
 });
 
-document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListener('click', () => {
   if (sortKey === th.dataset.key) sortAsc = !sortAsc; else { sortKey = th.dataset.key; sortAsc = true; }
   render();
 }));
-['search', 'state', 'category', 'work'].forEach(id => $(id).addEventListener('input', render));
+['state', 'category', 'work'].forEach(id => $(id).addEventListener('input', render));
+$('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
+$('rstate').addEventListener('input', renderOther);
 $('view').addEventListener('input', () => {
   try { localStorage.setItem('overview.view', $('view').value); } catch (e) { }
   render();
@@ -290,7 +424,26 @@ $('pause').addEventListener('click', () => {
   if (!paused) refresh();
 });
 
-refresh();
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+$('ohead').addEventListener('click', e => {
+  const th = e.target.closest('th');
+  if (!th) return;
+  const s = otherSort[tab];
+  if (s.key === th.dataset.okey) s.asc = !s.asc; else { s.key = th.dataset.okey; s.asc = true; }
+  renderOther();
+});
+$('orows').addEventListener('click', e => {
+  const tr = e.target.closest('tr');
+  const row = tr && otherShown[+tr.dataset.n];
+  if (tab !== 'colonies' || !row) return;
+  goTo('orb', row.orbId);
+  tr.classList.add('flash');
+  setTimeout(() => tr.classList.remove('flash'), 400);
+});
+
+let startTab = 'construction';
+try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
+setTab(columns[startTab] || startTab === 'construction' ? startTab : 'construction');
 setInterval(refresh, 2000);
 </script>
 </body>
