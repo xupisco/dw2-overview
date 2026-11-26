@@ -401,6 +401,20 @@
   .slegend button i { width: 8px; height: 8px; display: inline-block; }
   .slegend button em { font-style: normal; color: var(--mut); }
   .slegend button.on { background: var(--acc-d); }
+  .slegend button.off { opacity: .4; }
+  .slegend button.off:hover { opacity: .8; }
+  .slegend.roles { border-top: 1px solid var(--line); padding-top: 8px; }
+  .slegend.roles svg { color: var(--acc); }
+  /* Cards: name, mission, orders and place, fuel and energy in one block, so the eye stays on one ship */
+  .shipcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin-top: 2px; }
+  .shipcard { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .shipcard:hover { background: var(--hover); }
+  .shipcard.flash { background: var(--acc-d); }
+  .shipcard .schead { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .shipcard .schead .sname { flex: 1; }
+  .shipcard .scmeta { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shipcard .sfuel { flex-direction: row; flex-wrap: wrap; gap: 3px 16px; }
+  .shipcard .sfuel .mline small { width: auto; }
   .slegend button.zero { opacity: .45; }
   .slist { display: flex; flex-direction: column; gap: 2px; }
   .sgroup { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--panel-h); cursor: pointer; margin-top: 8px; }
@@ -550,7 +564,7 @@
 <main>
 <div class="filters">
   <h2 id="ptitle">Construction</h2><span id="psub" class="psub"></span>
-  <input id="search" type="search" placeholder="Filter…" autofocus>
+  <input id="search" type="search" placeholder="Filter…  ( / )" autofocus>
   <span id="cfilters" class="group">
   <select id="state">
     <option value="">Everything</option>
@@ -594,6 +608,7 @@
     <span id="sgroupby" class="seg" title="Group the ships by">
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
     </span>
+    <span id="sview" class="seg" title="Rows or cards"><button type="button" data-view="rows">Rows</button><button type="button" data-view="cards">Cards</button></span>
   </span>
   <span id="mfilters" class="group" hidden>
   <select id="mprio">
@@ -1365,11 +1380,13 @@ function setLog(open) {
   if (open) refresh();
 }
 // Page shortcuts (left hand, while the mouse stays on the page), not while typing or with the palette or a
-// message open: Q opens and closes the message log; Space plays / pauses the game (as in the game itself;
+// message open: Q opens and closes the message log; / goes to the search; Space plays / pauses the game (as in the game itself;
 // it also wins over a focused button, which Enter still presses).
 const SHORTCUTS = {
   q: () => setLog(!logOpen),
   ' ': () => { if (!$('gamectl').hidden) toggleGamePause(); },
+  // / : the page's search (filter) where there is one, else the palette.
+  '/': () => { const f = $('search'); if (f && f.offsetParent) { f.focus(); f.select(); } else openPalette(); },
 };
 document.addEventListener('keydown', e => {
   const run = SHORTCUTS[e.key.toLowerCase()];
@@ -1743,16 +1760,18 @@ function shipCategory(s) {
   if (/Explor/.test(k)) return 'Exploration';
   if (/Construct/.test(k)) return 'Construction';
   if (/Colony/.test(k)) return 'Colonization';
-  if (/Freight|Mining|Miner|Passenger|Tanker|Cargo/.test(k)) return 'Logistics';
+  if (/Mining|Miner|Gas/.test(k)) return 'Mining';
+  if (/Freight|Passenger|Tanker|Cargo/.test(k)) return 'Logistics';
   if (/Escort|Frigate|Destroyer|Cruiser|Battle|Carrier|Capital|Troop|Military|Patrol|Fighter|Bomber|Gunboat/.test(k)) return 'Military';
   return 'Other';
 }
-const CATEGORY_ORDER = ['Exploration', 'Construction', 'Colonization', 'Logistics', 'Military', 'Other', 'Bases'];
+const CATEGORY_ORDER = ['Exploration', 'Construction', 'Colonization', 'Mining', 'Logistics', 'Military', 'Other', 'Bases'];
 const CATEGORY_ICON = {
   Exploration: '<circle cx="12" cy="12" r="8"/><path d="m15 9-2 4-4 2 2-4z"/>',
   Construction: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 8v8M8 12h8"/>',
   Colonization: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/>',
   Logistics: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+  Mining: '<path d="m4 20 9-9"/><path d="M9 5c4-2 9-1 11 3-3-1-7 0-9 2z"/>',
   Military: '<path d="M12 3 19 6v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/>',
   Bases: '<rect x="7" y="7" width="10" height="10"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
   Other: '<circle cx="12" cy="12" r="3"/>',
@@ -1762,7 +1781,13 @@ const icon = (cat, size = 14) => `<svg width="${size}" height="${size}" viewBox=
 let shipGroupBy = 'role';
 try { shipGroupBy = localStorage.getItem('overview.shipGroupBy') || 'role'; } catch (e) { }
 const shipBucketFilter = new Set();     // empty = all buckets
-const shipCollapsed = new Set();
+const shipRoleFilter = new Set();       // empty = all roles; click one: only it; click another: both
+const shipCollapsed = new Set(['role:Bases']);   // bases do no missions: folded at the end until opened
+let shipView = 'rows';
+try { shipView = localStorage.getItem('overview.shipView') || 'rows'; } catch (e) { }
+/** What needs the player first: idle, then short of fuel or energy or damaged, then the rest. */
+const shipUrgency = s => shipBucket(s) === 'idle' ? 0
+  : (s.fuel != null && s.fuel < 0.25) || (s.energy != null && s.energy < 0.25) || s.damage > 0 ? 1 : 2;
 
 function miniBar(rows) {
   const n = rows.length || 1;
@@ -1787,15 +1812,20 @@ function renderShips() {
   const q = $('search').value.trim().toLowerCase();
   const rows = all.filter(s =>
     (!shipBucketFilter.size || shipBucketFilter.has(shipBucket(s))) &&
+    (!shipRoleFilter.size || shipRoleFilter.has(shipCategory(s))) &&
     (!q || [s.name, s.kind && human(s.kind), s.design, missionPhrase(s.mission), s.target, s.system, s.fleet]
       .some(v => v && v.toLowerCase().includes(q))));
 
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
+  const lit = (set, k) => !set.size || set.has(k);
+  const roles = CATEGORY_ORDER.filter(c => all.some(s => shipCategory(s) === c));
   $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend">${SHIP_BUCKETS.map(b => {
     const c = all.filter(s => shipBucket(s) === b.key).length;
-    const on = shipBucketFilter.has(b.key);
-    return `<button type="button" data-bucket="${b.key}" class="${on ? 'on' : ''}${!c ? ' zero' : ''}" title="Show only these (click again to clear)">
+    return `<button type="button" data-bucket="${b.key}" class="${lit(shipBucketFilter, b.key) ? '' : 'off'}${!c ? ' zero' : ''}" title="Show these; click more to add; none chosen shows all">
       <i style="background:${b.color}"></i>${b.label} <em>${c}</em></button>`;
+  }).join('')}</div><div class="slegend roles">${roles.map(c => {
+    const n = all.filter(s => shipCategory(s) === c).length;
+    return `<button type="button" data-role="${esc(c)}" class="${lit(shipRoleFilter, c) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(c, 12)}${esc(c)} <em>${n}</em></button>`;
   }).join('')}</div>`;
 
   // Groups
@@ -1803,7 +1833,8 @@ function renderShips() {
   const labelOf = k => shipGroupBy === 'mission' ? (SHIP_BUCKETS.find(b => b.key === k)?.label || k) : k;
   const order = k => shipGroupBy === 'role' ? CATEGORY_ORDER.indexOf(k) : shipGroupBy === 'mission' ? SHIP_BUCKETS.findIndex(b => b.key === k) : 0;
   const groups = new Map();
-  for (const s of [...rows].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+  for (const s of [...rows].sort((a, b) => shipUrgency(a) - shipUrgency(b)
+      || (missionPhrase(a.mission) || '').localeCompare(missionPhrase(b.mission) || '') || (a.name || '').localeCompare(b.name || ''))) {
     const k = keyOf(s);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(s);
@@ -1823,6 +1854,7 @@ function renderShips() {
         <span class="sbar mini">${miniBar(list)}</span></div>`;
     }
     if (collapsed) continue;
+    if (shipView === 'cards') html += '<div class="shipcards">';
     for (const s of list) {
       const n = shipRowsShown.length;
       shipRowsShown.push(s);
@@ -1835,6 +1867,17 @@ function renderShips() {
       const fuel = s.fuel == null ? '<span class="none">–</span>'
         : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${fuelPct(s)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${fuelPct(s)}%</span>`;
       const manual = s.automation === 'Manual' || s.manual;
+      if (shipView === 'cards') {
+        html += `<div class="shipcard" data-n="${n}">
+        <div class="schead"><span class="sicon">${icon(shipCategory(s), 15)}</span>
+          <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+          <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
+        <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}${next}</span>
+        <span class="scmeta">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}${s.system ? ' · ' + esc(s.system) : ''}${s.fleet ? ' · ' + esc(s.fleet) : ''}</span>
+        <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
+      </div>`;
+        continue;
+      }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
         <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
@@ -1845,18 +1888,35 @@ function renderShips() {
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
       </div>`;
     }
+    if (shipView === 'cards') html += '</div>';
   }
   $('shipList').innerHTML = html || `<div class="empty">${all.length ? 'Nothing matches the filters.' : 'No ships (or no game loaded).'}</div>`;
   $('count').textContent = `${rows.length} of ${all.length}`;
   document.querySelectorAll('#sgroupby button').forEach(b => b.classList.toggle('on', b.dataset.by === shipGroupBy));
+  document.querySelectorAll('#sview button').forEach(b => b.classList.toggle('on', b.dataset.view === shipView));
 }
 let shipRowsShown = [];
 
 $('shipStatus').addEventListener('click', e => {
+  const r = e.target.closest('[data-role]');
+  if (r) {
+    const k = r.dataset.role;
+    if (shipRoleFilter.has(k)) shipRoleFilter.delete(k); else shipRoleFilter.add(k);
+    if (shipRoleFilter.has('Bases')) shipCollapsed.delete('role:Bases');   // asked for bases: show them
+    renderShips();
+    return;
+  }
   const b = e.target.closest('[data-bucket]');
   if (!b) return;
   const k = b.dataset.bucket;
   if (shipBucketFilter.has(k)) shipBucketFilter.delete(k); else shipBucketFilter.add(k);
+  renderShips();
+});
+$('sview').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  shipView = b.dataset.view;
+  try { localStorage.setItem('overview.shipView', shipView); } catch (er) { }
   renderShips();
 });
 $('sgroupby').addEventListener('click', e => {
@@ -1874,7 +1934,7 @@ $('shipList').addEventListener('click', e => {
     renderShips();
     return;
   }
-  const row = e.target.closest('.srow');
+  const row = e.target.closest('.srow, .shipcard');
   if (!row) return;
   e.preventDefault();
   const tgt = e.target.closest('[data-tt]');
