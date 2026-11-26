@@ -91,6 +91,9 @@
     <option value="facility">Facilities</option>
     <option value="yard">Yards</option>
   </select>
+  <select id="role">
+    <option value="">All roles</option>
+  </select>
   <select id="work">
     <option value="">All work</option>
   </select>
@@ -170,7 +173,6 @@ const columns = {
     { key: 'race', label: 'Race' },
     { key: 'population', label: 'Population', f: fmt.big, num: true },
     { key: 'maxPopulation', label: 'Max pop.', f: fmt.big, num: true },
-    { key: 'growth', label: 'Growth (raw)', f: fmt.num, num: true },
     { key: 'development', label: 'Development', f: fmt.pct, num: true },
     { key: 'approval', label: 'Approval', f: fmt.int, num: true },
     { key: 'happiness', label: 'Happiness', f: fmt.num, num: true },
@@ -265,8 +267,8 @@ async function refresh() {
       $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)`;
       const eco = info.economy || {};
       const money = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
-      $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate} · cash ${money(eco.cash)}`;
-      $('empire').title = `private cash ${money(eco.privateCash)} · cashflow (state) ${money(eco.cashflowState)} · cashflow (actual) ${money(eco.cashflowActual)} · war weariness ${eco.warWeariness ?? '?'}`;
+      $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate} · cash ${money(eco.cash)} (${eco.cashflowActual >= 0 ? "+" : ""}${money(eco.cashflowActual)}/yr)`;
+      $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
     }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
@@ -288,13 +290,19 @@ async function refresh() {
 }
 
 function fillWorkOptions() {
-  const sel = $('work'), current = sel.value;
-  const works = [...new Set(items.map(i => i.work).filter(Boolean))].sort();
+  fillOptions('work', 'work');
+  fillOptions('role', 'role');
+}
+
+/** Fills a filter with the values present in the data, keeping the current choice when it still exists. */
+function fillOptions(selectId, key) {
+  const sel = $(selectId), current = sel.value;
+  const values = [...new Set(items.map(i => i[key]).filter(Boolean))].sort();
   const have = [...sel.options].slice(1).map(o => o.value);
-  if (works.join() === have.join()) return;
+  if (values.join() === have.join()) return;
   sel.length = 1;
-  for (const w of works) sel.add(new Option(w, w));
-  sel.value = works.includes(current) ? current : '';
+  for (const v of values) sel.add(new Option(v, v));
+  sel.value = values.includes(current) ? current : '';
 }
 
 function progressCell(p) {
@@ -319,9 +327,9 @@ function compare(a, b) {
 
 function render() {
   const q = $('search').value.trim().toLowerCase();
-  const st = $('state').value, cat = $('category').value, work = $('work').value;
+  const st = $('state').value, cat = $('category').value, work = $('work').value, role = $('role').value;
   shown = items.filter(i =>
-    (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) &&
+    (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) && (!role || i.role === role) &&
     (!q || [i.name, i.design, i.role, i.where, i.system, i.work].some(v => v && v.toLowerCase().includes(q)))
   ).sort(compare);
 
@@ -417,7 +425,7 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
   if (sortKey === th.dataset.key) sortAsc = !sortAsc; else { sortKey = th.dataset.key; sortAsc = true; }
   render();
 }));
-['state', 'category', 'work'].forEach(id => $(id).addEventListener('input', render));
+['state', 'category', 'role', 'work'].forEach(id => $(id).addEventListener('input', render));
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
 $('view').addEventListener('input', () => {
