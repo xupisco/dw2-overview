@@ -67,6 +67,7 @@
   .toast .mute { align-self: flex-end; color: var(--dim); font-size: 11px; text-decoration: none; }
   .toast .mute:hover { color: var(--text); text-decoration: underline; }
   .mutewrap { position: relative; }
+  .check { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 13px; cursor: pointer; white-space: nowrap; }
   .mutelist { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 220px; max-height: 60vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
   .mutelist[hidden] { display: none; }
   .mutelist label { white-space: nowrap; cursor: pointer; }
@@ -161,6 +162,9 @@
     <option value="1">Alerts: normal and up</option>
     <option value="0">Alerts: every message</option>
   </select>
+  <label class="check" title="When this page is not focused, show alerts as system (Windows) notifications instead of toasts here. Off: always toasts in this page, nothing over the game.">
+    <input type="checkbox" id="sysnotify"> System notifications when unfocused
+  </label>
   <span class="mutewrap">
     <button id="mutedBtn" type="button" title="Choose which message types raise alerts">Alert types</button>
     <div id="mutedList" class="mutelist" hidden></div>
@@ -444,7 +448,9 @@ function checkNotify(messages, starDate) {
     if (mutedTypes.has(m.type)) continue;
     const go = () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); };
     const looking = !document.hidden && document.hasFocus();
-    if (!looking && 'Notification' in window && Notification.permission === 'granted') {
+    // System notifications only when the player turned them on: while playing, a Windows notification pops
+    // up over the game; with them off, an unfocused page still shows the toast on its own screen.
+    if (!looking && $('sysnotify').checked && 'Notification' in window && Notification.permission === 'granted') {
       const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
       n.onclick = () => { window.focus(); go(); n.close(); };
     } else {
@@ -646,11 +652,17 @@ $('gfilters').addEventListener('input', e => {
   renderOther();
 });
 try { $('notify').value = localStorage.getItem('overview.notify') || 'off'; } catch (e) { }
-$('notify').addEventListener('input', async () => {
+$('notify').addEventListener('input', () => {
   try { localStorage.setItem('overview.notify', $('notify').value); } catch (e) { }
-  if ($('notify').value === 'off' || !('Notification' in window)) return;
+});
+// System notifications are off by default: while playing, one pops up over the game. The browser's
+// permission is asked only when they are turned on.
+try { $('sysnotify').checked = localStorage.getItem('overview.sysnotify') === '1'; } catch (e) { }
+$('sysnotify').addEventListener('change', async () => {
+  try { localStorage.setItem('overview.sysnotify', $('sysnotify').checked ? '1' : '0'); } catch (e) { }
+  if (!$('sysnotify').checked || !('Notification' in window)) return;
   if (Notification.permission === 'default') await Notification.requestPermission();
-  if (Notification.permission !== 'granted') $('status').textContent = 'notifications blocked by the browser';
+  if (Notification.permission !== 'granted') $('status').textContent = 'system notifications blocked by the browser';
 });
 $('mutedBtn').addEventListener('click', () => { renderMuted(); $('mutedList').hidden = !$('mutedList').hidden; });
 $('mutedList').addEventListener('change', e => {
