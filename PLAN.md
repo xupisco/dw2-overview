@@ -27,7 +27,8 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
   - inimigos chegando (`Empire.IncomingEnemyFleets`) e naves atacadas (mensagens High/Critical já cobrem parte);
   - decisões pendentes (mensagens que pedem resposta: diplomacia, investigações).
 
-- **Revisão da aba Resources** (pedido do Leandro, 2026-11-26): ficou mais complexa que a tela do jogo, rever o que ela mostra e como se lê.
+- **Revisão da aba Resources:** feita em 2026-11-26 (uma lista por urgência, coluna "Next step", linha que abre com preços e locais em cards; saíram o painel lateral e as visões Deposits e Mining ships).
+- **Revisão da aba Ships:** feita em 2026-11-26 (Mining separado de Logistics, filtro de função, o que precisa de você primeiro, bases fechadas no fim, visão Rows | Cards). **Cards a repensar com o uso** (o Leandro achou que falta organizar o conteúdo): missão em destaque; sem a linha "Automatic · sistema" (só exceções); fuel e energy como barras finas na base, número só quando baixo; borda âmbar ou vermelha quando parada ou com pouca energia ou combustível. Levar cards para Resources só se funcionarem aqui.
 - **Revisão tela por tela** (pedido do Leandro): quando as funcionalidades estiverem ok, passar cada aba junto, olhando a interface. Princípio (2026-11-26): é um **helper**, não um segundo jogo. Cada tela responde "o que precisa de mim?" ou "o que está acontecendo?"; o que só repete uma tela do jogo vira atalho para ela (a palette já abre as telas do jogo). Exemplo a decidir: o Latest messages do Overview ignora os tipos silenciados (o mute vale só para alertas).
 
 ## Sequência
