@@ -2096,7 +2096,9 @@ function missionHtml(s, bucket, phrase, target) {
   if (!s.missionText) return `<span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}`;
   const now = s.heading && !s.missionText.toLowerCase().includes(s.heading.toLowerCase())
     ? ` <span class="arrow">· now →</span> ${s.headingId != null ? `<a class="go" href="#" data-tt="${esc(s.headingType)}" data-tid="${s.headingId}">${esc(s.heading)}</a>` : esc(s.heading)}` : '';
-  return `<span class="smtext" title="${esc(s.missionText)}">${esc(s.missionText)}</span>${now}`;
+  // The game sometimes glues its time estimate on: "(Alurthas system)(93 secs)".
+  const text = s.missionText.split(')(').join(') (');
+  return `<span class="smtext" title="${esc(text)}">${esc(text)}</span>${now}`;
 }
 
 /** Fuel as the game draws it: a ship can carry more than its range needs (251 of 100), shown as full. */
