@@ -52,6 +52,10 @@ internal sealed class DepositRow
     public string MinedBy { get; set; }
     /// <summary>An own mining station still being built there (not mining yet): its construction, 0..1.</summary>
     public double? StationBuilding { get; set; }
+    /// <summary>The game's order for new mining locations (Empire.MiningTargets: 1 = first), when listed there.</summary>
+    public int? Priority { get; set; }
+    /// <summary>A mining station is ordered here and waits for a construction ship (Empire.QueuedMiningTargets).</summary>
+    public bool Queued { get; set; }
     public List<DepositResource> Resources { get; set; }
 }
 
@@ -88,6 +92,17 @@ internal static class ResourcesView
                 }
             }
         }
+        var priority = new Dictionary<int, int>();
+        int rank = 0;
+        foreach (var t in Copy(Safe(() => empire.MiningTargets)))
+        {
+            rank++;
+            if (Safe(() => t.StellarObject) is Orb po && !priority.ContainsKey(po.OrbId))
+            {
+                priority[po.OrbId] = rank;
+            }
+        }
+        var queued = new HashSet<int>(Copy(Safe(() => empire.QueuedMiningTargets)).Where(o => o != null).Select(o => o.OrbId));
         var deposits = new List<DepositRow>();
         var map = Safe(() => empire.ExplorationMap);
         foreach (var orb in Copy(Safe(() => map?.GetAllKnownOrbs(galaxy, empire, 1))))
@@ -115,6 +130,8 @@ internal static class ResourcesView
                 MinedBy = minedByColony.Contains(orb.OrbId) ? "colony" : minedByStation.Contains(orb.OrbId) ? "station" : null,
                 StationBuilding = !minedByColony.Contains(orb.OrbId) && !minedByStation.Contains(orb.OrbId) && stationBuilding.TryGetValue(orb.OrbId, out double b) ? b : null,
                 Resources = found,
+                Priority = priority.TryGetValue(orb.OrbId, out int pr) ? pr : null,
+                Queued = queued.Contains(orb.OrbId),
             });
         }
 

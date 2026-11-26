@@ -201,6 +201,7 @@
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
   .tag.enroute { color: var(--acc); background: var(--acc-d); }
+  .tag.planned { color: var(--warn); background: transparent; box-shadow: inset 0 0 0 1px var(--warn); }
   .tag.outsideYard, .tag.latest { color: var(--acc); background: var(--acc-d); }
   .tag.facility { color: oklch(var(--L) 0.11 300); background: color-mix(in srgb, oklch(var(--L) 0.11 300) 14%, transparent); }
   .tag.idle, .tag.prio-Low { color: var(--mut); background: transparent; outline: 1px dashed var(--line-2); outline-offset: -1px; }
@@ -715,6 +716,7 @@
     <option value="queued">Queued</option>
     <option value="outsideYard">Outside a yard</option>
     <option value="enroute">En route to build</option>
+    <option value="planned">Waiting for a ship</option>
     <option value="facility">Facilities</option>
     <option value="idle">Idle yards</option>
   </select>
@@ -855,7 +857,9 @@ const expanded = new Set();
 let lastSnapshot = null;
 const yardKey = i => `${i.whereType}:${i.whereId}`;
 try { $('view').value = localStorage.getItem('overview.view') || 'yard'; } catch (e) { }
-const stateOrder = { building: 0, outsideYard: 1, enroute: 2, queued: 3, facility: 4, idle: 5 };   // enroute: a construction ship on its way to build a base
+const stateOrder = { building: 0, outsideYard: 1, enroute: 2, queued: 3, planned: 4, facility: 5, idle: 6 };
+// planned: a base ordered and waiting for a construction ship (the game's queued targets)
+const STATE_LABEL = { enroute: 'en route', planned: 'waiting', outsideYard: 'outside yard' };   // enroute: a construction ship on its way to build a base
 
 // Colonies and research share one generic table. Values are shown raw (2 decimals) until each scale is
 // checked against the game's own screens.
@@ -1568,7 +1572,7 @@ function render() {
   rowItems = rows.map(r => r.item);
 
   $('rows').innerHTML = rows.map(({ item: i, kind, key, more }, n) => `<tr data-n="${n}" class="${kind}" title="Go to ${esc(i.where)}">
-      <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
+      <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(STATE_LABEL[i.state] || i.state)}</span></td>
       <td class="k-name" data-label="Name">${nameCell(i)}</td>
       <td data-label="Design">${cell(i.design)}</td>
       <td data-label="Role">${roleCell(i)}</td>
@@ -1588,6 +1592,7 @@ function render() {
 }
 
 function whereCell(i, kind, key, more) {
+  if (i.state === 'planned') return '<span class="mut">waiting for a construction ship</span>';
   const place = `${cell(i.where)}${i.whereKind ? ` <span class="none">(${esc(i.whereKind)})</span>` : ''}`;
   if (kind === 'flat') return place;
   if (kind === 'child') return '<span class="sub">↳ same yard</span>';
@@ -2433,7 +2438,7 @@ function attentionItems() {
   if (critical.length) {
     // For each: a mining base being built or a construction ship on its way where it is found, or nobody yet.
     const onIt = r => ov.construction.find(i => i.state !== 'idle' && (i.extracts || []).some(x => x.name === r.name));
-    const lines = critical.slice(0, 4).map(r => { const i = onIt(r); return i ? `${r.name}: ${i.state === 'enroute' ? `${i.where} on the way to ${i.site}` : `station being built at ${i.site}`}` : `${r.name}: nobody on it`; });
+    const lines = critical.slice(0, 4).map(r => { const i = onIt(r); return i ? `${r.name}: ${i.state === 'enroute' ? `${i.where} on the way to ${i.site}` : i.state === 'planned' ? `station ordered at ${i.site}, waiting for a ship` : `station being built at ${i.site}`}` : `${r.name}: nobody on it`; });
     const allCovered = critical.every(onIt);
     add(allCovered ? 'warn' : 'bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, lines.join(' · '), 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
   }
@@ -2489,10 +2494,10 @@ function blockHtml(id) {
     const sorter = `<span class="seg ovsort">${['progress', 'yard', 'name'].map(k => `<button type="button" class="${ovBuildSort === k ? 'on' : ''}" ${act(() => { ovBuildSort = k; try { localStorage.setItem('overview.buildSort', k); } catch (e) { } renderOverview(); })}>${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
       `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Built by</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
-        <td><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
+        <td><span class="tag ${esc(i.state)}">${esc(STATE_LABEL[i.state] || i.state)}</span></td>
         <td class="ovname">${esc(i.name || i.design || 'Not started')}${i.site && !(i.name || '').toLowerCase().includes(i.site.toLowerCase()) ? ` <span class="mut">at ${esc(i.site)}</span>` : ''}${buildFor(i)}</td>
         <td class="ovrole">${roleCell(i)}</td>
-        <td class="ovby">${esc(i.where || '')}</td>
+        <td class="ovby">${i.state === 'planned' ? '<span class="mut">waiting for a ship</span>' : esc(i.where || '')}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
       || '<div class="ovempty">No yard is building anything.</div>');
   }
@@ -2691,6 +2696,10 @@ function resNext(r) {
   const alsoBest = st !== 'adequate' && best ? ` · could also mine ${go(best)} (${best.ab}%)` : '';
   // A construction ship on its way to build a mining base where this resource is.
   const coming = resBuilds.find(i => i.state === 'enroute' && (i.extracts || []).some(x => x.name === r.name));
+  const ordered = free.find(x => x.d.queued);
+  if (ordered && !coming && !building.length) {
+    return `Station ordered at ${go(ordered)}, waiting for a construction ship${mined.length ? '' : ''}`;
+  }
   if (coming && !building.length) {
     return `${esc(coming.where || 'A ship')} on the way to build at ${coming.siteOrbId != null ? `<a class="go" href="#" data-orb="${coming.siteOrbId}">${esc(coming.site)}</a>` : esc(coming.site || '')}${mined.length ? '' : alsoBest}`;
   }
@@ -2738,8 +2747,8 @@ function resExpand(r) {
 }
 
 // ---- Locations: where the empire mines, and the known deposits it does not mine yet ----
-// Like the game's Mining Locations / New Mining Locations. The game's own priority is not known here, so new
-// locations come most needed first: each resource's abundance weighed by how short the empire is of it.
+// Like the game's Mining Locations / New Mining Locations. New locations follow the game's own priority (Empire.MiningTargets,
+// the mod's "priority"), then most needed: a critical resource there, then a low one, by how much of it.
 let resView = 'resources';
 const resTypeFilter = new Set();   // fuel, construction, luxury, other; empty = all
 try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
@@ -2768,7 +2777,7 @@ function renderLocations(all, deps, q) {
   const list = deps.filter(d => (mined ? d.minedBy : !d.minedBy)
       && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q))))
     .sort((a, b) => mined ? (a.minedBy === 'colony' ? -1 : 0) - (b.minedBy === 'colony' ? -1 : 0) || (a.name || '').localeCompare(b.name || '')
-      : byNeed(a, b) || (a.name || '').localeCompare(b.name || ''));
+      : (a.priority ?? 1e9) - (b.priority ?? 1e9) || byNeed(a, b) || (a.name || '').localeCompare(b.name || ''));
   // A chip carries the resource's type colour (as in the list), its shortage as an outline, and fades when the
   // empire does not use that resource at all.
   const chip = x => {
@@ -2780,7 +2789,8 @@ function renderLocations(all, deps, q) {
   $('resLocations').innerHTML = list.map(d => {
     const g = going.get(d.orbId);
     const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
-      : g ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>` : '';
+      : g && g.state === 'enroute' ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>`
+      : d.queued || (g && g.state === 'planned') ? '<span class="tag planned" title="Ordered; waiting for a construction ship">ordered</span>' : '';
     return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
       <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${who}</span>
       <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span></div>`;

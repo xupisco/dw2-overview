@@ -395,8 +395,66 @@ internal static class Snapshot
                 WhereId = ship.ShipId,
             }));
         }
+        AddQueuedTargets(galaxy, empire, items, stats);
         return items;
     }
+
+    /// <summary>
+    /// Bases the player (or the advisor) ordered and no construction ship has taken yet: the empire's queued
+    /// targets (Empire.QueuedMiningTargets and the like; seen 2026-11-26: a mining station ordered at Kintaris 3
+    /// shows in the game's New Mining Locations with a cancel button and was nowhere in Construction). A place
+    /// a ship is already on its way to, or building at, is left out.
+    /// </summary>
+    private static void AddQueuedTargets(Galaxy galaxy, Empire empire, List<BuildItem> items, Dictionary<string, int> stats)
+    {
+        var taken = new HashSet<int>(items.Where(i => i.SiteOrbId != null).Select(i => i.SiteOrbId.Value));
+        var lists = new (string role, string name, OrbList orbs)[]
+        {
+            ("MiningStation", "Mining Station", Safe(() => empire.QueuedMiningTargets)),
+            ("ResearchStation", "Research Station", Safe(() => empire.QueuedResearchTargets)),
+            ("SpaceportSmall", "Spaceport", Safe(() => empire.QueuedSpaceportTargets)),
+            ("MonitoringStation", "Monitoring Station", Safe(() => empire.QueuedMonitoringTargets)),
+            ("ResortBase", "Resort", Safe(() => empire.QueuedResortTargets)),
+            ("Outpost", "Outpost", Safe(() => empire.QueuedOutpostTargets)),
+            ("ColonyShip", "Colony", Safe(() => empire.QueuedColonizationTargets)),
+        };
+        var sig = new List<string>();
+        foreach (var (role, name, orbs) in lists)
+        {
+            foreach (var orb in Copy(orbs))
+            {
+                if (orb == null || !taken.Add(orb.OrbId))
+                {
+                    continue;
+                }
+                Count(stats, "queuedTargets");
+                var item = new BuildItem
+                {
+                    Category = role == "ColonyShip" ? "ship" : "base",
+                    State = "planned",
+                    Work = "Build",
+                    Name = name,
+                    Role = role,
+                    RoleName = name,
+                    System = SystemName(galaxy, orb),
+                    OrbId = orb.OrbId,
+                    WhereType = "orb",
+                    WhereId = orb.OrbId,
+                };
+                OrbSite(empire, orb, item);
+                items.Add(item);
+                sig.Add($"{name} at {item.Site}");
+            }
+        }
+        string text = string.Join(", ", sig);
+        if (text != lastQueued)
+        {
+            lastQueued = text;
+            Log.Info($"Queued targets waiting for a ship: {(sig.Count == 0 ? "none" : text)}.");
+        }
+    }
+
+    private static string lastQueued;
 
     private static void ReadYards(Galaxy galaxy, Empire empire, ConstructionSystem cs, Where where,
         List<BuildItem> items, HashSet<int> seenShips, Dictionary<string, int> stats)
