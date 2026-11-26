@@ -239,14 +239,6 @@
   .kpi.kres .pb { height: 3px; margin: 3px 0 2px; }
   .kpi.kres .pb > i { box-shadow: none; }
   .kpi .kchip { color: var(--acc); text-decoration: underline dotted; cursor: pointer; }
-  .kpi.ksupply { cursor: default; padding: 6px 12px; }
-  .ksupply table { border-collapse: collapse; width: 100%; font-size: 12px; }
-  .ksupply th { font: 600 12px var(--cond); letter-spacing: .08em; text-transform: uppercase; color: var(--mut); text-align: right; padding: 0 0 2px 10px; background: none; }
-  .ksupply th:first-child { text-align: left; padding-left: 0; }
-  .ksupply td { padding: 1px 0 1px 10px; text-align: right; color: var(--mut); white-space: nowrap; }
-  .ksupply td:first-child { text-align: left; padding-left: 0; }
-  .ksupply .ksn { font: 600 14px var(--cond); color: var(--tx); cursor: pointer; padding: 0 2px; }
-  .ksupply .ksn:hover { background: var(--hover); }
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
@@ -2167,10 +2159,10 @@ $('shipList').addEventListener('click', e => {
 const OV_BLOCKS = [
   // Few blocks on by default, each one important ("if everything is there, nothing is important"); the
   // rest stays in Customize. What is urgent in the others reaches Needs attention.
-  { id: 'summary', name: 'Summary', note: 'Cash, population, yards, research, idle ships, supply', size: 'L', on: true },
-  { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
-  { id: 'construction', name: 'Construction', note: 'What the yards are building, sorted, a few lines', size: 'M', on: true },
-  { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical', size: 'S', on: false },
+  { id: 'summary', name: 'Summary', note: 'Cash, population, yards, research, idle ships', size: 'L', on: true },
+  { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'M', on: true },
+  { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical, as the game shows it', size: 'S', on: true },
+  { id: 'construction', name: 'Construction', note: 'What the yards are building, by role, sorted, a few lines', size: 'L', on: true },
   { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: false },
   { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: false },
   { id: 'messages', name: 'Latest messages', note: 'Newest five from the log (Q opens the whole log)', size: 'M', on: false },
@@ -2178,13 +2170,13 @@ const OV_BLOCKS = [
 ];
 let ovLayout = OV_BLOCKS.map(b => ({ id: b.id, size: b.size, on: b.on }));
 try {
-  const saved = JSON.parse(localStorage.getItem('overview.layout2') || 'null');
+  const saved = JSON.parse(localStorage.getItem('overview.layout3') || 'null');
   if (Array.isArray(saved)) {
     const known = saved.filter(s => OV_BLOCKS.some(b => b.id === s.id));
     ovLayout = [...known, ...ovLayout.filter(d => !known.some(s => s.id === d.id))];   // new blocks join at the end
   }
 } catch (e) { }
-const saveLayout = () => { try { localStorage.setItem('overview.layout2', JSON.stringify(ovLayout)); } catch (e) { } };
+const saveLayout = () => { try { localStorage.setItem('overview.layout3', JSON.stringify(ovLayout)); } catch (e) { } };
 
 // Idle ships worth a look: fighters and bombers wait in their carriers and bases by design, and freighters
 // waiting for cargo can be hidden (kept in this browser).
@@ -2215,7 +2207,7 @@ function buildRoleChips(list, attr) {
 }
 let ovBuildSort = 'progress';
 try { ovBuildSort = localStorage.getItem('overview.buildSort') || 'progress'; } catch (e) { }
-const OV_BUILD_LINES = 8;
+const OV_BUILD_LINES = 10;
 
 let ov = null, ovInfo = null, ovActions = [];
 
@@ -2280,13 +2272,6 @@ function blockHtml(id) {
     const active = ov.research.find(r => r.state === 'active');
     const queued = ov.research.filter(r => r.state === 'queued').length;
     const idle = ovIdleShips(), idleAll = ovIdleAll();
-    // Supply as the game shows it (Adequate / Low / Critical per category), small; a count opens Resources on it.
-    const res = (ov.resources || []).filter(resRelevant);
-    const fuels = res.filter(r => inCat(r, 'fuel') && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
-    const supplyRow = ([key, label]) => `<tr><td>${esc(key === 'fuel' && fuels.length ? `${label} (${fuels.join(', ')})` : label)}</td>${['adequate', 'low', 'critical'].map(st => {
-      const list = res.filter(r => inCat(r, key) && resStatus(r) === st);
-      return `<td><span class="ksn" style="color:${list.length && st !== 'adequate' ? STATUS_COLOR[st] : ''}" title="${esc(list.map(r => r.name).join(', '))}" ${act(goTab('resources', () => { resSupply = { cat: key, status: st }; renderResources(); }))}>${list.length}</span></td>`;
-    }).join('')}</tr>`;
     const kpi = (label, value, sub, subColor, fn) => `<button type="button" class="kpi" ${fn ? act(fn) : ''}><span>${label}</span><b>${value}</b><small style="color:${subColor}">${sub}</small></button>`;
     return `<div class="kpis">
       ${kpi('Cash', money0(eco.cash), eco.cashflowActual == null ? 'flow not computed yet' : `${eco.cashflowActual >= 0 ? '+' : ''}${money0(eco.cashflowActual)} / yr`, eco.cashflowActual == null ? 'var(--mut)' : eco.cashflowActual >= 0 ? 'var(--ok)' : 'var(--bad)')}
@@ -2300,7 +2285,6 @@ function blockHtml(id) {
         <b style="color:${idle.length ? 'var(--warn)' : ''}">${idle.length}</b>
         <small>${idle.length ? esc([...new Set(idle.map(shipCategory))].map(c => `${idle.filter(s => shipCategory(s) === c).length} ${c.toLowerCase()}`).join(', ')) : 'all busy'}
           ${idleAll.some(s => shipCategory(s) === 'Logistics') ? `· <span class="kchip" ${act(toggleFreighters)} title="Freighters wait for cargo on their own; hide them here and in Needs attention">${ovHideFreighters ? 'freighters hidden' : 'hide freighters'}</span>` : ''}</small></button>
-      ${res.length ? `<div class="kpi ksupply"><table><thead><tr><th>Supply</th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${RES_CATS.map(supplyRow).join('')}</tbody></table></div>` : ''}
     </div>`;
   }
   if (id === 'attention') {
