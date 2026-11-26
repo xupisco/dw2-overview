@@ -38,6 +38,13 @@
   .go { color: var(--accent); text-decoration: none; }
   .go:hover { text-decoration: underline; }
   .hint { color: var(--dim); font-size: 12px; padding: 0 16px 8px; }
+  .caret { display: inline-block; width: 18px; color: var(--dim); cursor: pointer; text-align: center; border-radius: 3px; }
+  .caret:hover { background: #2a3036; color: var(--text); }
+  .caret.blank { cursor: default; background: none; }
+  .more { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px; background: #23292f; color: var(--dim); font-size: 12px; }
+  tr.child td { background: #13161a; }
+  tr.child td:first-child { padding-left: 24px; }
+  .sub { color: var(--dim); padding-left: 18px; }
   .bar { position: relative; width: 120px; height: 14px; background: #22272c; border-radius: 3px; overflow: hidden; }
   .bar > span { position: absolute; inset: 0 auto 0 0; background: #3b7f9e; }
   .bar > em { position: absolute; inset: 0; text-align: center; font-size: 11px; font-style: normal; line-height: 14px; }
@@ -55,8 +62,8 @@
 <div class="filters">
   <input id="search" type="search" placeholder="Search name, design, place, system…" autofocus>
   <select id="state">
-    <option value="active">Active (no idle yards)</option>
     <option value="">Everything</option>
+    <option value="active">Active (no idle yards)</option>
     <option value="building">Building</option>
     <option value="queued">Queued</option>
     <option value="outsideYard">Outside a yard</option>
@@ -72,6 +79,10 @@
   </select>
   <select id="work">
     <option value="">All work</option>
+  </select>
+  <select id="view">
+    <option value="yard">One row per yard</option>
+    <option value="flat">Every item</option>
   </select>
   <button id="pause" type="button">Pause</button>
   <span class="count" id="count"></span>
@@ -98,7 +109,11 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let items = [], shown = [], paused = false, sortKey = 'state', sortAsc = true, token = null;
+let items = [], shown = [], rowItems = [], paused = false, sortKey = 'state', sortAsc = true, token = null;
+const expanded = new Set();
+let lastSnapshot = null;
+const yardKey = i => `${i.whereType}:${i.whereId}`;
+try { $('view').value = localStorage.getItem('overview.view') || 'yard'; } catch (e) { }
 const stateOrder = { building: 0, outsideYard: 1, queued: 2, facility: 3, idle: 4 };
 
 async function getJson(url) {
@@ -122,6 +137,10 @@ async function refresh() {
       $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate}`;
       items = data.items || [];
     }
+    // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
+    const snapshot = JSON.stringify(items);
+    if (snapshot === lastSnapshot) return;
+    lastSnapshot = snapshot;
     fillWorkOptions();
     render();
   } catch (e) {
@@ -168,15 +187,34 @@ function render() {
     (!q || [i.name, i.design, i.role, i.where, i.system, i.work].some(v => v && v.toLowerCase().includes(q)))
   ).sort(compare);
 
-  $('rows').innerHTML = shown.map((i, n) => `<tr data-n="${n}" title="Go to ${esc(i.where)}">
+  // "One row per yard": the yard's first item (in the current sort) stands for it, the rest fold under it.
+  // Filters act on items, so a yard shows only what matches, and disappears when nothing does.
+  const rows = [];
+  if ($('view').value === 'flat') {
+    for (const i of shown) rows.push({ item: i, kind: 'flat' });
+  } else {
+    const groups = new Map();
+    for (const i of shown) {
+      const k = yardKey(i);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(i);
+    }
+    for (const [k, group] of groups) {
+      rows.push({ item: group[0], kind: 'lead', key: k, more: group.length - 1 });
+      if (expanded.has(k)) for (const i of group.slice(1)) rows.push({ item: i, kind: 'child' });
+    }
+  }
+  rowItems = rows.map(r => r.item);
+
+  $('rows').innerHTML = rows.map(({ item: i, kind, key, more }, n) => `<tr data-n="${n}" class="${kind}" title="Go to ${esc(i.where)}">
       <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
       <td>${nameCell(i)}</td>
       <td>${cell(i.design)}</td>
       <td>${cell(i.role)}</td>
       <td>${cell(i.work)}</td>
       <td>${progressCell(i.progress)}</td>
-      <td>${cell(i.where)}${i.whereKind ? ` <span class="none">(${esc(i.whereKind)})</span>` : ''}</td>
-      <td>${cell(i.system)}</td>
+      <td>${whereCell(i, kind, key, more)}</td>
+      <td>${kind === 'child' ? '' : cell(i.system)}</td>
       <td>${i.queue ?? '<span class="none">–</span>'}</td>
     </tr>`).join('');
   $('count').textContent = `${shown.length} of ${items.length}`;
@@ -186,6 +224,15 @@ function render() {
     th.classList.toggle('sorted', th.dataset.key === sortKey);
     th.classList.toggle('asc', th.dataset.key === sortKey && sortAsc);
   });
+}
+
+function whereCell(i, kind, key, more) {
+  const place = `${cell(i.where)}${i.whereKind ? ` <span class="none">(${esc(i.whereKind)})</span>` : ''}`;
+  if (kind === 'flat') return place;
+  if (kind === 'child') return '<span class="sub">↳ same yard</span>';
+  if (!more) return `<span class="caret blank"></span>${place}`;
+  const open = expanded.has(key);
+  return `<span class="caret" data-toggle="${esc(key)}" title="${open ? 'Fold' : 'Show'} the other ${more}">${open ? '▾' : '▸'}</span>${place}<span class="more">+${more}</span>`;
 }
 
 function nameCell(i) {
@@ -213,8 +260,15 @@ $('rows').addEventListener('click', e => {
   const tr = e.target.closest('tr');
   if (!tr) return;
   e.preventDefault();
+  const toggle = e.target.closest('[data-toggle]');
+  if (toggle) {
+    const k = toggle.dataset.toggle;
+    if (expanded.has(k)) expanded.delete(k); else expanded.add(k);
+    render();
+    return;
+  }
   const link = e.target.closest('[data-ship]');
-  const item = shown[+tr.dataset.n];
+  const item = rowItems[+tr.dataset.n];
   if (link) goTo('ship', +link.dataset.ship);
   else if (item) goTo(item.whereType, item.whereId);
   tr.classList.add('flash');
@@ -226,6 +280,10 @@ document.querySelectorAll('th').forEach(th => th.addEventListener('click', () =>
   render();
 }));
 ['search', 'state', 'category', 'work'].forEach(id => $(id).addEventListener('input', render));
+$('view').addEventListener('input', () => {
+  try { localStorage.setItem('overview.view', $('view').value); } catch (e) { }
+  render();
+});
 $('pause').addEventListener('click', () => {
   paused = !paused;
   $('pause').textContent = paused ? 'Resume' : 'Pause';

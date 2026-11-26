@@ -17,7 +17,7 @@ Notas internas, em português. O ambiente, o carregamento de mods e o código pr
 | Data | `Galaxy.StarDate`; texto com `TextHelper.ResolveStarDateDescription(starDate)` (ex.: `2757.05.11`) | confirmado |
 | Estaleiros em naves e bases | `Ship.ConstructionSystem` | confirmado |
 | Estaleiros em colônias | `Orb.Colony.ConstructionSystem` (o `Orb` não tem campo próprio) | lido, sem item visto ainda |
-| Conteúdo do estaleiro | `ConstructionSystem.Yards` (`ConstructionYard.ShipUnderConstructionId`, `DesignId`, `ConstructionType`) e `WaitQueue` (`ConstructionYardWait`, mesmos campos) | confirmado (fila ainda não vista) |
+| Conteúdo do estaleiro | `ConstructionSystem.Yards` (`ConstructionYard.ShipUnderConstructionId`, `DesignId`, `ConstructionType`) e `WaitQueue` (`ConstructionYardWait`, mesmos campos) | confirmado. Item na fila já é uma `Ship` com nome, em 0% (2026-11-26) |
 | Estaleiro parado | `ShipUnderConstructionId == 0` e `ConstructionType == Undefined`. O `IsEmpty` disse `false` nesses casos, então não serve | confirmado |
 | Nave em construção | já é uma `Ship` (`Galaxy.Ships.GetById`), com `ConstructionLevel` de 0 a 1 subindo ao vivo | confirmado |
 | Base feita por nave de construção | fica no estaleiro da própria nave de construção | confirmado |
