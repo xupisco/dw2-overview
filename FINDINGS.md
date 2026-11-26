@@ -48,3 +48,19 @@ Os atalhos do jogo ignoram modificadores (Ctrl+Alt+letra também dispara a letra
 - `DWGame.DWSettings.KeyMappings` (`KeyMapping`: `Key`, `KeyName`, `ShiftActive`, `UiSection`, `TaskType`, `QueueBaseRole`, `CockpitTaskType`, `Description`) traz os atalhos com os remapeamentos do jogador. `Description` veio vazio em todos.
 - `DWGame.InputSystem.HandleKeyPress(galaxy, mapping, gameTime, dt, total, dt)` executa um atalho como se a tecla fosse apertada; roda no postfix de `DWGame.Update(GameTime gameTime)`. **confirmado** (2026-11-26): pausa, telas (Research, Colonies) e ações sem tecla atribuída.
 - `DWGame.GetGamePaused()` e `GetGameSpeed()` dão o estado do relógio; `PauseGame`, `ResumeGame`, `ChangeGameSpeed` existem, não usados.
+
+## Recursos
+
+Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources, e "Resources & Stock Levels").
+
+| O quê | Onde | Estado |
+|---|---|---|
+| Estoque ("On Hand") | `Empire.CalculateTotalCargoLevels(empireId)` | confirmado (Caslon 4.627, Carbonite 1.104, Cuprica 4.171) |
+| Nível a manter ("Maintain") | `Empire.CalculateTotalStockLevels(false)` | confirmado (Caslon 20.000, Carbonite 528, Emeros 100) |
+| Taxa por segundo da tela | `ResourceRatesCurrent - ResourceRatesRequired` | confirmado (Caslon 0 - 16,67 = -16,67/s) |
+| Preços ("Buy", "Sell") | `ResourcePricesBuy`, `ResourcePricesSell` | confirmado |
+| Categorias | `Resource.IsFuel`, `IsConstruction`, `IsLuxury`; um recurso pode estar em mais de uma (Caslon é combustível e construção; Gravillex Crystal é luxo e construção) | confirmado pela contagem da tabela |
+| Tabela Supply (Adequate / Low / Critical) | crítico = exigido com estoque zero, ou estoque abaixo de metade do Maintain; baixo = abaixo do Maintain | bate com o jogo (Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2); o limite de "metade" é palpite, não houve "Low" para conferir |
+| Não servem | `ResourceRateRequirementsMet` (false para tudo), `CriticalMissingResources` (vazia) | confirmado |
+| "Sources" do jogo | conta algo além dos depósitos conhecidos (Emeros "0 of 1" sem depósito conhecido); a nossa coluna se chama Deposits | a investigar |
+| Depósitos | `Empire.ExplorationMap.GetAllKnownOrbs(galaxy, empire, 1)`; `Orb.Resources` (`OrbResource.ResourceId`, `Abundance` em %, `DiscoveryLevel` comparado a `ExplorationMap.CheckExplorationLevel(orb)`); estação de mineração = base própria com role de mineração e `Ship.Parent` no orbe | 15 depósitos no save de teste |

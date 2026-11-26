@@ -9,8 +9,10 @@ internal sealed class ResourceRow
 {
     public short Id { get; set; }
     public string Name { get; set; }
-    /// <summary>fuel, construction, luxury or other.</summary>
+    /// <summary>fuel, construction, luxury or other: the first that applies, for display.</summary>
     public string Category { get; set; }
+    /// <summary>Every category the resource belongs to: the game counts e.g. Caslon both as fuel and as construction.</summary>
+    public List<string> Categories { get; set; }
     public double? Stock { get; set; }
     /// <summary>The stock level to maintain (the game's "Maintain" column); below it the game shows the stock in red.</summary>
     public double? Maintain { get; set; }
@@ -118,6 +120,8 @@ internal static class ResourcesView
                 Id = id,
                 Name = Safe(() => res.Name),
                 Category = Safe(() => res.IsFuel) ? "fuel" : Safe(() => res.IsConstruction) ? "construction" : Safe(() => res.IsLuxury) ? "luxury" : "other",
+                Categories = new[] { ("fuel", Safe(() => res.IsFuel)), ("construction", Safe(() => res.IsConstruction)), ("luxury", Safe(() => res.IsLuxury)) }
+                    .Where(c => c.Item2).Select(c => c.Item1).ToList(),
                 Stock = Get(stock, id),
                 Maintain = Get(maintain, id),
                 RateRequired = Get(required, id),

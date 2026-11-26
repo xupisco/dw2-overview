@@ -1518,8 +1518,11 @@ const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
 function resStatus(r) {
   if (r.critical) return 'critical';
   if (r.maintain != null) {
+    // Matches the game's supply table (2026-11-26: Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2): critical
+    // below half the level to maintain, or needed with nothing in stock; low below the level to maintain.
+    const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
+    if (req > 0 && stock <= 0) return 'critical';
     if (r.maintain <= 0) return 'adequate';
-    const stock = r.stock ?? 0;
     return stock < r.maintain / 2 ? 'critical' : stock < r.maintain ? 'low' : 'adequate';
   }
   const req = r.rateRequired ?? 0, cur = r.rateCurrent ?? 0;
@@ -1528,6 +1531,8 @@ function resStatus(r) {
   return 'adequate';
 }
 /** Leaves out the resources the empire has nothing to do with (the game lists every one with a zero rate). */
+/** A resource can be in several categories (Caslon: fuel and construction), as the game counts it. */
+const inCat = (r, cat) => (r.categories && r.categories.length ? r.categories : [r.category]).includes(cat);
 const resRelevant = r => (r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || (r.known ?? 0) > 0 || r.deposits > 0;
 function resRunsOut(r) {
   const net = resNet(r);
@@ -1543,11 +1548,11 @@ function renderResources() {
   const q = $('search').value.trim().toLowerCase();
 
   // Supply table; the fuel row is named after the fuel in use, as in the game ("Fuel (Caslon)").
-  const fuels = all.filter(r => r.category === 'fuel' && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
+  const fuels = all.filter(r => inCat(r, 'fuel') && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
   const catLabel = (key, label) => key === 'fuel' && fuels.length ? `${label} (${fuels.join(', ')})` : label;
   $('resSupply').innerHTML = `<table class="supply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${
     RES_CATS.map(([key, label]) => `<tr><td><i class="catsq" data-cat="${key}"></i>${esc(catLabel(key, label))}</td>${['adequate', 'low', 'critical'].map(st => {
-      const n = all.filter(r => r.category === key && resStatus(r) === st).length;
+      const n = all.filter(r => inCat(r, key) && resStatus(r) === st).length;
       const on = resSupply && resSupply.cat === key && resSupply.status === st;
       return `<td><button type="button" class="${on ? 'on' : ''}" data-cat="${key}" data-st="${st}" style="color:${n && st !== 'adequate' ? STATUS_COLOR[st] : ''}">${n}</button></td>`;
     }).join('')}</tr>`).join('')}</tbody></table>`;
@@ -1587,7 +1592,7 @@ function renderResources() {
   }
 
   if (resView === 'resources') {
-    const rows = all.filter(r => (!resSupply || (r.category === resSupply.cat && resStatus(r) === resSupply.status))
+    const rows = all.filter(r => (!resSupply || (inCat(r, resSupply.cat) && resStatus(r) === resSupply.status))
       && (!q || (r.name || '').toLowerCase().includes(q)))
       .sort((a, b) => (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
     $('resList').innerHTML = rows.map(r => {
