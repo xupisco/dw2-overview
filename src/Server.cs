@@ -121,6 +121,14 @@ internal static class Server
                     Snapshot.Touch();
                     Send(response, 200, contentTypes[".json"], Snapshot.ResearchJson);
                     return;
+                case "/api/messages":
+                    Snapshot.Touch();
+                    Send(response, 200, contentTypes[".json"], Snapshot.MessagesJson);
+                    return;
+                case "/api/index":
+                    Snapshot.TouchIndex();
+                    Send(response, 200, contentTypes[".json"], Snapshot.IndexJson);
+                    return;
             }
             if (path.StartsWith("/api/", StringComparison.Ordinal))
             {
@@ -164,9 +172,9 @@ internal static class Server
             string text = reader.ReadToEnd();
             body = text.Length <= 1024 ? JsonSerializer.Deserialize<GoToRequest>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) : null;
         }
-        if (body == null || (body.Type != "ship" && body.Type != "orb") || body.Id <= 0)
+        if (body == null || (body.Type != "ship" && body.Type != "orb" && body.Type != "fleet") || body.Id <= 0)
         {
-            Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {type: ship|orb, id}\"}");
+            Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {type: ship|orb|fleet, id}\"}");
             return;
         }
         Commands.GoTo(body.Type, body.Id);

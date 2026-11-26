@@ -42,8 +42,146 @@ internal sealed class ResearchRow
     public bool AtStation { get; set; }
 }
 
+/// <summary>One empire message (the game's message log).</summary>
+internal sealed class MessageRow
+{
+    /// <summary>Stable enough to tell messages apart between snapshots (the game gives them no id).</summary>
+    public string Key { get; set; }
+    public long StarDate { get; set; }
+    public string Date { get; set; }
+    public string Type { get; set; }
+    public string SubType { get; set; }
+    public string Priority { get; set; }
+    public bool Advisor { get; set; }
+    public string Title { get; set; }
+    public string Text { get; set; }
+    public string RelatedName { get; set; }
+    public string RelatedType { get; set; }
+    public int? RelatedId { get; set; }
+    public string Task { get; set; }
+}
+
+/// <summary>Something the command palette can jump to.</summary>
+internal sealed class IndexRow
+{
+    /// <summary>ship, orb or fleet: what /api/goto takes.</summary>
+    public string Type { get; set; }
+    public int Id { get; set; }
+    public string Name { get; set; }
+    /// <summary>Planet, Moon, Star, Asteroid, a ship role, or a fleet role.</summary>
+    public string Kind { get; set; }
+    public string System { get; set; }
+    public bool Own { get; set; }
+}
+
 internal static class Views
 {
+    public static List<MessageRow> Messages(Empire empire, int limit)
+    {
+        var all = Copy(Safe(() => empire.Messages));
+        var rows = new List<MessageRow>();
+        foreach (var m in all.OrderByDescending(m => m.StarDate).Take(limit))
+        {
+            var (relatedType, relatedId) = Target(Safe(() => m.RelatedObject));
+            rows.Add(new MessageRow
+            {
+                Key = $"{m.StarDate}|{m.Type}|{m.SubType}|{m.Title}",
+                StarDate = m.StarDate,
+                Date = Safe(() => m.StarDateDescription),
+                Type = m.Type.ToString(),
+                SubType = m.SubType.ToString(),
+                Priority = m.Priority.ToString(),
+                Advisor = m.IsAdvisorSuggestion,
+                Title = m.Title,
+                Text = m.Text,
+                RelatedName = Safe(() => (m.RelatedObject as INamed)?.Name),
+                RelatedType = relatedType,
+                RelatedId = relatedId,
+                Task = Safe(() => m.GameTask == null || m.GameTask.IsEmpty ? null : m.GameTask.Text ?? m.GameTask.Type.ToString()),
+            });
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// What the empire knows, through the game's own "Search Known Items" (so nothing unexplored leaks out),
+    /// plus the empire's own ships, colonies and fleets.
+    /// </summary>
+    public static List<IndexRow> Index(Galaxy galaxy, Empire empire, out int knownCount)
+    {
+        var rows = new List<IndexRow>();
+        var seen = new HashSet<string>();
+        knownCount = 0;
+        StellarObjectList known = null;
+        try
+        {
+            empire.ResolveKnownItems("", true, true, true, out known);
+        }
+        catch (Exception e)
+        {
+            Log.Warn("ResolveKnownItems: " + e.Message);
+        }
+        foreach (var obj in Copy(known))
+        {
+            knownCount++;
+            Add(obj);
+        }
+        foreach (var ship in Copy(empire.Ships))
+        {
+            Add(ship);
+        }
+        foreach (var orb in Copy(empire.Colonies))
+        {
+            Add(orb);
+        }
+        foreach (var fleet in Copy(empire.Fleets))
+        {
+            var lead = Safe(() => fleet.LeadShip);
+            rows.Add(new IndexRow
+            {
+                Type = "fleet",
+                Id = fleet.FleetId,
+                Name = fleet.Name,
+                Kind = "Fleet " + fleet.Role,
+                System = lead != null ? SystemName(galaxy, lead) : null,
+                Own = true,
+            });
+        }
+        return rows;
+
+        void Add(StellarObject obj)
+        {
+            var (type, id) = Target(obj);
+            if (type == null || !seen.Add(type + id))
+            {
+                return;
+            }
+            string kind = obj switch
+            {
+                Ship s => s.IsBase ? "Base " + s.Role : s.Role.ToString(),
+                Orb o => o.Colony != null && o.Colony.Empire.Id == empire.EmpireId ? "Colony" : o.Category.ToString(),
+                _ => null,
+            };
+            rows.Add(new IndexRow
+            {
+                Type = type,
+                Id = id.Value,
+                Name = Safe(() => (obj as INamed)?.Name),
+                Kind = Safe(() => kind),
+                System = SystemName(galaxy, obj),
+                Own = obj is Ship ship ? ship.EmpireId == empire.EmpireId : kind == "Colony",
+            });
+        }
+    }
+
+    /// <summary>How /api/goto finds an object again.</summary>
+    private static (string type, int? id) Target(StellarObject obj) => obj switch
+    {
+        Ship s => ("ship", s.ShipId),
+        Orb o => ("orb", o.OrbId),
+        _ => (null, null),
+    };
+
     public static List<ColonyRow> Colonies(Galaxy galaxy, Empire empire)
     {
         var rows = new List<ColonyRow>();

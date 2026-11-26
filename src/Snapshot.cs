@@ -71,9 +71,29 @@ internal static class Snapshot
     public static volatile string ConstructionJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string ColoniesJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string ResearchJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string MessagesJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string IndexJson = "{\"loaded\":false,\"items\":[]}";
+
+    private const int MessageLimit = 200;
+    private const double IndexIntervalSeconds = 10.0;
+    private static double nextIndex;
+    private static double lastIndexRequest = double.NegativeInfinity;
+    private static bool indexLogged;
 
     /// <summary>Called by the server on each API request, so collection runs only while a page is open.</summary>
     public static void Touch() => Volatile.Write(ref lastRequest, clock.Elapsed.TotalSeconds);
+
+    /// <summary>The palette asked for the index: keep it fresh, and build it right away if it is stale.</summary>
+    public static void TouchIndex()
+    {
+        double now = clock.Elapsed.TotalSeconds;
+        if (now - Volatile.Read(ref lastIndexRequest) >= KeepCollectingSeconds)
+        {
+            nextIndex = 0;
+        }
+        Volatile.Write(ref lastIndexRequest, now);
+        Touch();
+    }
 
     public static void Install(Harmony h)
     {
@@ -98,7 +118,9 @@ internal static class Snapshot
             if (!loaded)
             {
                 InfoJson = Serialize(new { api = 1, mod = Core.Version, loaded = false, token = Commands.Token });
-                ConstructionJson = ColoniesJson = ResearchJson = "{\"loaded\":false,\"items\":[]}";
+                ConstructionJson = ColoniesJson = ResearchJson = MessagesJson = IndexJson = "{\"loaded\":false,\"items\":[]}";
+                indexLogged = false;
+                nextIndex = 0;
                 return;
             }
 
@@ -115,8 +137,29 @@ internal static class Snapshot
             var colonies = Views.Colonies(galaxy, empire);
             double coloniesMs = sw.Elapsed.TotalMilliseconds - constructionMs;
             var (research, concurrent) = Views.Research(empire);
-            sw.Stop();
             double researchMs = sw.Elapsed.TotalMilliseconds - constructionMs - coloniesMs;
+            double mark = sw.Elapsed.TotalMilliseconds;
+            var messages = Views.Messages(empire, MessageLimit);
+            double messagesMs = sw.Elapsed.TotalMilliseconds - mark;
+
+            // The palette's index is bigger and changes slowly: rebuilt at most every IndexIntervalSeconds,
+            // and only while a page asked for it recently.
+            double indexMs = 0;
+            if (now >= nextIndex && now - Volatile.Read(ref lastIndexRequest) < KeepCollectingSeconds)
+            {
+                nextIndex = now + IndexIntervalSeconds;
+                mark = sw.Elapsed.TotalMilliseconds;
+                var index = Views.Index(galaxy, empire, out int knownCount);
+                indexMs = sw.Elapsed.TotalMilliseconds - mark;
+                IndexJson = Serialize(new { loaded = true, collectedAt = DateTime.Now.ToString("HH:mm:ss"), knownCount, ms = Math.Round(indexMs, 2), items = index });
+                if (!indexLogged)
+                {
+                    indexLogged = true;
+                    Log.Info($"First index: {index.Count} items ({knownCount} from ResolveKnownItems) in {indexMs:0.00} ms; kinds: "
+                        + string.Join(", ", index.GroupBy(i => i.Kind).Select(g => $"{g.Key}={g.Count()}")));
+                }
+            }
+            sw.Stop();
 
             var collectedAt = DateTime.Now.ToString("HH:mm:ss");
             InfoJson = Serialize(new
@@ -131,12 +174,20 @@ internal static class Snapshot
                 economy = Views.Economy(empire),
                 collectedAt,
                 collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
-                timings = new { construction = Math.Round(constructionMs, 2), colonies = Math.Round(coloniesMs, 2), research = Math.Round(researchMs, 2) },
+                timings = new
+                {
+                    construction = Math.Round(constructionMs, 2),
+                    colonies = Math.Round(coloniesMs, 2),
+                    research = Math.Round(researchMs, 2),
+                    messages = Math.Round(messagesMs, 2),
+                    index = Math.Round(indexMs, 2),
+                },
                 stats,
             });
             ConstructionJson = Serialize(new { loaded = true, collectedAt, items });
             ColoniesJson = Serialize(new { loaded = true, collectedAt, items = colonies });
             ResearchJson = Serialize(new { loaded = true, collectedAt, concurrent, items = research });
+            MessagesJson = Serialize(new { loaded = true, collectedAt, items = messages });
 
             if (!dumped)
             {
@@ -144,6 +195,9 @@ internal static class Snapshot
                 Dump(items, stats, sw.Elapsed.TotalMilliseconds);
                 Log.Info($"Colonies ({coloniesMs:0.00} ms): {ColoniesJson}");
                 Log.Info($"Research ({researchMs:0.00} ms): {ResearchJson}");
+                Log.Info($"Messages ({messagesMs:0.00} ms): {messages.Count} shown of {Copy(Safe(() => empire.Messages)).Count} " +
+                    $"(RecentMessages {Copy(Safe(() => empire.RecentMessages)).Count}); newest: " +
+                    string.Join(" | ", messages.Take(5).Select(m => $"[{m.Priority} {m.Type}/{m.SubType}{(m.Advisor ? " advisor" : "")}] {m.Title} -> {m.RelatedName} task={m.Task}")));
             }
         }
         catch (Exception e)

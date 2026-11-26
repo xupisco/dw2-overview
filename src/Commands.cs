@@ -31,6 +31,27 @@ internal static class Commands
                     Log.Warn($"GoTo {command.type} {command.id}: no game loaded.");
                     continue;
                 }
+                if (command.type == "fleet")
+                {
+                    var empire = renderer.PlayerEmpire;
+                    var fleet = empire?.Fleets?.FirstOrDefault(f => f.FleetId == command.id);
+                    var lead = fleet?.LeadShip;
+                    if (fleet == null)
+                    {
+                        Log.Warn($"GoTo fleet {command.id}: not found.");
+                        continue;
+                    }
+                    renderer.SetSelectedObject(fleet);
+                    if (lead != null)
+                    {
+                        renderer.MoveViewNoZoom(lead);
+                    }
+                    if (logged++ < 50)
+                    {
+                        Log.Info($"GoTo fleet {command.id}: {fleet.Name} (lead {lead?.Name ?? "none"})");
+                    }
+                    continue;
+                }
                 StellarObject target = command.type switch
                 {
                     "ship" => galaxy.Ships.GetById(command.id),

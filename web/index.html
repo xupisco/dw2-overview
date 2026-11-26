@@ -33,6 +33,9 @@
   .tag.outsideYard { color: var(--accent); border-color: #2b4c5c; }
   .tag.facility { color: #b59ad9; border-color: #4b3d5e; }
   .tag.idle { color: var(--dim); border-style: dashed; }
+  .tag.prio-Critical { color: var(--bad); border-color: #6a3333; }
+  .tag.prio-High { color: var(--warn); border-color: #5e4c26; }
+  .tag.prio-Low { color: var(--dim); border-style: dashed; }
   tbody tr { cursor: pointer; }
   tbody tr.flash { background: #1f3340; }
   .go { color: var(--accent); text-decoration: none; }
@@ -69,6 +72,7 @@
     <button type="button" data-tab="construction">Construction</button>
     <button type="button" data-tab="colonies">Colonies</button>
     <button type="button" data-tab="research">Research</button>
+    <button type="button" data-tab="messages">Messages</button>
   </nav>
 </header>
 
@@ -110,6 +114,19 @@
     <option value="">Everything</option>
   </select>
   </span>
+  <span id="mfilters" class="group" hidden>
+  <select id="mprio">
+    <option value="0">All priorities</option>
+    <option value="1">Normal and up</option>
+    <option value="2">High and up</option>
+  </select>
+  </span>
+  <select id="notify" title="Browser notifications for new game messages">
+    <option value="off">Notifications off</option>
+    <option value="2">Notify: high and critical</option>
+    <option value="1">Notify: normal and up</option>
+    <option value="0">Notify: every message</option>
+  </select>
   <button id="pause" type="button">Pause</button>
   <span class="count" id="count"></span>
 </div>
@@ -197,9 +214,22 @@ const columns = {
     { key: 'atStation', label: 'At station', f: fmt.bool },
   ],
 };
+const priorityRank = { Low: 0, Normal: 1, High: 2, Critical: 3 };
+columns.messages = [
+  { key: 'date', label: 'Date', sortKey: 'starDate' },
+  { key: 'priority', label: 'Priority', f: v => `<span class="tag prio-${esc(v)}">${esc(v)}</span>`, html: true, order: { Critical: 0, High: 1, Normal: 2, Low: 3 } },
+  { key: 'type', label: 'Type', f: (v, r) => r.advisor ? `${esc(v)} <span class="none">(advisor)</span>` : esc(v), html: true },
+  { key: 'title', label: 'Title' },
+  { key: 'text', label: 'Text', f: v => v && v.length > 90 ? esc(v.slice(0, 90)) + '…' : esc(v), html: true },
+  { key: 'relatedName', label: 'About' },
+  { key: 'task', label: 'Suggests' },
+];
+otherSort.messages = { key: 'date', asc: false };
+
 const hints = {
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
   colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
+  messages: 'The game\'s message log, newest first. Click a message to go to what it is about. Notifications need the browser\'s permission once.',
   research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
 };
 
@@ -209,9 +239,11 @@ function renderOther() {
   const col = cols.find(c => c.key === s.key);
   const rs = $('rstate').value;
   const stateOk = r => tab !== 'research' || !rs || (rs === 'queue' ? r.state === 'active' || r.state === 'queued' : r.state === rs);
-  const rows = other.rows.filter(r => stateOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
+  const msgOk = r => tab !== 'messages' || (priorityRank[r.priority] ?? 0) >= +$('mprio').value;
+  const sk = col?.sortKey || s.key;
+  const rows = other.rows.filter(r => stateOk(r) && msgOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
     .sort((a, b) => {
-      let x = a[s.key], y = b[s.key];
+      let x = a[sk], y = b[sk];
       if (col?.order) { x = col.order[x] ?? 9; y = col.order[y] ?? 9; }
       if (x == null && y == null) return 0;
       if (x == null) return 1;
@@ -239,6 +271,7 @@ function setTab(name) {
   $('tab-other').hidden = tab === 'construction';
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
+  $('mfilters').hidden = tab !== 'messages';
   $('hint').textContent = hints[tab];
   try { localStorage.setItem('overview.tab', tab); } catch (e) { }
   lastSnapshot = null;
@@ -271,6 +304,9 @@ async function refresh() {
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
     }
+    if (info.loaded && $('notify').value !== 'off') {
+      checkNotify(tab === 'messages' ? rows : ((await getJson('/api/messages')).items || []));
+    }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
     const snapshot = tab + JSON.stringify(rows) + (data.concurrent ?? '');
     if (snapshot === lastSnapshot) return;
@@ -286,6 +322,23 @@ async function refresh() {
   } catch (e) {
     $('dot').classList.remove('on');
     $('status').textContent = 'game not reachable (is it running with the mod?)';
+  }
+}
+
+// Browser notifications: the first list we see only marks messages as known, so turning this on (or
+// reloading the page) does not replay the whole log. After that, each new message at or above the chosen
+// priority pops up; clicking it brings this page forward and goes to what the message is about.
+let knownMessages = null;
+function checkNotify(messages) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (knownMessages === null) { knownMessages = new Set(messages.map(m => m.key)); return; }
+  const min = +$('notify').value;
+  for (const m of [...messages].reverse()) {
+    if (knownMessages.has(m.key)) continue;
+    knownMessages.add(m.key);
+    if ((priorityRank[m.priority] ?? 0) < min) continue;
+    const n = new Notification(m.title || 'Distant Worlds 2', { body: m.text || '', tag: m.key });
+    n.onclick = () => { window.focus(); if (m.relatedId) goTo(m.relatedType, m.relatedId); n.close(); };
   }
 }
 
@@ -428,6 +481,14 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
 ['state', 'category', 'role', 'work'].forEach(id => $(id).addEventListener('input', render));
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
+$('mprio').addEventListener('input', renderOther);
+try { $('notify').value = localStorage.getItem('overview.notify') || 'off'; } catch (e) { }
+$('notify').addEventListener('input', async () => {
+  try { localStorage.setItem('overview.notify', $('notify').value); } catch (e) { }
+  if ($('notify').value === 'off' || !('Notification' in window)) return;
+  if (Notification.permission === 'default') await Notification.requestPermission();
+  if (Notification.permission !== 'granted') $('status').textContent = 'notifications blocked by the browser';
+});
 $('view').addEventListener('input', () => {
   try { localStorage.setItem('overview.view', $('view').value); } catch (e) { }
   render();
@@ -449,8 +510,10 @@ $('ohead').addEventListener('click', e => {
 $('orows').addEventListener('click', e => {
   const tr = e.target.closest('tr');
   const row = tr && otherShown[+tr.dataset.n];
-  if (tab !== 'colonies' || !row) return;
-  goTo('orb', row.orbId);
+  if (!row) return;
+  if (tab === 'colonies') goTo('orb', row.orbId);
+  else if (tab === 'messages' && row.relatedId) goTo(row.relatedType, row.relatedId);
+  else return;
   tr.classList.add('flash');
   setTimeout(() => tr.classList.remove('flash'), 400);
 });
