@@ -279,6 +279,8 @@
   .kpi .ktoggle { position: absolute; top: 6px; right: 8px; font: 500 12px Barlow, sans-serif; font-style: normal; color: var(--mut); background: var(--track); padding: 1px 7px; cursor: pointer; }
   .kpi .ktoggle:hover { color: var(--tx); }
   .kpi .ktoggle.on { color: var(--acc); background: var(--acc-d); }
+  .restypes { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
+  .restypes[hidden] { display: none; }
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
@@ -328,6 +330,7 @@
   .catsq { display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--acc); }
   .catsq[data-cat="fuel"] { background: var(--warn); }
   .catsq[data-cat="luxury"] { background: oklch(var(--L) 0.11 330); }
+  .catsq[data-cat="other"] { background: var(--mut); }
   .restop { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
   .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
   .supply th { background: transparent; font-size: 12px; padding: 2px 10px; cursor: default; text-align: center; }
@@ -541,7 +544,7 @@
   .sgroup em { font-style: normal; color: var(--mut); font-size: 12px; }
   .sgroup .sicon { color: var(--acc); }
   .caret2 { color: var(--mut); width: 10px; }
-  .srow { display: grid; grid-template-columns: 30px minmax(150px, 1.1fr) minmax(220px, 1.7fr) 130px 120px 200px 40px; gap: 10px; align-items: center;
+  .srow { display: grid; grid-template-columns: 30px minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(200px, 1.2fr) 40px; gap: 10px; align-items: center;
     padding: 5px 10px; background: var(--panel); cursor: pointer; }
   .srow:hover { background: var(--hover); }
   .srow.flash { background: var(--acc-d); }
@@ -561,7 +564,10 @@
   .sname.one { flex-direction: row; align-items: baseline; gap: 8px; }
   .sname.one small { flex: none; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-  .cchip { background: var(--track); padding: 0 6px; white-space: nowrap; }
+  .cchip { background: var(--track); padding: 0 6px 0 5px; white-space: nowrap; border-left: 3px solid var(--mut); }
+  .cchip[data-cat="construction"], .lchip[data-cat="construction"] { border-left-color: var(--acc); }
+  .cchip[data-cat="fuel"], .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
+  .cchip[data-cat="luxury"], .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
   .cchip b { font-weight: 500; }
   .sfuel .mline { display: flex; align-items: center; gap: 6px; }
   .sfuel .mline small { width: 40px; }
@@ -771,6 +777,7 @@
   <div class="restop">
     <div id="resSupply"></div>
   </div>
+  <div id="resTypes" class="slegend roles restypes"></div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
       <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
@@ -943,7 +950,7 @@ function syncFilters() {
   mark($('rstate'), tab === 'research' && $('rstate').value !== 'queue');
   mark($('mprio'), tab === 'messages' && $('mprio').value !== '0');
   document.querySelectorAll('#gfilters select').forEach(el => mark(el, el.value !== ''));
-  const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && resSupply);
+  const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && (resSupply || resTypeFilter.size));
   $('clearFilters').hidden = !(marks.length || chips || (tab === 'construction' && buildChips));
 }
 function clearFilters() {
@@ -954,7 +961,7 @@ function clearFilters() {
   filterValues[tab] = {};
   document.querySelectorAll('#gfilters select').forEach(el => { el.value = ''; });
   if (tab === 'ships') { shipBucketFilter.clear(); shipRoleFilter.clear(); }
-  if (tab === 'resources') resSupply = null;
+  if (tab === 'resources') { resSupply = null; resTypeFilter.clear(); }
   renderOther();
 }
 
@@ -2120,11 +2127,12 @@ function miniBar(rows) {
  * damage. A full, healthy, empty ship shows nothing here.
  */
 function shipState(s) {
-  const cargo = (s.cargo || []).slice(0, 2).map(c => `<span class="cchip" title="Cargo">${esc(c.name)} <b>${fmt.big(c.amount)}</b></span>`).join('')
-    + ((s.cargo || []).length > 2 ? `<span class="mut" title="${esc(s.cargo.slice(2).map(c => c.name + ' ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 2}</span>` : '');
+  const cargo = (s.cargo || []).slice(0, 3).map(c => `<span class="cchip" data-cat="${esc(c.category || '')}" title="Cargo${c.category ? ' · ' + esc(c.category) : ''}">${esc(c.name)} <b>${fmt.big(c.amount)}</b></span>`).join('')
+    + ((s.cargo || []).length > 3 ? `<span class="mut" title="${esc(s.cargo.slice(3).map(c => c.name + ' ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 3}</span>` : '');
   const warn = [];
-  if (s.fuel != null && s.fuel < 0.5) warn.push(`<span class="${s.fuel < 0.25 ? 'flag' : 'mk-warn'}" title="Fuel: how much of the ship's full range is left">Fuel ${fuelPct(s)}%</span>`);
-  if (s.energy != null && s.energy < 0.5) warn.push(`<span class="${s.energy < 0.25 ? 'flag' : 'mk-warn'}" title="Energy: the reactor's storage">Energy ${Math.round(s.energy * 100)}%</span>`);
+  const inYard = shipBucket(s) === 'yard';   // being built or repaired: no fuel yet is no news
+  if (!inYard && s.fuel != null && s.fuel < 0.5) warn.push(`<span class="${s.fuel < 0.25 ? 'flag' : 'mk-warn'}" title="Fuel: how much of the ship's full range is left">Fuel ${fuelPct(s)}%</span>`);
+  if (!inYard && s.energy != null && s.energy < 0.5) warn.push(`<span class="${s.energy < 0.25 ? 'flag' : 'mk-warn'}" title="Energy: the reactor's storage">Energy ${Math.round(s.energy * 100)}%</span>`);
   if (s.damage) warn.push(`<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>`);
   return `${cargo ? `<span class="scargo">${cargo}</span>` : ''}${warn.length ? `<span class="swarn">${warn.join('')}</span>` : ''}`;
 }
@@ -2224,17 +2232,15 @@ function renderShips() {
           <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small></span>
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
-        <span class="scmeta">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}${s.system ? ' · ' + esc(s.system) : ''}${s.fleet ? ' · ' + esc(s.fleet) : ''}</span>
+        ${manual || s.fleet ? `<span class="scmeta">${[manual ? '✋ Manual' : '', s.fleet ? esc(s.fleet) : ''].filter(Boolean).join(' · ')}</span>` : ''}
         <span class="sfuel">${shipState(s)}</span>
       </div>`;
         continue;
       }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
-        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small></span>
+        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip" title="Under manual orders">✋ Manual</span>' : ''}${s.fleet ? `<span class="chip" title="Fleet">${esc(s.fleet)}</span>` : ''}</span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
-        <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
-        <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
         <span class="sfuel">${shipState(s)}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
       </div>`;
@@ -2695,6 +2701,7 @@ function resExpand(r) {
 // Like the game's Mining Locations / New Mining Locations. The game's own priority is not known here, so new
 // locations come most needed first: each resource's abundance weighed by how short the empire is of it.
 let resView = 'resources';
+const resTypeFilter = new Set();   // fuel, construction, luxury, other; empty = all
 try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
 let resBuilds = [], resBuildsAt = 0;
 /** Construction items, to know which new location already has a station being built or a ship on its way. */
@@ -2740,6 +2747,12 @@ function renderLocations(all, deps, q) {
   }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
 }
+$('resTypes').addEventListener('click', e => {
+  const b = e.target.closest('[data-rtype]');
+  if (!b) return;
+  if (resTypeFilter.has(b.dataset.rtype)) resTypeFilter.delete(b.dataset.rtype); else resTypeFilter.add(b.dataset.rtype);
+  renderResources();
+});
 $('resViews').addEventListener('click', e => {
   const b = e.target.closest('[data-view]');
   if (!b) return;
@@ -2781,10 +2794,14 @@ function renderResources() {
   });
   $('resListWrap').hidden = resView !== 'resources';
   $('resLocations').hidden = resView === 'resources';
+  $('resTypes').hidden = resView !== 'resources';
   if (resView !== 'resources') { renderLocations(all, deps, q); return; }
+  const types = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury'], ['other', 'Other']].filter(([k]) => all.some(r => r.category === k));
+  $('resTypes').innerHTML = types.map(([k, label]) => `<button type="button" data-rtype="${k}" class="${!resTypeFilter.size || resTypeFilter.has(k) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all"><i class="catsq" data-cat="${k}"></i>${label} <em>${all.filter(r => r.category === k).length}</em></button>`).join('');
 
   // Every resource that matters, most urgent first (critical, low, then the rest), soonest to run out first.
   const rows = all.filter(r => (!resSupply || (inCat(r, resSupply.cat) && resStatus(r) === resSupply.status))
+    && (!resTypeFilter.size || resTypeFilter.has(r.category))
     && (!q || (r.name || '').toLowerCase().includes(q)))
     .sort((a, b) => RES_RANK[resStatus(a)] - RES_RANK[resStatus(b)]
       || (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));

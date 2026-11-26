@@ -6,6 +6,8 @@ namespace DW2Overview;
 internal sealed class CargoRow
 {
     public string Name { get; set; }
+    /// <summary>fuel, construction, luxury or other (the resource's own flags, as in /api/resources).</summary>
+    public string Category { get; set; }
     public double Amount { get; set; }
 }
 
@@ -352,7 +354,16 @@ internal static class Views
             {
                 var cargo = Copy(Safe(() => ship.Cargo)).Where(c => (float)c.Amount >= 1f)
                     .GroupBy(c => c.ResourceId)
-                    .Select(g => new CargoRow { Name = Safe(() => galaxy.Resources.GetById(g.Key)?.Name), Amount = Math.Round(g.Sum(c => (double)(float)c.Amount)) })
+                    .Select(g =>
+                    {
+                        var res = Safe(() => galaxy.Resources.GetById(g.Key));
+                        return new CargoRow
+                        {
+                            Name = Safe(() => res?.Name),
+                            Category = res == null ? null : Safe(() => res.IsFuel) ? "fuel" : Safe(() => res.IsConstruction) ? "construction" : Safe(() => res.IsLuxury) ? "luxury" : "other",
+                            Amount = Math.Round(g.Sum(c => (double)(float)c.Amount)),
+                        };
+                    })
                     .OrderByDescending(c => c.Amount)
                     .ToList();
                 row.Cargo = cargo.Count > 0 ? cargo : null;
