@@ -106,14 +106,17 @@ internal sealed class IndexRow
 internal static class Views
 {
     /// <summary>
-    /// The message log plus the advisor's pending suggestions. Suggestions ("Advisor Suggestion: Build MS-1 at
-    /// Kintaris 4", with Assign Mission / Decline) are not in Empire.Messages but in Empire.EvaluationQueue,
-    /// and leave it once accepted, declined or expired; they come first, flagged Pending.
+    /// The message log plus the advisor's pending suggestions. Suggestions ("Assign Mission: Build MS-1 at
+    /// Kintaris 4", with Assign Mission / Decline) are not in Empire.Messages but in Empire.EvaluationQueue
+    /// (IsAdvisorSuggestion, the action in GameTask, no RelatedObject) and leave it once accepted, declined
+    /// or expired; they come first, flagged Pending.
     /// </summary>
     public static List<MessageRow> Messages(Empire empire, int limit)
     {
         var log = Copy(Safe(() => empire.Messages));
-        var pending = Copy(Safe(() => empire.EvaluationQueue));
+        // Every message passes through EvaluationQueue for a few seconds on its way to the log (seen in game,
+        // 2026-11-26), so only the advisor's suggestions count as pending; the rest would show up twice.
+        var pending = Copy(Safe(() => empire.EvaluationQueue)).Where(m => m.IsAdvisorSuggestion).ToList();
         var rows = new List<MessageRow>();
         foreach (var (m, isPending) in pending.Select(m => (m, true)).Concat(log.OrderByDescending(m => m.StarDate).Take(limit).Select(m => (m, false))))
         {
