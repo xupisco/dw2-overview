@@ -1545,10 +1545,11 @@ function whereCell(i, kind, key, more) {
   return `<span class="caret" data-toggle="${esc(key)}" title="${open ? 'Fold' : 'Show'} the other ${more}">${open ? '▾' : '▸'}</span>${place}<span class="more">+${more}</span>`;
 }
 
-/** Role: the group the filter chips use (Exploration, Logistics, Military...), one line like the other columns. */
+/** Role on one line: the group the filter chips use (Military, Logistics...), then the game's exact type in grey. */
 function roleCell(i) {
-  const group = buildRole(i);
-  return group ? esc(group) : '<span class="none">–</span>';
+  const group = buildRole(i), exact = human(i.role || '');
+  if (!group) return '<span class="none">–</span>';
+  return esc(group) + (exact && exact.toLowerCase() !== group.toLowerCase() ? ` <span class="mut">${esc(exact)}</span>` : '');
 }
 
 function nameCell(i) {
