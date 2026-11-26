@@ -678,6 +678,12 @@
   .psec { color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; padding: 10px 16px 4px; }
   .pkey { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; visibility: hidden; }
   .pitem.on .pkey { visibility: visible; }
+  /* One tooltip for the whole page, in place of the browser's (see the "Tooltip" script) */
+  #tip { position: fixed; z-index: 100; left: 0; top: 0; width: max-content; max-width: 320px; padding: 6px 10px; pointer-events: none;
+    background: var(--panel-h); color: var(--tx); border: 1px solid var(--line-2); box-shadow: 0 6px 20px rgba(0,0,0,.45);
+    font-size: 12.5px; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere;
+    opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s; }
+  #tip.on { opacity: 1; transform: none; }
 </style>
 </head>
 <body>
@@ -3337,6 +3343,52 @@ document.addEventListener('keydown', e => {
     palette.open ? closePalette() : openPalette();
   }
 });
+
+// ---- Tooltip: the page's own, in place of the browser's. Any element with a title gets it: on the first hover
+// the title moves to data-tip (so the browser's never shows); code that sets .title later is picked up the same way.
+const tip = document.createElement('div');
+tip.id = 'tip';
+tip.setAttribute('role', 'tooltip');
+document.body.appendChild(tip);
+let tipFor = null, tipTimer = 0;
+function tipText(el) {
+  const t = el.getAttribute('title');
+  if (t != null) { el.removeAttribute('title'); if (t) el.dataset.tip = t; else delete el.dataset.tip; }
+  return el.dataset.tip || '';
+}
+function hideTip() {
+  clearTimeout(tipTimer);
+  tipFor = null;
+  tip.classList.remove('on');
+}
+function placeTip(el) {
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 6, pad = 8;
+  const x = Math.max(pad, Math.min(innerWidth - w - pad, r.left + r.width / 2 - w / 2));
+  const below = r.bottom + gap + h <= innerHeight - pad;
+  tip.style.left = Math.round(x) + 'px';
+  tip.style.top = Math.round(below ? r.bottom + gap : Math.max(pad, r.top - gap - h)) + 'px';
+}
+document.addEventListener('pointerover', e => {
+  if (e.pointerType === 'touch') return;
+  const el = e.target.closest?.('[title], [data-tip]');
+  if (el === tipFor) return;
+  const text = el ? tipText(el) : '';
+  if (!text) { if (tipFor && !tipFor.contains(e.target)) hideTip(); return; }
+  const wasOn = tip.classList.contains('on');
+  hideTip();
+  tipFor = el;
+  // A short wait for the first one; moving straight on to the next shows it at once.
+  tipTimer = setTimeout(() => {
+    if (tipFor !== el || !el.isConnected) return;
+    tip.textContent = text;
+    placeTip(el);
+    tip.classList.add('on');
+  }, wasOn ? 0 : 350);
+});
+document.addEventListener('pointerout', e => { if (tipFor && !tipFor.contains(e.relatedTarget)) hideTip(); });
+['pointerdown', 'keydown', 'wheel'].forEach(t => document.addEventListener(t, hideTip, true));
+addEventListener('scroll', hideTip, true);
+addEventListener('blur', hideTip);
 
 // ---- Start (last, so every declaration above exists before the first render) ----
 setFavicon(false, 0);
