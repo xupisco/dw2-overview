@@ -2246,7 +2246,7 @@ function renderShips() {
   const rows = all.filter(s =>
     (!shipBucketFilter.size || shipBucketFilter.has(shipBucket(s))) &&
     (!shipRoleFilter.size || shipRoleFilter.has(shipCategory(s))) &&
-    (!q || [s.name, s.kind && kindText(s), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet]
+    (!q || [s.name, s.kind && kindText(s), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet, ...(s.cargo || []).map(c => c.name)]
       .some(v => v && v.toLowerCase().includes(q))));
 
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
