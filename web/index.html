@@ -202,6 +202,7 @@
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
   .tag.enroute { color: var(--acc); background: var(--acc-d); }
+  .tag.shipmine { color: var(--mut); background: transparent; box-shadow: inset 0 0 0 1px var(--line-2); }
   .tag.planned { color: var(--warn); background: transparent; box-shadow: inset 0 0 0 1px var(--warn); }
   .tag.outsideYard, .tag.latest { color: var(--acc); background: var(--acc-d); }
   .tag.facility { color: oklch(var(--L) 0.11 300); background: color-mix(in srgb, oklch(var(--L) 0.11 300) 14%, transparent); }
@@ -2518,7 +2519,7 @@ async function loadOverview() {
   const names = ['construction', 'research', 'colonies', 'messages', 'ships', 'resources'];
   const got = await Promise.all(names.map(n => getJson('/api/' + n).then(r => r).catch(() => ({ items: [] }))));
   const data = {};
-  names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; });
+  names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; if (got[i].deposits) data.deposits = got[i].deposits; });
   learnResources(data.resources);
   return { items: [], ov: data };
 }
@@ -2556,9 +2557,15 @@ function attentionItems() {
   const critical = (ov.resources || []).filter(r => resRelevant(r) && resStatus(r) === 'critical');
   if (critical.length) {
     // For each: a mining base being built or a construction ship on its way where it is found, or nobody yet.
+    // Or a mining ship mining it somewhere (ships need no station).
     const onIt = r => ov.construction.find(i => i.state !== 'idle' && (i.extracts || []).some(x => x.name === r.name));
-    const lines = critical.slice(0, 4).map(r => { const i = onIt(r); return i ? `${r.name}: ${i.state === 'enroute' ? `${i.where} on the way to ${i.site}` : i.state === 'planned' ? `station ordered at ${i.site}, waiting for a ship` : `station being built at ${i.site}`}` : `${r.name}: nobody on it`; });
-    const allCovered = critical.every(onIt);
+    const shipOn = r => { for (const d of ov.deposits || []) { const s = shipsMining(d, r.id); if (s.length) return { d, s }; } return null; };
+    const lines = critical.slice(0, 4).map(r => {
+      const i = onIt(r), m = shipOn(r);
+      return i ? `${r.name}: ${i.state === 'enroute' ? `${i.where} on the way to ${i.site}` : i.state === 'planned' ? `station ordered at ${i.site}, waiting for a ship` : `station being built at ${i.site}`}`
+        : m ? `${r.name}: ${m.s.map(s => s.name).join(', ')} mining at ${m.d.name}` : `${r.name}: nobody on it`;
+    });
+    const allCovered = critical.every(r => onIt(r) || shipOn(r));
     add(allCovered ? 'warn' : 'bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, lines.join(' · '), 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
   }
   if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${fuelPct(s)}%`).join(', '), 'Ships', goTab('ships'));
@@ -2795,22 +2802,32 @@ const STATUS_COLOR = { adequate: 'var(--tx)', low: 'var(--warn)', critical: 'var
 
 const RES_RANK = { critical: 0, low: 1, adequate: 2 };
 
-/** Where a resource comes from: mined at, a station being built, known deposits not mined (best first). */
+/**
+ * Mining ships mining this resource at a place: ships mine without a station (the game still lists the place under
+ * New Mining Locations). One carrying some of the place's resources mines those; one carrying none yet, any of them.
+ */
+function shipsMining(d, resId) {
+  return (d.ships || []).filter(s => !(s.carrying || []).length || s.carrying.includes(resId));
+}
+
+/** Where a resource comes from: mined at, mined by ships, a station being built, known deposits not mined (best first). */
 function resSites(r) {
   const sites = (resData.deposits || []).filter(d => d.resources.some(x => x.id === r.id))
-    .map(d => ({ d, ab: d.resources.find(x => x.id === r.id).abundance }))
+    .map(d => ({ d, ab: d.resources.find(x => x.id === r.id).abundance, ships: shipsMining(d, r.id) }))
     .sort((a, b) => b.ab - a.ab);
   return {
     mined: sites.filter(x => x.d.minedBy),
+    ships: sites.filter(x => !x.d.minedBy && x.ships.length),
     building: sites.filter(x => !x.d.minedBy && x.d.stationBuilding != null),
-    free: sites.filter(x => !x.d.minedBy && x.d.stationBuilding == null),
+    free: sites.filter(x => !x.d.minedBy && x.d.stationBuilding == null && !x.ships.length),
   };
 }
 
 /** The row's next step, in one line: where it comes from, or the best place it could come from. */
 function resNext(r) {
-  const st = resStatus(r), { mined, building, free } = resSites(r);
+  const st = resStatus(r), { mined, ships, building, free } = resSites(r);
   const go = x => `<a class="go" href="#" data-orb="${x.d.orbId}">${esc(x.d.name)}</a>`;
+  const byShip = ships.length ? `${mined.length ? ' · ' : 'Mined '}by ship at ${ships.slice(0, 2).map(x => `${go(x)} <span class="mut">(${esc(x.ships.map(s => s.name).join(', '))})</span>`).join(', ')}${ships.length > 2 ? ` +${ships.length - 2}` : ''}` : '';
   const best = free[0];
   const alsoBest = st !== 'adequate' && best ? ` · could also mine ${go(best)} (${best.ab}%)` : '';
   // A construction ship on its way to build a mining base where this resource is.
@@ -2827,7 +2844,10 @@ function resNext(r) {
     return `Station being built at ${go(b)} (${Math.round(b.d.stationBuilding * 100)}%)${mined.length ? '' : alsoBest}`;
   }
   if (mined.length) {
-    return `Mined at ${mined.slice(0, 2).map(go).join(', ')}${mined.length > 2 ? ` +${mined.length - 2}` : ''}${alsoBest}`;
+    return `Mined at ${mined.slice(0, 2).map(go).join(', ')}${mined.length > 2 ? ` +${mined.length - 2}` : ''}${byShip}${alsoBest}`;
+  }
+  if (ships.length) {
+    return `${byShip}${alsoBest}`;
   }
   if (best) {
     return `<span class="${st !== 'adequate' ? 'mk-warn' : ''}">Not mined.</span> Best known: ${go(best)} (${best.ab}%)${free.length > 1 ? ` · ${free.length - 1} more` : ''}`;
@@ -2845,10 +2865,10 @@ function resRateCell(r) {
 
 /** The opened row: the numbers behind it, the prices, where it is mined and the known deposits. */
 function resExpand(r) {
-  const { mined, building, free } = resSites(r);
+  const { mined, ships, building, free } = resSites(r);
   const site = x => `<button type="button" class="scard" data-orb="${x.d.orbId}" title="Go to ${esc(x.d.name)}">
     <span class="sctop"><b>${esc(x.d.name)}</b><span class="go">Go to ›</span></span>
-    <small>${esc(human(x.d.kind))}${x.d.system ? ' · ' + esc(x.d.system) : ''}${x.d.minedBy ? ' · ' + x.d.minedBy : ''}${x.d.stationBuilding != null ? ` · <span class="mk-warn">building ${Math.round(x.d.stationBuilding * 100)}%</span>` : ''}</small>
+    <small>${esc(human(x.d.kind))}${x.d.system ? ' · ' + esc(x.d.system) : ''}${x.d.minedBy ? ' · ' + x.d.minedBy : ''}${x.ships.length ? ' · by ' + esc(x.ships.map(s => s.name).join(', ')) : ''}${x.d.stationBuilding != null ? ` · <span class="mk-warn">building ${Math.round(x.d.stationBuilding * 100)}%</span>` : ''}</small>
     <span class="scab"><i class="pb"><i style="width:${x.ab}%"></i></i><em>${x.ab}%</em></span></button>`;
   const cards = list => `<div class="scards">${list.map(site).join('')}</div>`;
   const n = v => v != null ? fmt.num(v) : '–';
@@ -2859,7 +2879,8 @@ function resExpand(r) {
       <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
       <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
     </div>
-    <h4>Mined at · ${mined.length}</h4>${mined.length ? cards(mined) : '<div class="none">Not mined anywhere.</div>'}
+    <h4>Mined at · ${mined.length}</h4>${mined.length ? cards(mined) : `<div class="none">${ships.length ? 'No station mines it.' : 'Not mined anywhere.'}</div>`}
+    ${ships.length ? `<h4>Mined by ships, no station · ${ships.length}</h4>${cards(ships)}` : ''}
     ${building.length ? `<h4>Station being built · ${building.length}</h4>${cards(building)}` : ''}
     <h4>Known deposits, not mined · ${free.length}</h4>${free.length ? cards(free) : '<div class="none">None known.</div>'}
   </div>`;
@@ -2874,7 +2895,7 @@ let resSort = 'priority';
 try { resSort = localStorage.getItem('overview.resSort') || 'priority'; } catch (e) { }
 // Availability: mined somewhere, found but not mined, not found anywhere known (empty = all).
 const resAvailFilter = new Set();
-const resAvail = r => { const { mined, building, free } = resSites(r); return mined.length ? 'mined' : building.length || free.length ? 'found' : 'notfound'; };
+const resAvail = r => { const { mined, ships, building, free } = resSites(r); return mined.length || ships.length ? 'mined' : building.length || free.length ? 'found' : 'notfound'; };
 let resLayout = 'rows';
 try { resLayout = localStorage.getItem('overview.resLayout') || (innerWidth <= 760 ? 'cards' : 'rows'); } catch (e) { }   // fuel, construction, luxury, other; empty = all
 try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
@@ -2917,8 +2938,10 @@ function renderLocations(all, deps, q) {
     const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
       : g && g.state === 'enroute' ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>`
       : d.queued || (g && g.state === 'planned') ? '<span class="tag planned" title="Ordered; waiting for a construction ship">ordered</span>' : '';
+    // Mining ships work places without a station too; on a new location that is worth saying.
+    const miners = (d.ships || []).length ? `<span class="tag shipmine" title="Mining ships mine here without a station: ${esc(d.ships.map(s => s.name).join(', '))}">${d.ships.length === 1 ? esc(d.ships[0].name) : d.ships.length + ' ships'} mining</span>` : '';
     return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
-      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${who}</span>
+      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${miners}${who}</span>
       <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span></div>`;
   }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;

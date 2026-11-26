@@ -90,6 +90,7 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 
 - `TextHelper.ResolveMissionDescription(galaxy, empire, ship, mission)` dá o texto da missão como no painel do jogo ("Build MS-3 (Large Mining Station) at Kintaris 2", "Mine Kintaris 2, offload at Goma Spaceport", "Survey Osnoa (Alurthas system) (86 secs)"; às vezes sem o espaço antes do tempo). `ShipMission.GetCurrentTarget(galaxy)` é o destino atual.
 - Missão `Build`: `PrimaryTarget` é de onde vem o material (Goma) e `SecondaryTarget` é onde a base será construída (Kintaris 2); `BuildDesignId` é o design. **Confirmado** no log em 2026-11-26 (Lone Rebel, Shining Lady). Enquanto a nave vai buscar o material, o estaleiro dela fica vazio: não é estaleiro parado.
+- Naves mineradoras mineram sem estação (missão `Mine`/`MineLoad`: "Mine Osnoa (Alurthas system), offload at Goma Spaceport"). O lugar continua em New Mining Locations do jogo, porque essa lista é de lugares sem estação. Em 2026-11-26 a Charming Quest minerava Attarion Fur em Osnoa, e a página dizia "Not mined": agora os depósitos trazem as naves que mineram ali (`ships`, pelo `PrimaryTarget` da missão, que se supõe ser o lugar minerado; o log "Mining ships at work" confere). Que recurso a nave tira: o que ela já carrega daquele lugar; sem carga ainda, qualquer um dos de lá.
 
 ## Tabela de suprimento (regra do jogo)
 

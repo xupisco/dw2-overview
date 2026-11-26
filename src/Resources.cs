@@ -57,6 +57,19 @@ internal sealed class DepositRow
     /// <summary>A mining station is ordered here and waits for a construction ship (Empire.QueuedMiningTargets).</summary>
     public bool Queued { get; set; }
     public List<DepositResource> Resources { get; set; }
+    /// <summary>
+    /// Mining ships mining here right now (mission Mine/MineLoad on this orb): ships mine without a station,
+    /// so the game still lists the place under New Mining Locations.
+    /// </summary>
+    public List<MiningShipRow> Ships { get; set; }
+}
+
+internal sealed class MiningShipRow
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    /// <summary>The resources of this place it carries now (empty on its first trip: then it is any of them).</summary>
+    public List<short> Carrying { get; set; }
 }
 
 internal sealed class DepositResource
@@ -103,6 +116,32 @@ internal static class ResourcesView
             }
         }
         var queued = new HashSet<int>(Copy(Safe(() => empire.QueuedMiningTargets)).Where(o => o != null).Select(o => o.OrbId));
+        // Mining ships at work, by the orb they mine (the mission's primary target).
+        var shipMining = new Dictionary<int, List<(Ship ship, HashSet<short> cargo)>>();
+        foreach (var ship in Copy(empire.Ships))
+        {
+            var mission = Safe(() => ship.Mission);
+            if (ship.IsBase || mission == null || (mission.Type != ShipMissionType.Mine && mission.Type != ShipMissionType.MineLoad))
+            {
+                continue;
+            }
+            if (Safe(() => mission.PrimaryTarget.Resolve(galaxy)) is not Orb mined)
+            {
+                continue;
+            }
+            var cargo = new HashSet<short>(Copy(Safe(() => ship.Cargo)).Where(c => c.EmpireId == empire.EmpireId && (float)c.Amount > 0).Select(c => c.ResourceId));
+            if (!shipMining.TryGetValue(mined.OrbId, out var list))
+            {
+                shipMining[mined.OrbId] = list = new();
+            }
+            list.Add((ship, cargo));
+        }
+        string miningSig = string.Join(";", shipMining.OrderBy(kv => kv.Key).Select(kv => kv.Key + ":" + string.Join(",", kv.Value.Select(v => v.ship.ShipId))));
+        if (miningSig != lastShipMining)
+        {
+            lastShipMining = miningSig;
+            Log.Info($"Mining ships at work: {(shipMining.Count == 0 ? "none" : string.Join("; ", shipMining.Select(kv => $"{Safe(() => galaxy.Orbs.GetById(kv.Key)?.Name)}: {string.Join(", ", kv.Value.Select(v => v.ship.Name))}")))}");
+        }
         var deposits = new List<DepositRow>();
         var map = Safe(() => empire.ExplorationMap);
         foreach (var orb in Copy(Safe(() => map?.GetAllKnownOrbs(galaxy, empire, 1))))
@@ -132,6 +171,14 @@ internal static class ResourcesView
                 Resources = found,
                 Priority = priority.TryGetValue(orb.OrbId, out int pr) ? pr : null,
                 Queued = queued.Contains(orb.OrbId),
+                Ships = shipMining.TryGetValue(orb.OrbId, out var miners)
+                    ? miners.Select(m => new MiningShipRow
+                    {
+                        Id = m.ship.ShipId,
+                        Name = Safe(() => m.ship.Name),
+                        Carrying = found.Where(f => m.cargo.Contains(f.Id)).Select(f => f.Id).ToList(),
+                    }).ToList()
+                    : null,
             });
         }
 
@@ -235,6 +282,7 @@ internal static class ResourcesView
     }
 
     private static string lastShortages;
+    private static string lastShipMining;
     private static bool stockLogged;
 
     private static Dictionary<short, float> Amounts(ResourceQuantityList list)
