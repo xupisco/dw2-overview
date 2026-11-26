@@ -150,6 +150,8 @@ internal sealed class ShipRow
     public string Automation { get; set; }
     public bool Docked { get; set; }
     public bool Building { get; set; }
+    /// <summary>How much of the ship is built, 0..1, while it is under construction (the Construction tab's progress).</summary>
+    public double? Progress { get; set; }
     public double? Damage { get; set; }
     public double? Fuel { get; set; }
     /// <summary>Reactor energy left, 0..1 of the storage capacity.</summary>
@@ -344,6 +346,7 @@ internal static class Views
                 Automation = ship.MissionAssignmentType.ToString(),
                 Docked = Safe(() => ship.IsDocked),
                 Building = Safe(() => ship.IsUnderConstructionOrRepair),
+                Progress = Safe(() => ship.IsUnderConstructionOrRepair) && Safe(() => ship.ConstructionLevel) < 1f ? Num(Safe(() => ship.ConstructionLevel)) : null,
                 Damage = Num(ship.HullDamageLevel),
                 Fuel = maxRange > 0 ? Num(range / maxRange) : null,
                 Energy = Ratio(Safe(() => (float)ship.Energy), Safe(() => ship.Summary.ReactorEnergyStorageCapacity)),

@@ -256,6 +256,10 @@
   .pt em.warn, .warn { color: var(--warn); }
   .pb { display: block; width: 100%; height: 3px; background: var(--track); }
   .pb.thick { height: 4px; }
+  .sprog { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; vertical-align: middle; }
+  .sprog .pb { width: 70px; }
+  .sprog .pb > i { box-shadow: none; }
+  .sprog em { font-style: normal; color: var(--acc); font-variant-numeric: tabular-nums; font-size: 12px; }
   .pb > i { display: block; height: 100%; background: var(--acc); box-shadow: 0 0 6px var(--acc); }
   .ovres { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
   .ovres .pt b { font: 600 18px var(--cond); }
@@ -2368,7 +2372,9 @@ function renderShips() {
       const phrase = missionPhrase(s.mission) || (s.isBase ? 'Base' : '');
       const target = s.target
         ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
-      const next = s.queued ? ` <span class="chip">+${s.queued} next</span>` : '';
+      const built = s.progress != null ? Math.round(Math.max(0, Math.min(1, s.progress)) * 100) : null;
+      const next = (built != null ? ` <span class="sprog" title="Built so far"><span class="pb"><i style="width:${built}%"></i></span><em>${built}%</em></span>` : '')
+        + (s.queued ? ` <span class="chip">+${s.queued} next</span>` : '');
       const fuel = s.fuel == null ? '<span class="none">–</span>'
         : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${fuelPct(s)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${fuelPct(s)}%</span>`;
       const manual = s.automation === 'Manual' || s.manual;
