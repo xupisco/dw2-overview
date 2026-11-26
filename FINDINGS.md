@@ -85,3 +85,8 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 
 - Abrir a tela de pesquisa num projeto: o atalho do jogo com `UiSection` de pesquisa (mapping 90 no teste) abre a tela; no quadro seguinte, `UserInterfaceController.ResearchScreen` (`ResearchTree`) existe e está visível. `CalculateProjectPosition(project)` dá a posição já descontada do `ScrollOffset` (Armor Plating: 106,2800 com scroll 13,239; 120,3040 com scroll 0); setar `ScrollOffset` rola a árvore e `HoveredProject` destaca. **Confirmado** pelo Leandro em 2026-11-26 (`certinho`). `DisplayRectangle` veio 132x132 (não é o tamanho da tela), então a centralização é aproximada.
 - Ids de projeto começam em 0 (Early Beam Weapons tem id 0): 0 é um projeto, não `nenhum`.
+
+## Missões das naves
+
+- `TextHelper.ResolveMissionDescription(galaxy, empire, ship, mission)` dá o texto da missão como no painel do jogo ("Build MS-3 (Large Mining Station) at Kintaris 2", "Mine Kintaris 2, offload at Goma Spaceport", "Survey Osnoa (Alurthas system) (86 secs)"; às vezes sem o espaço antes do tempo). `ShipMission.GetCurrentTarget(galaxy)` é o destino atual.
+- Missão `Build`: `PrimaryTarget` é de onde vem o material (Goma) e `SecondaryTarget` é onde a base será construída (Kintaris 2); `BuildDesignId` é o design. **Confirmado** no log em 2026-11-26 (Lone Rebel, Shining Lady). Enquanto a nave vai buscar o material, o estaleiro dela fica vazio: não é estaleiro parado.
