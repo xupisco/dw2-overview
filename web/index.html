@@ -950,7 +950,9 @@ function colonyCard(c, n) {
   const apColor = c.rebelling || c.approval < 0 ? 'var(--bad)' : c.approval < 3 ? 'var(--warn)' : 'var(--ok)';
   const popPct = c.population != null && c.maxPopulation ? Math.max(2, Math.min(100, c.population / c.maxPopulation * 100)) : 0;
   const kpi = (label, value, color) => `<span><small>${label}</small><b style="${color ? 'color:' + color : ''}">${value ?? '–'}</b></span>`;
-  const growth = c.populationGrowth;
+  // The game's yearly growth (+4.4% at Goma): the reproduction rate (1.06 = +6%) times the colony's growth
+  // factor (CalculateGrowthRate, 0.71 there): 6% x 0.71 = 4.3% (log, 2026-11-26). To confirm on the Population screen.
+  const growth = c.populationGrowth != null && c.growth != null ? (c.populationGrowth - 1) * c.growth : null;
   const races = (c.races || []).length > 1
     ? c.races.slice(0, 3).map(r => `${esc(r.name)} ${Math.round(r.amount / (c.population || 1) * 100)}%`).join(' · ')
     : esc(c.race || '');
