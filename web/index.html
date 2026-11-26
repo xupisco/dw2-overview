@@ -130,6 +130,11 @@
   .filters button { cursor: pointer; }
   .filters select:hover, .filters button:hover { background: var(--hover); }
   .count { color: var(--mut); margin-left: auto; font-size: 12px; }
+  /* A filter that narrows the list stands out, and one button puts everything back */
+  .filters select.active, .filters input.active { outline: 1px solid var(--acc); outline-offset: -1px; color: var(--acc); }
+  .filters .clearf { color: var(--acc); background: var(--acc-d); }
+  .filters .clearf:hover { background: color-mix(in srgb, var(--acc) 25%, transparent); }
+  .filters .clearf[hidden] { display: none; }
   .hint { color: var(--mut); font-size: 12px; margin-top: -4px; }
   .check { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); cursor: pointer; white-space: nowrap; }
 
@@ -650,6 +655,7 @@
     <option value="2">High and up</option>
   </select>
   </span>
+  <button type="button" id="clearFilters" class="clearf" hidden title="Back to everything (Esc in the filter box clears the text)">✕ Clear filters</button>
   <span class="count" id="count"></span>
 </div>
 
@@ -824,6 +830,34 @@ otherSort.ships = { key: 'name', asc: true };
 const filterValues = {};   // tab -> key -> chosen value
 
 /** (Re)builds the filter selects of the current tab from the values in its data, keeping the choices. */
+/**
+ * Which filters narrow the current tab's list (each against its default: construction shows everything,
+ * research the queue, messages every priority, no chips chosen), marked so they show at a glance, with a
+ * Clear filters button while any is on.
+ */
+function syncFilters() {
+  const marks = [];
+  const mark = (el, on) => { if (el) { el.classList.toggle('active', !!on); if (on) marks.push(el); } };
+  mark($('search'), tab !== 'overview' && $('search').value.trim());
+  for (const id of ['state', 'category', 'role', 'work']) mark($(id), tab === 'construction' && $(id).value !== '');
+  mark($('rstate'), tab === 'research' && $('rstate').value !== 'queue');
+  mark($('mprio'), tab === 'messages' && $('mprio').value !== '0');
+  document.querySelectorAll('#gfilters select').forEach(el => mark(el, el.value !== ''));
+  const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && resSupply);
+  $('clearFilters').hidden = !(marks.length || chips);
+}
+function clearFilters() {
+  $('search').value = '';
+  if (tab === 'construction') { for (const id of ['state', 'category', 'role', 'work']) $(id).value = ''; render(); return; }
+  if (tab === 'research') $('rstate').value = 'queue';
+  if (tab === 'messages') $('mprio').value = '0';
+  filterValues[tab] = {};
+  document.querySelectorAll('#gfilters select').forEach(el => { el.value = ''; });
+  if (tab === 'ships') { shipBucketFilter.clear(); shipRoleFilter.clear(); }
+  if (tab === 'resources') resSupply = null;
+  renderOther();
+}
+
 function buildFilters() {
   const cols = (columns[tab] || []).filter(c => c.filter);
   const box = $('gfilters');
@@ -850,6 +884,7 @@ const hints = {
 };
 
 function renderOther() {
+  setTimeout(syncFilters, 0);   // after this render has built the tab's own filters
   if (tab === 'ships') { renderShips(); return; }
   if (tab === 'resources') { renderResources(); return; }
   const cols = columns[tab], s = otherSort[tab];
@@ -989,6 +1024,7 @@ $('colview').addEventListener('click', e => {
 });
 
 function setTab(name, fromHistory) {
+  setTimeout(syncFilters, 0);
   if (!fromHistory && name !== tab) history.pushState({ tab: name }, '', '#' + name);
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -1387,6 +1423,7 @@ function compare(a, b) {
 }
 
 function render() {
+  setTimeout(syncFilters, 0);
   const q = $('search').value.trim().toLowerCase();
   const st = $('state').value, cat = $('category').value, work = $('work').value, role = $('role').value;
   shown = items.filter(i =>
@@ -1773,6 +1810,8 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
 ['state', 'category', 'role', 'work'].forEach(id => $(id).addEventListener('input', render));
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
+$('clearFilters').addEventListener('click', clearFilters);
+$('search').addEventListener('keydown', e => { if (e.key === 'Escape' && $('search').value) { e.preventDefault(); $('search').value = ''; tab === 'construction' ? render() : renderOther(); } });
 $('mprio').addEventListener('input', renderOther);
 $('gfilters').addEventListener('input', e => {
   const sel = e.target.closest('select[data-fkey]');
@@ -1949,6 +1988,7 @@ function energyLine(s) {
 }
 
 function renderShips() {
+  setTimeout(syncFilters, 0);
   const all = other.rows;
   const q = $('search').value.trim().toLowerCase();
   const rows = all.filter(s =>
@@ -2407,6 +2447,7 @@ function resExpand(r) {
 }
 
 function renderResources() {
+  setTimeout(syncFilters, 0);
   const all = (resData.items || []).filter(resRelevant);
   const q = $('search').value.trim().toLowerCase();
 
