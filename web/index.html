@@ -3084,7 +3084,9 @@ function renderResources() {
   document.querySelectorAll('#resViews button').forEach(b => {
     b.classList.toggle('on', b.dataset.view === resView);
     const em = b.querySelector('em');
-    if (em) em.textContent = deps.filter(d => b.dataset.view === 'mined' ? d.minedBy : !d.minedBy).length || '';
+    // With a search, the count is what that view would show (same match as renderLocations).
+    if (em) em.textContent = deps.filter(d => (b.dataset.view === 'mined' ? d.minedBy : !d.minedBy)
+      && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q)))).length || (q ? '0' : '');
   });
   $('resLayout').hidden = resView !== 'resources';
   document.querySelectorAll('#resLayout button').forEach(b => b.classList.toggle('on', b.dataset.layout === resLayout));
