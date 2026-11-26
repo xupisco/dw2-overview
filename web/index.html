@@ -478,6 +478,22 @@
   #resModalBody h3 { margin: 6px 0 2px; }
   #resModalBody .rmrate, #resModalBody .rmnext { font-size: 12px; color: var(--mut); margin-bottom: 6px; }
   #resModalBody .rexp { --pl: 0px; background: none; box-shadow: none; padding: 6px 0 0; }
+  .bcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; }
+  .bcards[hidden] { display: none; }
+  .bcard { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .bcard:hover { background: var(--hover); }
+  .bcard.flash { background: var(--acc-d); }
+  .bcard.st-idle { opacity: .7; }
+  .bcard .bchead { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .bcard .bname { flex: 1; min-width: 0; font-weight: 500; }
+  .bcard .bchead em { font-style: normal; color: var(--acc); font-variant-numeric: tabular-nums; }
+  .bcard .pb { height: 3px; }
+  .bcard .pb > i { box-shadow: none; }
+  .bcard .bcmeta { color: var(--mut); font-size: 12px; }
+  /* Medium widths: the table keeps state, name, role, progress and builder rather than scrolling sideways */
+  @media (max-width: 1250px) { #tab-construction th:nth-child(8), #tab-construction td:nth-child(8), #tab-construction th:nth-child(9), #tab-construction td:nth-child(9) { display: none; } }
+  @media (max-width: 1050px) { #tab-construction th:nth-child(3), #tab-construction td:nth-child(3), #tab-construction th:nth-child(5), #tab-construction td:nth-child(5) { display: none; } }
+  @media (max-width: 1250px) { #tab-construction td.k-name, #tab-construction td:nth-child(4) { white-space: normal; } }
   .rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
   .rcards[hidden] { display: none; }
   .rcard { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
@@ -762,6 +778,7 @@
     <option value="yard">One row per yard</option>
     <option value="flat">Every item</option>
   </select>
+  <span id="bview" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span>
   </span>
   <span id="rfilters" class="group" hidden>
   <select id="rstate">
@@ -835,6 +852,7 @@
 </div>
 <div id="colCards" class="colcards" hidden></div>
 <div id="buildRoles" class="slegend roles buildroles"></div>
+<div id="buildCards" class="bcards" hidden></div>
 <div class="wrap" id="tab-construction">
   <table>
     <thead><tr>
@@ -1181,6 +1199,7 @@ function setTab(name, fromHistory) {
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
+  if (tab !== 'construction') $('buildCards').hidden = true;
   $('buildRoles').hidden = tab !== 'construction';
   $('tab-other').hidden = ['construction', 'ships', 'overview', 'resources'].includes(tab);
   $('tab-ships').hidden = tab !== 'ships';
@@ -1604,6 +1623,19 @@ function render() {
     }
   }
   rowItems = rows.map(r => r.item);
+  const cards = buildLayout === 'cards';
+  document.querySelectorAll('#bview button').forEach(b => b.classList.toggle('on', b.dataset.layout === buildLayout));
+  $('view').hidden = cards;
+  $('tab-construction').hidden = cards;
+  $('buildCards').hidden = !cards;
+  if (cards) {
+    rowItems = shown;
+    $('buildCards').innerHTML = shown.map(buildCard).join('');
+    $('count').textContent = `${shown.length} of ${items.length}`;
+    $('empty').hidden = shown.length > 0;
+    $('empty').textContent = items.length ? 'Nothing matches the filters.' : 'Nothing under construction (or no game loaded).';
+    return;
+  }
 
   $('rows').innerHTML = rows.map(({ item: i, kind, key, more }, n) => `<tr data-n="${n}" class="${kind}" title="Go to ${esc(i.where)}">
       <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(STATE_LABEL[i.state] || i.state)}</span></td>
@@ -1647,6 +1679,40 @@ function roleCell(i) {
   if (!group) return '<span class="none">–</span>';
   return esc(group) + (exact && exact.toLowerCase() !== group.toLowerCase() ? ` <span class="mut">${esc(exact)}</span>` : '');
 }
+
+// Construction as cards (Rows | Cards, kept in this browser; cards by default on a phone).
+let buildLayout = 'rows';
+try { buildLayout = localStorage.getItem('overview.buildLayout') || (innerWidth <= 760 ? 'cards' : 'rows'); } catch (e) { }
+/** One build as a card: state, name (and its site), progress, then role, design, work, who builds it and the queue. */
+function buildCard(i, n) {
+  const pct = i.progress != null ? Math.round(Math.max(0, Math.min(1, i.progress)) * 100) : null;
+  const by = i.state === 'planned' ? 'waiting for a construction ship' : i.where ? `by ${esc(i.where)}` : '';
+  const meta = [i.state === 'idle' ? '' : roleCell(i), i.design ? esc(i.design) : '', i.work && !['Construction', 'Build'].includes(i.work) ? esc(human(i.work)) : '', by, i.queue ? `queue #${i.queue}` : '']
+    .filter(x => x && !/class="none"/.test(x)).join(' · ');
+  return `<div class="bcard st-${esc(i.state)}" data-n="${n}" title="Go to ${esc(i.where || i.site || '')}">
+    <div class="bchead"><span class="tag ${esc(i.state)}">${esc(STATE_LABEL[i.state] || i.state)}</span><span class="bname">${nameCell(i)}</span>${pct != null ? `<em>${pct}%</em>` : ''}</div>
+    ${pct != null ? `<span class="pb"><i style="width:${pct}%"></i></span>` : ''}
+    ${meta ? `<div class="bcmeta">${meta}</div>` : ''}
+  </div>`;
+}
+$('buildCards').addEventListener('click', e => {
+  const card = e.target.closest('.bcard');
+  if (!card) return;
+  e.preventDefault();
+  const link = e.target.closest('[data-ship]'), site = e.target.closest('[data-orb]'), item = rowItems[+card.dataset.n];
+  if (link) goTo('ship', +link.dataset.ship);
+  else if (site) goTo('orb', +site.dataset.orb);
+  else if (item) goTo(item.whereType, item.whereId);
+  card.classList.add('flash');
+  setTimeout(() => card.classList.remove('flash'), 400);
+});
+$('bview').addEventListener('click', e => {
+  const b = e.target.closest('[data-layout]');
+  if (!b) return;
+  buildLayout = b.dataset.layout;
+  try { localStorage.setItem('overview.buildLayout', buildLayout); } catch (er) { }
+  render();
+});
 
 function nameCell(i) {
   if (i.state === 'idle') return '<span class="none">(idle yard)</span>';
