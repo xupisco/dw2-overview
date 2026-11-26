@@ -193,7 +193,7 @@
   .go:hover { color: var(--tx); }
 
   /* Status tags: colored text on a faint tint */
-  .siteline { display: block; color: var(--mut); font-size: 12px; margin-top: 1px; }
+  .siteline { color: var(--mut); font-size: 12px; margin-left: 4px; }
   .siteline b { color: var(--tx); font-weight: 500; }
   .tag { display: inline-block; padding: 0 6px; font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
@@ -1562,10 +1562,15 @@ function nameCell(i) {
 /** A base built in place: where it will stand and, for a mining base, what that place holds (best first). */
 function siteLine(i) {
   if (!i.site) return '';
+  // Same line as the name, in grey; the place only when the name does not already say it (Goma Spaceport at
+  // Goma), and for a mining base what the place holds.
+  const named = (i.name || '').toLowerCase().includes(i.site.toLowerCase());
+  if (named && !i.extracts) return '';
   const res = (i.extracts || []).slice(0, 4).map(r => `${esc(r.name)} <b>${r.abundance}%</b>`).join(', ');
   const more = (i.extracts || []).length > 4 ? ` +${i.extracts.length - 4}` : '';
   const what = i.extracts ? (i.extracts.length ? ` · ${res}${more}` : ' · <span class="mk-warn">no known resources</span>') : '';
-  return `<small class="siteline">at <a class="go" href="#" data-orb="${i.siteOrbId}" title="Go to ${esc(i.site)}">${esc(i.site)}</a>${what}</small>`;
+  const place = named ? '' : ` at <a class="go" href="#" data-orb="${i.siteOrbId}" title="Go to ${esc(i.site)}">${esc(i.site)}</a>`;
+  return `<small class="siteline">${place}${what}</small>`;
 }
 
 async function goTo(type, id) {
