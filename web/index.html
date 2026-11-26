@@ -355,6 +355,20 @@
   .rnext { font-size: 12px; color: var(--mut); min-width: 0; }
   .rnext a.go { font-size: 12px; }
   /* The opened row: numbers, then where it is mined and the known deposits */
+  .locs { display: flex; flex-direction: column; gap: 4px; }
+  .locs[hidden] { display: none; }
+  .locrow { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr) auto; gap: 14px; align-items: center; padding: 8px 12px; background: var(--panel); cursor: pointer; }
+  .locrow:hover { background: var(--hover); }
+  .locrow.flash { background: var(--acc-d); }
+  .locrow .lname { display: flex; flex-direction: column; min-width: 0; }
+  .locrow .lname b { font-weight: 500; }
+  .locrow .lname small { color: var(--mut); font-size: 12px; }
+  .lres { display: flex; flex-wrap: wrap; gap: 4px; }
+  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px; white-space: nowrap; }
+  .lchip b { font-weight: 500; }
+  .lchip.st-critical { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
+  .lchip.st-low { box-shadow: inset 0 0 0 1px var(--warn); color: var(--warn); }
+  @media (max-width: 760px) { .locrow { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
@@ -708,6 +722,7 @@
   </span>
   <span id="gfilters" class="group"></span>
   <span id="resfilters" class="group" hidden>
+    <span id="resViews" class="seg" title="What to list"><button type="button" data-view="resources">Resources</button><button type="button" data-view="mined">Mined locations <em></em></button><button type="button" data-view="new">New locations <em></em></button></span>
   </span>
   <span id="colfilters" class="group" hidden>
     <span id="colview" class="seg" title="Rows or cards"><button type="button" data-view="cards">Cards</button><button type="button" data-view="rows">Rows</button></span>
@@ -750,6 +765,7 @@
       <div id="resList"></div>
     </div>
   </div>
+  <div id="resLocations" class="locs" hidden></div>
 </div>
 <div id="tab-ships" hidden>
   <div id="shipStatus" class="sstatus"></div>
@@ -2349,7 +2365,7 @@ function attentionItems() {
   // A ship still in a yard has no fuel yet: that is not a problem.
   const lowFuel = ov.ships.filter(s => s.fuel != null && s.fuel < 0.2 && shipBucket(s) !== 'yard' && !isCraft(s));
   const critical = (ov.resources || []).filter(r => resRelevant(r) && resStatus(r) === 'critical');
-  if (critical.length) add('bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, 'Out of it, or well below what the empire wants to keep.', 'Resources', goTab('resources', () => { resSupply = null; renderResources(); }));
+  if (critical.length) add('bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, 'Out of it, or well below what the empire wants to keep.', 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
   if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${fuelPct(s)}%`).join(', '), 'Ships', goTab('ships'));
   if ((ovInfo.economy?.cashflowActual ?? 0) < 0) add('bad', 'Negative cashflow', `${money0(ovInfo.economy.cashflowActual)} a year`, null, null);
   const order = { bad: 0, warn: 1 };
@@ -2446,7 +2462,7 @@ function blockHtml(id) {
       ['adequate', 'low', 'critical'].map(st => {
         const list = all.filter(r => inCat(r, key) && resStatus(r) === st);
         const color = list.length && st !== 'adequate' ? STATUS_COLOR[st] : '';
-        return `<td><button type="button" style="color:${color}" title="${esc(list.map(r => r.name).join(', '))}" ${act(goTab('resources', () => { resSupply = { cat: key, status: st }; renderResources(); }))}>${list.length}</button></td>`;
+        return `<td><button type="button" style="color:${color}" title="${esc(list.map(r => r.name).join(', '))}" ${act(goTab('resources', () => { resSupply = { cat: key, status: st }; resView = 'resources'; renderResources(); }))}>${list.length}</button></td>`;
       }).join('')}</tr>`).join('');
     return panel('Supply', 'var(--acc)', linkTo('Resources', 'resources'),
       `<table class="supply ovsupply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${rows}</tbody></table>`);
@@ -2636,6 +2652,67 @@ function resExpand(r) {
   </div>`;
 }
 
+// ---- Locations: where the empire mines, and the known deposits it does not mine yet ----
+// Like the game's Mining Locations / New Mining Locations. The game's own priority is not known here, so new
+// locations come most needed first: each resource's abundance weighed by how short the empire is of it.
+let resView = 'resources';
+try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
+let resBuilds = [], resBuildsAt = 0;
+/** Construction items, to know which new location already has a station being built or a ship on its way. */
+async function refreshResBuilds() {
+  if (Date.now() - resBuildsAt < 3000) return;
+  resBuildsAt = Date.now();
+  try {
+    const items = (await getJson('/api/construction')).items || [];
+    const sig = JSON.stringify(items.map(i => [i.state, i.siteOrbId, i.where]));
+    if (sig !== JSON.stringify(resBuilds.map(i => [i.state, i.siteOrbId, i.where]))) { resBuilds = items; if (tab === 'resources' && resView !== 'resources') renderResources(); }
+  } catch (e) { }
+}
+function renderLocations(all, deps, q) {
+  refreshResBuilds();
+  const byId = new Map(all.map(r => [r.id, r]));
+  const going = new Map();
+  for (const i of resBuilds) if (i.siteOrbId != null && i.state !== 'idle') going.set(i.siteOrbId, i);
+  // Most needed: a place with a critical resource first, then one with a low resource, then the rest; within
+  // that, the most of what is short, then the most of anything.
+  const stOf = x => byId.get(x.id) ? resStatus(byId.get(x.id)) : 'adequate';
+  const need = d => { const worst = Math.min(...d.resources.map(x => RES_RANK[stOf(x)] ?? 2)); return [worst, -d.resources.filter(x => (RES_RANK[stOf(x)] ?? 2) === worst).reduce((n, x) => n + x.abundance, 0), -d.resources.reduce((n, x) => n + x.abundance, 0)]; };
+  const byNeed = (a, b) => { const x = need(a), y = need(b); return x[0] - y[0] || x[1] - y[1] || x[2] - y[2]; };
+  const mined = resView === 'mined';
+  const list = deps.filter(d => (mined ? d.minedBy : !d.minedBy)
+      && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q))))
+    .sort((a, b) => mined ? (a.minedBy === 'colony' ? -1 : 0) - (b.minedBy === 'colony' ? -1 : 0) || (a.name || '').localeCompare(b.name || '')
+      : byNeed(a, b) || (a.name || '').localeCompare(b.name || ''));
+  const chip = x => {
+    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate';
+    return `<span class="lchip st-${st}" title="${esc(x.name)}${st !== 'adequate' ? ' · ' + st : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+  };
+  $('resLocations').innerHTML = list.map(d => {
+    const g = going.get(d.orbId);
+    const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
+      : g ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>` : '';
+    return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
+      <span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>
+      <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span>
+      <span class="lwho">${who}</span></div>`;
+  }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
+  $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
+}
+$('resViews').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  resView = b.dataset.view;
+  try { localStorage.setItem('overview.resView2', resView); } catch (er) { }
+  renderResources();
+});
+$('resLocations').addEventListener('click', e => {
+  const row = e.target.closest('[data-orb]');
+  if (!row) return;
+  goTo('orb', +row.dataset.orb);
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 400);
+});
+
 function renderResources() {
   setTimeout(syncFilters, 0);
   const all = (resData.items || []).filter(resRelevant);
@@ -2653,6 +2730,16 @@ function renderResources() {
 
   const critical = all.filter(r => resStatus(r) === 'critical').length;
   $('psub').textContent = critical ? `${critical} critical` : '';
+
+  const deps = resData.deposits || [];
+  document.querySelectorAll('#resViews button').forEach(b => {
+    b.classList.toggle('on', b.dataset.view === resView);
+    const em = b.querySelector('em');
+    if (em) em.textContent = deps.filter(d => b.dataset.view === 'mined' ? d.minedBy : !d.minedBy).length || '';
+  });
+  $('resListWrap').hidden = resView !== 'resources';
+  $('resLocations').hidden = resView === 'resources';
+  if (resView !== 'resources') { renderLocations(all, deps, q); return; }
 
   // Every resource that matters, most urgent first (critical, low, then the rest), soonest to run out first.
   const rows = all.filter(r => (!resSupply || (inCat(r, resSupply.cat) && resStatus(r) === resSupply.status))
@@ -2684,6 +2771,7 @@ $('resSupply').addEventListener('click', e => {
   if (!b) return;
   const same = resSupply && resSupply.cat === b.dataset.cat && resSupply.status === b.dataset.st;
   resSupply = same ? null : { cat: b.dataset.cat, status: b.dataset.st };
+  resView = 'resources';
   renderResources();
 });
 // A place (in the next step or the opened row) goes there in the game; anywhere else on a row opens or closes it.
@@ -2900,7 +2988,7 @@ async function loadPaletteResources() {
   } catch (e) { palette.resources = []; }
 }
 function openResource(id) {
-  goTab('resources', () => { resSupply = null; resPick = id; $('search').value = ''; renderResources(); })();
+  goTab('resources', () => { resView = 'resources'; resSupply = null; resPick = id; $('search').value = ''; renderResources(); })();
 }
 
 function paletteChoose(n, viaTab) {
