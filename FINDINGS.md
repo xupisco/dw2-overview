@@ -95,7 +95,7 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 ## Marcas nos ícones de recurso dos lugares
 
 - No diálogo de sugestão do advisor (e nos ícones de recurso dos lugares), o pontilhado é a produção, não o estoque: vermelho "PRODUCTION SHORTAGE x/sec" quando `CalculateResourceRateSurplus(id, false)` < 0, amarelo "PRODUCTION OVERSUPPLY x/sec" quando > 0. **Confirmado** em 2026-11-26 no AS693: Mebnar −0,3066 (0.31/sec), Cuprica −0,5074 (vermelho), Steel +4,5334 (4.53/sec, amarelo).
-- **Em aberto:** a abundância difere. No mesmo AS693 o jogo mostra Mebnar 7%, Steel 12%, Cuprica 97%; o nosso `OrbResource.Abundance` dá 5%, 9% e 97%. Talvez o jogo aplique algum bônus (tecnologia ou raça de mineração) ou use outro campo.
+- A abundância no diálogo de sugestão do AS693 era Mebnar 7%, Steel 12%, Cuprica 97%; o nosso `OrbResource.Abundance` dá 5%, 9% e 97%, **igual ao painel do próprio asteroide no jogo** (2026-11-26). Então o nosso número é o do jogo; o diálogo mostra outro valor (talvez com algum bônus de mineração, ou guardado de quando a sugestão foi feita). Não investigado.
 
 ## Tabela de suprimento (regra do jogo)
 
