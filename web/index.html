@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Empire Overview</title>
+<link rel="icon" id="favicon" href="data:,">
 <style>
   /* Look from the Claude Design v3 proposal (design/claude-design): no borders, separation by background
      tones, condensed uppercase headings, one accent; green/amber/red only for status. Barlow is bundled
@@ -757,6 +758,7 @@ async function refresh() {
         $('bellBadge').hidden = !info.counts.pending;
         $('bellBadge').textContent = info.counts.pending || '';
         $('bellBadge').title = `${info.counts.pending} advisor suggestion(s) waiting for a decision`;
+        setFavicon(true, info.counts.pending);
       } else {
         tabCounts[tab] = countFor(tab, rows);
         surveyCounts();
@@ -791,6 +793,7 @@ async function refresh() {
   } catch (e) {
     $('dot').classList.remove('on');
     $('status').textContent = 'game not reachable (is it running with the mod?)';
+    setFavicon(false, 0);
   }
 }
 
@@ -911,6 +914,25 @@ async function surveyCounts() {
 
 function showTabCounts() {
   document.querySelectorAll('.tabs button').forEach(b => { b.querySelector('em').textContent = tabCounts[b.dataset.tab] ?? ''; });
+}
+
+// Favicon drawn here: the brand's diamond, cyan while the game answers and gray when it does not, with an
+// amber badge counting the advisor suggestions waiting for a decision (also in the tab title).
+let faviconSig = '';
+function setFavicon(connected, pending) {
+  const sig = `${connected}|${pending}`;
+  if (sig === faviconSig) return;
+  faviconSig = sig;
+  const color = connected ? '#5ec8e8' : '#7a7a7a';
+  const badge = pending > 0
+    ? `<circle cx="23" cy="9" r="9" fill="#e8b44c"/><text x="23" y="13" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="12" fill="#1a1205">${pending > 9 ? '9+' : pending}</text>`
+    : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+    <rect width="32" height="32" rx="6" fill="#181818"/>
+    <rect x="9" y="9" width="14" height="14" transform="rotate(45 16 16)" fill="none" stroke="${color}" stroke-width="2.2"/>
+    <rect x="13.5" y="13.5" width="5" height="5" transform="rotate(45 16 16)" fill="${color}"/>${badge}</svg>`;
+  $('favicon').href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  document.title = (pending > 0 ? `(${pending}) ` : '') + 'Empire Overview';
 }
 
 // Themes from the design proposal: Dark (default), Deep space, Light; kept in this browser.
@@ -1934,6 +1956,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- Start (last, so every declaration above exists before the first render) ----
+setFavicon(false, 0);
 let startTab = 'overview';
 try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
 setTab(['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
