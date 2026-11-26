@@ -195,6 +195,8 @@
   /* Status tags: colored text on a faint tint */
   .siteline { color: var(--mut); font-size: 12px; margin-left: 4px; }
   .siteline b { color: var(--tx); font-weight: 500; }
+  .need-critical, .need-critical b { color: var(--bad) !important; }
+  .need-low, .need-low b { color: var(--warn) !important; }
   .tag { display: inline-block; padding: 0 6px; font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
@@ -544,7 +546,7 @@
   .sgroup em { font-style: normal; color: var(--mut); font-size: 12px; }
   .sgroup .sicon { color: var(--acc); }
   .caret2 { color: var(--mut); width: 10px; }
-  .srow { display: grid; grid-template-columns: 30px minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(200px, 1.2fr) 40px; gap: 10px; align-items: center;
+  .srow { display: grid; grid-template-columns: 30px minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(200px, 1.2fr) 110px 40px; gap: 10px; align-items: center;
     padding: 5px 10px; background: var(--panel); cursor: pointer; }
   .srow:hover { background: var(--hover); }
   .srow.flash { background: var(--acc-d); }
@@ -569,6 +571,8 @@
   .cchip[data-cat="fuel"], .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
   .cchip[data-cat="luxury"], .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
   .cchip b { font-weight: 500; }
+  .swarncol { font-size: 12px; }
+  .swarncol .swarn { flex-direction: column; align-items: flex-start; gap: 2px; }
   .sfuel .mline { display: flex; align-items: center; gap: 6px; }
   .sfuel .mline small { width: 40px; }
   .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
@@ -581,13 +585,15 @@
     /* Two lines: icon, name and mission; then fuel and energy side by side under the name. */
     .srow { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); row-gap: 4px; padding: 6px 10px; }
     .sorders, .ssys, .sflags { display: none; }
-    .sfuel { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; column-gap: 20px; row-gap: 3px; }
+    .sfuel { grid-column: 2; flex-direction: row; flex-wrap: wrap; column-gap: 20px; row-gap: 3px; }
+    .swarncol { grid-column: 3; }
+    .swarncol .swarn { flex-direction: row; }
     .sfuel .mline small { width: auto; }
   }
   @media (max-width: 520px) {
     /* Phone width: the mission goes under the name too. */
     .srow { grid-template-columns: 30px minmax(0, 1fr); }
-    .smission, .sfuel { grid-column: 2; }
+    .smission, .sfuel, .swarncol { grid-column: 2; }
     .srow .sicon { grid-row: 1 / span 3; align-self: start; }
   }
 
@@ -1252,7 +1258,7 @@ async function refresh() {
       render();
     } else {
       other = { rows, concurrent: data.concurrent };
-      if (tab === 'resources') resData = { items: rows, deposits: data.deposits || [] };
+      if (tab === 'resources') { resData = { items: rows, deposits: data.deposits || [] }; learnResources(rows); }
       renderOther();
     }
   } catch (e) {
@@ -1533,6 +1539,7 @@ function compare(a, b) {
 
 function render() {
   setTimeout(syncFilters, 0);
+  refreshResKnow();
   $('buildRoles').innerHTML = buildRoleChips(items, r => `data-brole="${esc(r)}"`);
   const q = $('search').value.trim().toLowerCase();
   const st = $('state').value, cat = $('category').value, work = $('work').value, role = $('role').value;
@@ -1589,6 +1596,12 @@ function whereCell(i, kind, key, more) {
   return `<span class="caret" data-toggle="${esc(key)}" title="${open ? 'Fold' : 'Show'} the other ${more}">${open ? '▾' : '▸'}</span>${place}<span class="more">+${more}</span>`;
 }
 
+/** For which short resources a mining build is ("for Caslon"), coloured by how short; nothing when none is short. */
+function buildFor(i) {
+  const short = (i.extracts || []).filter(x => ['critical', 'low'].includes(resKnow.get(x.name)));
+  return short.length ? ` <span class="mut">for</span> ${short.slice(0, 2).map(x => `<span class="need-${resKnow.get(x.name)}">${esc(x.name)}</span>`).join(', ')}` : '';
+}
+
 /** Role on one line: the group the filter chips use (Military, Logistics...), then the game's exact type in grey. */
 function roleCell(i) {
   const group = buildRole(i), exact = i.roleName || human(i.role || '');
@@ -1604,13 +1617,28 @@ function nameCell(i) {
 }
 
 /** A base built in place: where it will stand and, for a mining base, what that place holds (best first). */
+// The supply state of each resource by name (what a build site holds comes as names), for the "why" of a build.
+let resKnow = new Map(), resKnowAt = 0;
+function learnResources(items) { resKnow = new Map((items || []).filter(resRelevant).map(r => [r.name, resStatus(r)])); resKnowAt = Date.now(); }
+async function refreshResKnow() {
+  if (Date.now() - resKnowAt < 5000) return;
+  resKnowAt = Date.now();
+  try {
+    const before = JSON.stringify([...resKnow]);
+    learnResources((await getJson('/api/resources')).items);
+    if (JSON.stringify([...resKnow]) !== before && tab === 'construction') render();
+  } catch (e) { }
+}
+/** A site's resource, coloured by how short the empire is of it: the reason a mining base is being built. */
+const needChip = x => { const st = resKnow.get(x.name); return `<span class="need-${st || 'none'}" title="${esc(x.name)}${st && st !== 'adequate' ? ': ' + st + ' in the empire' : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`; };
+
 function siteLine(i) {
   if (!i.site) return '';
   // Same line as the name, in grey; the place only when the name does not already say it (Goma Spaceport at
   // Goma), and for a mining base what the place holds.
   const named = (i.name || '').toLowerCase().includes(i.site.toLowerCase());
   if (named && !i.extracts) return '';
-  const res = (i.extracts || []).slice(0, 4).map(r => `${esc(r.name)} <b>${r.abundance}%</b>`).join(', ');
+  const res = (i.extracts || []).slice(0, 4).map(needChip).join(', ');
   const more = (i.extracts || []).length > 4 ? ` +${i.extracts.length - 4}` : '';
   const what = i.extracts ? (i.extracts.length ? ` · ${res}${more}` : ' · <span class="mk-warn">no known resources</span>') : '';
   const place = named ? '' : ` at <a class="go" href="#" data-orb="${i.siteOrbId}" title="Go to ${esc(i.site)}">${esc(i.site)}</a>`;
@@ -2127,14 +2155,14 @@ function miniBar(rows) {
  * damage. A full, healthy, empty ship shows nothing here.
  */
 function shipState(s) {
-  const cargo = (s.cargo || []).slice(0, 3).map(c => `<span class="cchip" data-cat="${esc(c.category || '')}" title="Cargo${c.category ? ' · ' + esc(c.category) : ''}">${esc(c.name)} <b>${fmt.big(c.amount)}</b></span>`).join('')
-    + ((s.cargo || []).length > 3 ? `<span class="mut" title="${esc(s.cargo.slice(3).map(c => c.name + ' ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 3}</span>` : '');
+  const cargo = (s.cargo || []).slice(0, 3).map(c => `<span class="cchip" data-cat="${esc(c.category || '')}" title="Cargo${c.category ? ' · ' + esc(c.category) : ''}">${esc(c.name)} <span class="mut">×</span> <b>${fmt.big(c.amount)}</b></span>`).join('')
+    + ((s.cargo || []).length > 3 ? `<span class="mut" title="${esc(s.cargo.slice(3).map(c => c.name + ' × ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 3}</span>` : '');
   const warn = [];
   const inYard = shipBucket(s) === 'yard';   // being built or repaired: no fuel yet is no news
   if (!inYard && s.fuel != null && s.fuel < 0.5) warn.push(`<span class="${s.fuel < 0.25 ? 'flag' : 'mk-warn'}" title="Fuel: how much of the ship's full range is left">Fuel ${fuelPct(s)}%</span>`);
   if (!inYard && s.energy != null && s.energy < 0.5) warn.push(`<span class="${s.energy < 0.25 ? 'flag' : 'mk-warn'}" title="Energy: the reactor's storage">Energy ${Math.round(s.energy * 100)}%</span>`);
   if (s.damage) warn.push(`<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>`);
-  return `${cargo ? `<span class="scargo">${cargo}</span>` : ''}${warn.length ? `<span class="swarn">${warn.join('')}</span>` : ''}`;
+  return { cargo: cargo ? `<span class="scargo">${cargo}</span>` : '', warn: warn.length ? `<span class="swarn">${warn.join('')}</span>` : '' };
 }
 
 /**
@@ -2233,7 +2261,7 @@ function renderShips() {
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         ${manual || s.fleet ? `<span class="scmeta">${[manual ? '✋ Manual' : '', s.fleet ? esc(s.fleet) : ''].filter(Boolean).join(' · ')}</span>` : ''}
-        <span class="sfuel">${shipState(s)}</span>
+        <span class="sfuel">${shipState(s).cargo}${shipState(s).warn}</span>
       </div>`;
         continue;
       }
@@ -2241,7 +2269,7 @@ function renderShips() {
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
         <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip" title="Under manual orders">✋ Manual</span>' : ''}${s.fleet ? `<span class="chip" title="Fleet">${esc(s.fleet)}</span>` : ''}</span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
-        <span class="sfuel">${shipState(s)}</span>
+        <span class="sfuel">${shipState(s).cargo}</span><span class="swarncol">${shipState(s).warn}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
       </div>`;
     }
@@ -2367,6 +2395,7 @@ async function loadOverview() {
   const got = await Promise.all(names.map(n => getJson('/api/' + n).then(r => r).catch(() => ({ items: [] }))));
   const data = {};
   names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; });
+  learnResources(data.resources);
   return { items: [], ov: data };
 }
 
@@ -2401,7 +2430,13 @@ function attentionItems() {
   // A ship still in a yard has no fuel yet: that is not a problem.
   const lowFuel = ov.ships.filter(s => s.fuel != null && s.fuel < 0.2 && shipBucket(s) !== 'yard' && !isCraft(s));
   const critical = (ov.resources || []).filter(r => resRelevant(r) && resStatus(r) === 'critical');
-  if (critical.length) add('bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, 'Out of it, or well below what the empire wants to keep.', 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
+  if (critical.length) {
+    // For each: a mining base being built or a construction ship on its way where it is found, or nobody yet.
+    const onIt = r => ov.construction.find(i => i.state !== 'idle' && (i.extracts || []).some(x => x.name === r.name));
+    const lines = critical.slice(0, 4).map(r => { const i = onIt(r); return i ? `${r.name}: ${i.state === 'enroute' ? `${i.where} on the way to ${i.site}` : `station being built at ${i.site}`}` : `${r.name}: nobody on it`; });
+    const allCovered = critical.every(onIt);
+    add(allCovered ? 'warn' : 'bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, lines.join(' · '), 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
+  }
   if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${fuelPct(s)}%`).join(', '), 'Ships', goTab('ships'));
   if ((ovInfo.economy?.cashflowActual ?? 0) < 0) add('bad', 'Negative cashflow', `${money0(ovInfo.economy.cashflowActual)} a year`, null, null);
   const order = { bad: 0, warn: 1 };
@@ -2455,7 +2490,7 @@ function blockHtml(id) {
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
       `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Built by</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
         <td><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
-        <td class="ovname">${esc(i.name || i.design || 'Not started')}${i.site && !(i.name || '').toLowerCase().includes(i.site.toLowerCase()) ? ` <span class="mut">at ${esc(i.site)}</span>` : ''}</td>
+        <td class="ovname">${esc(i.name || i.design || 'Not started')}${i.site && !(i.name || '').toLowerCase().includes(i.site.toLowerCase()) ? ` <span class="mut">at ${esc(i.site)}</span>` : ''}${buildFor(i)}</td>
         <td class="ovrole">${roleCell(i)}</td>
         <td class="ovby">${esc(i.where || '')}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
@@ -2654,6 +2689,11 @@ function resNext(r) {
   const go = x => `<a class="go" href="#" data-orb="${x.d.orbId}">${esc(x.d.name)}</a>`;
   const best = free[0];
   const alsoBest = st !== 'adequate' && best ? ` · could also mine ${go(best)} (${best.ab}%)` : '';
+  // A construction ship on its way to build a mining base where this resource is.
+  const coming = resBuilds.find(i => i.state === 'enroute' && (i.extracts || []).some(x => x.name === r.name));
+  if (coming && !building.length) {
+    return `${esc(coming.where || 'A ship')} on the way to build at ${coming.siteOrbId != null ? `<a class="go" href="#" data-orb="${coming.siteOrbId}">${esc(coming.site)}</a>` : esc(coming.site || '')}${mined.length ? '' : alsoBest}`;
+  }
   if (building.length) {
     const b = building[0];
     return `Station being built at ${go(b)} (${Math.round(b.d.stationBuilding * 100)}%)${mined.length ? '' : alsoBest}`;
@@ -2711,7 +2751,7 @@ async function refreshResBuilds() {
   try {
     const items = (await getJson('/api/construction')).items || [];
     const sig = JSON.stringify(items.map(i => [i.state, i.siteOrbId, i.where]));
-    if (sig !== JSON.stringify(resBuilds.map(i => [i.state, i.siteOrbId, i.where]))) { resBuilds = items; if (tab === 'resources' && resView !== 'resources') renderResources(); }
+    if (sig !== JSON.stringify(resBuilds.map(i => [i.state, i.siteOrbId, i.where]))) { resBuilds = items; if (tab === 'resources') renderResources(); }
   } catch (e) { }
 }
 function renderLocations(all, deps, q) {
@@ -2770,6 +2810,7 @@ $('resLocations').addEventListener('click', e => {
 
 function renderResources() {
   setTimeout(syncFilters, 0);
+  refreshResBuilds();
   const all = (resData.items || []).filter(resRelevant);
   const q = $('search').value.trim().toLowerCase();
 
