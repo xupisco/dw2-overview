@@ -75,12 +75,26 @@
   .statusline .up { color: var(--ok); } .statusline .down { color: var(--bad); } .statusline .paused { color: var(--warn); }
   .clockbtn { background: var(--panel); border: 0; color: var(--mut); padding: 1px 8px; cursor: pointer; font-size: 12px; }
   .clockbtn:hover { background: var(--hover); color: var(--tx); }
-  .audioctl { display: inline-flex; align-items: center; gap: 8px; }
+  .gamectl { display: flex; align-items: center; gap: 6px; margin-right: 6px; }
+  .gamectl[hidden] { display: none; }
+  .gamectl .clockbtn b { color: var(--tx); font-weight: 600; }
+  .gamectl .clockbtn.paused { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); font-weight: 600; }
+  .musicvol { height: 28px; padding: 0 8px; background: var(--panel); color: var(--mut); font-size: 12px; }
+  @media (max-width: 900px) { .musicvol .mlabel { display: none; } }
+  .audioctl { display: inline-flex; align-items: center; gap: 6px; }
   .audioctl[hidden] { display: none; }
-  .clockbtn.muted { color: var(--warn); }
-  .clockbtn svg { vertical-align: -2px; }
+  #muteBtn.muted { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .gamectl svg { vertical-align: -2px; }
   .musicvol { display: inline-flex; align-items: center; gap: 6px; }
-  .musicvol input { width: 80px; accent-color: var(--acc); height: 12px; }
+  /* Same look as the page's bars: thin track, filled part in the accent, small square handle */
+  .musicvol input { -webkit-appearance: none; appearance: none; width: 80px; height: 14px; margin: 0; background: transparent; cursor: pointer; --v: 50%; }
+  .musicvol input::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(to right, var(--acc) var(--v), var(--track) var(--v)); }
+  .musicvol input::-moz-range-track { height: 3px; background: linear-gradient(to right, var(--acc) var(--v), var(--track) var(--v)); }
+  .musicvol input::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 12px; margin-top: -4.5px; background: var(--tx); border: 0; border-radius: 0; }
+  .musicvol input::-moz-range-thumb { width: 8px; height: 12px; background: var(--tx); border: 0; border-radius: 0; }
+  .musicvol input:hover::-webkit-slider-thumb, .musicvol input:focus-visible::-webkit-slider-thumb { background: var(--acc); }
+  .musicvol input:hover::-moz-range-thumb { background: var(--acc); }
+  .musicvol input:focus-visible { outline: none; }
   .musicvol em { font-style: normal; color: var(--tx); min-width: 32px; }
   .clockbtn.paused { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); font-weight: 600; }
   /* Game paused: a glow around the whole window (no layout change, clicks pass through) */
@@ -454,6 +468,13 @@
       <button type="button" data-tab="messages">Messages <em></em></button>
     </nav>
     <div class="tools">
+      <div id="gamectl" class="gamectl" hidden>
+        <span id="clock"></span>
+        <span id="audio" class="audioctl" hidden>
+          <button type="button" class="tool" id="muteBtn"></button>
+          <label class="musicvol" title="Music volume (the game's own setting)"><span class="mlabel">Music</span> <input type="range" id="musicVol" min="0" max="100" step="5"><em id="musicPct"></em></label>
+        </span>
+      </div>
       <button type="button" class="tool" id="searchBtn" title="Go to anything, or run a game command (Ctrl K)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
         <span>Search</span><kbd>Ctrl K</kbd>
@@ -494,10 +515,6 @@
   <div class="statusline">
     <span><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
     <span id="empire"></span>
-    <span id="audio" class="audioctl" hidden>
-      <button type="button" class="clockbtn" id="muteBtn"></button>
-      <label class="musicvol" title="Music volume (the game's own setting)">Music <input type="range" id="musicVol" min="0" max="100" step="5"><em id="musicPct"></em></label>
-    </span>
   </div>
 </header>
 
@@ -838,6 +855,7 @@ async function refresh() {
     // The page's edges light up while the game is paused, so it shows from across the desk.
     document.body.classList.toggle('game-paused', !!(info.loaded && info.paused));
     renderAudio(info.loaded ? info.audio : null);
+    $('gamectl').hidden = !info.loaded;
     token = info.token;
     let rows = [];
     if (!info.loaded) {
@@ -853,13 +871,13 @@ async function refresh() {
       const flow = eco.cashflowActual;
       // The game's clock, with play / pause (the game's own pause shortcut, as from the palette).
       const clock = info.paused
-        ? `<button type="button" class="clockbtn paused" data-clock title="Resume the game">▶ Game paused${info.autoPaused ? ' (by the game)' : ''}</button>`
-        : `<button type="button" class="clockbtn" data-clock title="Pause the game">❚❚ ${info.speed != null ? `Speed <b>×${+info.speed.toFixed(2)}</b>` : 'Running'}</button>`;
+        ? `<button type="button" class="tool clockbtn paused" data-clock title="Resume the game">▶ Paused${info.autoPaused ? ' by the game' : ''}</button>`
+        : `<button type="button" class="tool clockbtn" data-clock title="Pause the game">❚❚ ${info.speed != null ? `<b>×${+info.speed.toFixed(2)}</b>` : 'Running'}</button>`;
+      if ($('clock').innerHTML !== clock) $('clock').innerHTML = clock;
       $('empire').innerHTML = [
         `<b>${esc(info.empire)}</b>`,
         `Date <b>${esc(info.starDateText || info.starDate)}</b>`,
         `Cash <b>${money(eco.cash)}</b>${flow == null ? '' : ` <span class="${flow >= 0 ? 'up' : 'down'}">${flow >= 0 ? '+' : ''}${money(flow)}/yr</span>`}`,
-        clock,
       ].filter(Boolean).map(s => `<span>${s}</span>`).join('');
       $('empire').style.display = 'contents';
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
@@ -921,6 +939,7 @@ async function refresh() {
     $('status').textContent = 'game not reachable (is it running with the mod?)';
     setFavicon(false, 0);
     document.body.classList.remove('game-paused');
+    $('gamectl').hidden = true;
   }
 }
 
@@ -1471,7 +1490,7 @@ async function toggleGamePause() {
   await pressKey(c.index);
   setTimeout(refresh, 300);
 }
-$('empire').addEventListener('click', e => { if (e.target.closest('[data-clock]')) toggleGamePause(); });
+$('clock').addEventListener('click', e => { if (e.target.closest('[data-clock]')) toggleGamePause(); });
 
 // ---- Sound: mute the whole game (Windows mixer) and the music volume (the game's setting) ----
 let audioState = null, musicTouched = 0, musicTimer = null;
@@ -1489,6 +1508,7 @@ function renderAudio(a) {
   slider.closest('label').hidden = a.music == null;
   if (a.music != null && Date.now() - musicTouched > 2500) {
     slider.value = Math.round(a.music * 100);
+    slider.style.setProperty('--v', slider.value + '%');
     $('musicPct').textContent = Math.round(a.music * 100) + '%';
   }
 }
@@ -1505,6 +1525,7 @@ $('muteBtn').addEventListener('click', toggleMute);
 $('musicVol').addEventListener('input', () => {
   musicTouched = Date.now();
   $('musicPct').textContent = $('musicVol').value + '%';
+  $('musicVol').style.setProperty('--v', $('musicVol').value + '%');
   clearTimeout(musicTimer);
   musicTimer = setTimeout(() => setAudio({ music: +$('musicVol').value / 100 }), 150);
 });
