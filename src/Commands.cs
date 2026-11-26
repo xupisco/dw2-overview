@@ -19,8 +19,35 @@ internal static class Commands
 
     public static void GoTo(string type, int id) => pending.Enqueue((type, id));
 
+    private static readonly ConcurrentQueue<Action<DWGame>> jobs = new();
+
+    /// <summary>
+    /// Runs a read on the game thread and waits for its result (from a server thread). Returns default on
+    /// timeout, e.g. while the game is loading or minimized long enough that Update does not run.
+    /// </summary>
+    public static T OnGameThread<T>(Func<DWGame, T> read, int timeoutMs = 1000)
+    {
+        var done = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        jobs.Enqueue(game =>
+        {
+            try
+            {
+                done.TrySetResult(read(game));
+            }
+            catch (Exception e)
+            {
+                done.TrySetException(e);
+            }
+        });
+        return done.Task.Wait(timeoutMs) ? done.Task.Result : default;
+    }
+
     public static void Run(DWGame game)
     {
+        while (jobs.TryDequeue(out var job))
+        {
+            job(game);
+        }
         while (pending.TryDequeue(out var command))
         {
             try

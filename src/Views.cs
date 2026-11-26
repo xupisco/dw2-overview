@@ -174,6 +174,43 @@ internal static class Views
         }
     }
 
+    /// <summary>
+    /// The game's own "Search Known Items" for one query: it returns nothing for an empty query, so the
+    /// palette asks per search. Runs on the game thread (through Commands.OnGameThread).
+    /// </summary>
+    public static List<IndexRow> Search(Galaxy galaxy, Empire empire, string query, int limit)
+    {
+        var rows = new List<IndexRow>();
+        empire.ResolveKnownItems(query, true, true, true, out var found);
+        foreach (var obj in Copy(found))
+        {
+            var (type, id) = Target(obj);
+            if (type == null)
+            {
+                continue;
+            }
+            rows.Add(new IndexRow
+            {
+                Type = type,
+                Id = id.Value,
+                Name = Safe(() => (obj as INamed)?.Name),
+                Kind = obj switch
+                {
+                    Ship s => s.IsBase ? "Base " + s.Role : s.Role.ToString(),
+                    Orb o => Safe(() => o.Colony != null && o.Colony.Empire.Id == empire.EmpireId) ? "Colony" : o.Category.ToString(),
+                    _ => null,
+                },
+                System = SystemName(galaxy, obj),
+                Own = obj is Ship ship ? ship.EmpireId == empire.EmpireId : Safe(() => (obj as Orb)?.Colony?.Empire.Id == empire.EmpireId),
+            });
+            if (rows.Count >= limit)
+            {
+                break;
+            }
+        }
+        return rows;
+    }
+
     /// <summary>How /api/goto finds an object again.</summary>
     private static (string type, int? id) Target(StellarObject obj) => obj switch
     {

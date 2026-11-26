@@ -61,6 +61,19 @@
   .group[hidden] { display: none; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .flag { color: var(--bad); }
+  /* Command palette (Ctrl+K) */
+  #palette { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 10; }
+  #palette[hidden] { display: none; }
+  .pbox { width: min(640px, calc(100% - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,.5); overflow: hidden; }
+  .pbox input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--text); font: inherit; font-size: 16px; padding: 14px 16px; outline: none; }
+  .plist { max-height: 55vh; overflow-y: auto; }
+  .pitem { display: flex; gap: 10px; align-items: baseline; padding: 8px 16px; cursor: pointer; }
+  .pitem.on { background: #1f3340; }
+  .pitem .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pitem .pname b { color: var(--accent); font-weight: 600; }
+  .pitem .pmeta { color: var(--dim); font-size: 12px; white-space: nowrap; }
+  .pitem .own { color: var(--ok); }
+  .pfoot { color: var(--dim); font-size: 12px; padding: 6px 16px; border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -157,6 +170,14 @@
   <div id="empty" class="empty" hidden></div>
 </div>
 
+<div id="palette" hidden>
+  <div class="pbox" role="dialog" aria-label="Go to">
+    <input id="pinput" type="text" placeholder="Go to… (ships, bases, colonies, fleets, known planets)" autocomplete="off">
+    <div class="plist" id="plist"></div>
+    <div class="pfoot" id="pfoot">↑↓ choose · Enter go · Esc close</div>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 let items = [], shown = [], rowItems = [], paused = false, sortKey = 'state', sortAsc = true, token = null;
@@ -215,12 +236,14 @@ const columns = {
   ],
 };
 const priorityRank = { Low: 0, Normal: 1, High: 2, Critical: 3 };
+/** Message text without the game's markup ([LOCATION]…[/LOCATION]) and with collapsed whitespace. */
+const plain = s => (s || '').replace(/\[\/?[A-Z]+\]/g, '').replace(/\s+/g, ' ').trim();
 columns.messages = [
   { key: 'date', label: 'Date', sortKey: 'starDate' },
   { key: 'priority', label: 'Priority', f: v => `<span class="tag prio-${esc(v)}">${esc(v)}</span>`, html: true, order: { Critical: 0, High: 1, Normal: 2, Low: 3 } },
   { key: 'type', label: 'Type', f: (v, r) => r.advisor ? `${esc(v)} <span class="none">(advisor)</span>` : esc(v), html: true },
   { key: 'title', label: 'Title' },
-  { key: 'text', label: 'Text', f: v => v && v.length > 90 ? esc(v.slice(0, 90)) + '…' : esc(v), html: true },
+  { key: 'text', label: 'Text', f: v => { const t = plain(v); return t.length > 90 ? esc(t.slice(0, 90)) + '…' : esc(t); }, html: true },
   { key: 'relatedName', label: 'About' },
   { key: 'task', label: 'Suggests' },
 ];
@@ -337,7 +360,7 @@ function checkNotify(messages) {
     if (knownMessages.has(m.key)) continue;
     knownMessages.add(m.key);
     if ((priorityRank[m.priority] ?? 0) < min) continue;
-    const n = new Notification(m.title || 'Distant Worlds 2', { body: m.text || '', tag: m.key });
+    const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
     n.onclick = () => { window.focus(); if (m.relatedId) goTo(m.relatedType, m.relatedId); n.close(); };
   }
 }
@@ -522,6 +545,124 @@ let startTab = 'construction';
 try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
 setTab(columns[startTab] || startTab === 'construction' ? startTab : 'construction');
 setInterval(refresh, 2000);
+
+// ---- Command palette (Ctrl+K) ----
+// Own things come from /api/index (fetched when the palette opens) and are matched here, instantly.
+// Everything else the empire knows comes from the game's own search (/api/search), asked after a short pause
+// in typing. Both lists are merged, own things first.
+const palette = { open: false, index: [], remote: [], results: [], sel: 0, timer: null, seq: 0 };
+
+function fuzzy(text, q) {
+  // Score a subsequence match: contiguous runs and word starts score higher. Returns null when no match.
+  const t = (text || '').toLowerCase();
+  let ti = 0, score = 0, run = 0;
+  const hits = [];
+  for (const ch of q) {
+    const at = t.indexOf(ch, ti);
+    if (at < 0) return null;
+    run = at === ti ? run + 1 : 1;
+    score += run * 2 + (at === 0 || t[at - 1] === ' ' ? 5 : 0) - Math.min(at - ti, 5) * 0.2;
+    hits.push(at);
+    ti = at + 1;
+  }
+  if (t.startsWith(q)) score += 10;
+  return { score, hits };
+}
+
+function highlight(text, hits) {
+  const set = new Set(hits);
+  return [...(text || '')].map((c, i) => set.has(i) ? `<b>${esc(c)}</b>` : esc(c)).join('');
+}
+
+function paletteResults() {
+  const q = $('pinput').value.trim().toLowerCase();
+  const seen = new Set(), out = [];
+  const add = (item, m) => {
+    const k = item.type + ':' + item.id;
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ item, score: (m ? m.score : 0) + (item.own ? 3 : 0), hits: m ? m.hits : [] });
+  };
+  for (const item of palette.index) {
+    if (!q) { add(item, null); continue; }
+    const m = fuzzy(item.name, q);
+    if (m) add(item, m);
+  }
+  for (const item of palette.remote) add(item, q ? fuzzy(item.name, q) : null);
+  out.sort((a, b) => b.score - a.score || (a.item.name || '').localeCompare(b.item.name || ''));
+  palette.results = out.slice(0, 40);
+  palette.sel = Math.min(palette.sel, Math.max(0, palette.results.length - 1));
+  $('plist').innerHTML = palette.results.map((r, n) => `<div class="pitem${n === palette.sel ? ' on' : ''}" data-n="${n}">
+      <span class="pname">${highlight(r.item.name, r.hits)}</span>
+      <span class="pmeta">${r.item.own ? '<span class="own">own</span> · ' : ''}${esc(r.item.kind || r.item.type)}${r.item.system ? ' · ' + esc(r.item.system) : ''}</span>
+    </div>`).join('') || `<div class="pitem"><span class="pname none">${q ? 'Nothing found' : 'Type to search'}</span></div>`;
+  const on = $('plist').querySelector('.pitem.on');
+  if (on) on.scrollIntoView({ block: 'nearest' });
+}
+
+async function openPalette() {
+  palette.open = true;
+  palette.remote = [];
+  palette.sel = 0;
+  $('palette').hidden = false;
+  $('pinput').value = '';
+  $('pinput').focus();
+  paletteResults();
+  try {
+    palette.index = (await getJson('/api/index')).items || [];
+    if (!palette.index.length) { await new Promise(r => setTimeout(r, 1200)); palette.index = (await getJson('/api/index')).items || []; }
+  } catch (e) { palette.index = []; }
+  if (palette.open) paletteResults();
+}
+
+function closePalette() {
+  palette.open = false;
+  $('palette').hidden = true;
+}
+
+function paletteGo(n) {
+  const r = palette.results[n];
+  if (!r) return;
+  goTo(r.item.type, r.item.id);
+  closePalette();
+}
+
+$('pinput').addEventListener('input', () => {
+  palette.sel = 0;
+  paletteResults();
+  clearTimeout(palette.timer);
+  const q = $('pinput').value.trim();
+  if (!q) { palette.remote = []; return; }
+  palette.timer = setTimeout(async () => {
+    const seq = ++palette.seq;
+    try {
+      const res = await getJson('/api/search?q=' + encodeURIComponent(q));
+      if (seq !== palette.seq || !palette.open) return;
+      palette.remote = res.items || [];
+      paletteResults();
+    } catch (e) { /* older mod without /api/search, or game busy: own things still work */ }
+  }, 180);
+});
+
+$('pinput').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { palette.sel = Math.min(palette.sel + 1, palette.results.length - 1); paletteResults(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { palette.sel = Math.max(palette.sel - 1, 0); paletteResults(); e.preventDefault(); }
+  else if (e.key === 'Enter') { paletteGo(palette.sel); e.preventDefault(); }
+  else if (e.key === 'Escape') { closePalette(); e.preventDefault(); }
+});
+
+$('plist').addEventListener('click', e => {
+  const it = e.target.closest('.pitem[data-n]');
+  if (it) paletteGo(+it.dataset.n);
+});
+$('palette').addEventListener('mousedown', e => { if (e.target.id === 'palette') closePalette(); });
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    palette.open ? closePalette() : openPalette();
+  }
+});
 </script>
 </body>
 </html>

@@ -125,6 +125,9 @@ internal static class Server
                     Snapshot.Touch();
                     Send(response, 200, contentTypes[".json"], Snapshot.MessagesJson);
                     return;
+                case "/api/search":
+                    HandleSearch(request, response);
+                    return;
                 case "/api/index":
                     Snapshot.TouchIndex();
                     Send(response, 200, contentTypes[".json"], Snapshot.IndexJson);
@@ -179,6 +182,37 @@ internal static class Server
         }
         Commands.GoTo(body.Type, body.Id);
         Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
+    }
+
+    private static readonly JsonSerializerOptions apiJson = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    /// <summary>GET /api/search?q=... : the game's "Search Known Items", run on the game thread.</summary>
+    private static void HandleSearch(HttpListenerRequest request, HttpListenerResponse response)
+    {
+        Snapshot.Touch();
+        string q = (request.QueryString["q"] ?? "").Trim();
+        if (q.Length == 0 || q.Length > 64)
+        {
+            Send(response, 200, contentTypes[".json"], "{\"items\":[]}");
+            return;
+        }
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var rows = Commands.OnGameThread(game =>
+        {
+            var empire = (game.Renderer as DistantWorlds2.ScaledRenderer)?.PlayerEmpire;
+            return game.Galaxy == null || empire == null ? null : Views.Search(game.Galaxy, empire, q, 50);
+        });
+        sw.Stop();
+        if (rows == null)
+        {
+            Send(response, 503, contentTypes[".json"], "{\"error\":\"game busy or not loaded\",\"items\":[]}");
+            return;
+        }
+        Send(response, 200, contentTypes[".json"], JsonSerializer.Serialize(new { q, ms = Math.Round(sw.Elapsed.TotalMilliseconds, 1), items = rows }, apiJson));
     }
 
     private sealed class GoToRequest
