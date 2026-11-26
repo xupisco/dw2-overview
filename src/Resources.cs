@@ -51,6 +51,8 @@ internal sealed class DepositResource
 
 internal static class ResourcesView
 {
+    private static bool candidatesLogged;
+
     public static (List<ResourceRow> resources, List<DepositRow> deposits) Collect(Galaxy galaxy, Empire empire)
     {
         // Deposits: every orb the empire has explored, with the resources it has discovered there.
@@ -108,6 +110,23 @@ internal static class ResourcesView
         var fuelIds = new HashSet<short>(Copy(Safe(() => empire.FuelResourcesByShipsOrTech)).Select(r => r.ResourceId));
         var constructionIds = new HashSet<short>(Amounts(Safe(() => empire.DetermineConstructionResourcesByTech())).Keys);
         var luxuryIds = new HashSet<short>(Copy(Safe(() => empire.DetermineLuxuryResources())).Select(r => r.ResourceId));
+        if (!candidatesLogged)
+        {
+            // The game's supply table counts Caslon and Gravillex Crystal under Construction, and the empire's
+            // construction list does not have them: log every candidate list once to find the one it uses.
+            candidatesLogged = true;
+            string Names(IEnumerable<short> ids) => string.Join(", ", ids.Select(i => Safe(() => galaxy.Resources.GetById(i)?.Name) ?? i.ToString()).OrderBy(n => n));
+            Log.Info("Candidate lists for the supply table:");
+            Log.Info("  fuel (FuelResourcesByShipsOrTech): " + Names(fuelIds));
+            Log.Info("  construction (DetermineConstructionResourcesByTech): " + Names(constructionIds));
+            Log.Info("  construction incl. unresearched: " + Names(Amounts(Safe(() => empire.DetermineConstructionResourcesByTechIncludeUnresearched())).Keys));
+            Log.Info("  construction incl. unresearched level 3: " + Names(Amounts(Safe(() => empire.DetermineConstructionResourcesByTechIncludeUnresearchedLevel3())).Keys));
+            Log.Info("  Resource.ConstructionResources (static): " + Names(Amounts(Resource.ConstructionResources).Keys));
+            Log.Info("  Resource.FuelResources (static): " + Names(Amounts(Resource.FuelResources).Keys));
+            Log.Info("  luxury (DetermineLuxuryResources): " + Names(luxuryIds));
+            Log.Info("  Resource.LuxuryResources (static): " + Names(Amounts(Resource.LuxuryResources).Keys));
+            Log.Info("  IsConstruction flag: " + Names(Copy(Safe(() => galaxy.Resources)).Where(r => Safe(() => r.IsConstruction)).Select(r => r.ResourceId)));
+        }
         var rows = new List<ResourceRow>();
         foreach (var res in Copy(Safe(() => galaxy.Resources)))
         {
