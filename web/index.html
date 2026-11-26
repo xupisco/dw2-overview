@@ -164,6 +164,10 @@
   .ovrow.att > i.warn { background: var(--warn); } .ovrow.att > i.bad { background: var(--bad); }
   .ovrow.att small { font-size: 12px; }
   .ovrow.prog { flex-direction: column; gap: 5px; }
+  /* name and percent on one line, the bar under them (the generic row rule would stack them) */
+  .ovrow.prog > .pt { flex: none; flex-direction: row; width: 100%; }
+  .ovrow.prog > .pb { flex: none; display: block; width: 100%; }
+  .ovrow.prog > .pt b { font-weight: 500; }
   .pt { display: flex; justify-content: space-between; gap: 8px; width: 100%; }
   .pt em { font-style: normal; font-size: 12px; color: var(--acc); }
   .pt em.warn, .warn { color: var(--warn); }
