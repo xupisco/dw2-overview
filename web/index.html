@@ -230,6 +230,9 @@
   .supply button { width: 130px; height: 28px; border: 0; background: var(--panel); text-align: left; padding: 0 10px; font: 600 16px var(--cond); cursor: pointer; }
   .supply button:hover { background: var(--hover); }
   .supply button.on { background: var(--acc-d); outline: 1px solid var(--acc); outline-offset: -1px; }
+  .ovsupply { width: 100%; padding: 6px 8px 10px; }
+  .ovsupply button { width: 100%; }
+  .ovsupply td:first-child { white-space: nowrap; }
   .reswrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
   .reswrap[hidden] { display: none; }
   @media (max-width: 1000px) { .reswrap { grid-template-columns: 1fr; } }
@@ -1332,6 +1335,7 @@ $('shipList').addEventListener('click', e => {
 const OV_BLOCKS = [
   { id: 'summary', name: 'Summary', note: 'Cash, population, yards, research, unrest', size: 'L', on: true },
   { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
+  { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical', size: 'S', on: true },
   { id: 'construction', name: 'Construction', note: 'Busy and queued yards', size: 'S', on: true },
   { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: true },
   { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: true },
@@ -1352,7 +1356,7 @@ let ov = null, ovInfo = null, ovActions = [];
 
 /** Reads what the blocks need, in parallel; ships are collected only once asked for, so they may lag a tick. */
 async function loadOverview() {
-  const names = ['construction', 'research', 'colonies', 'messages', 'ships'];
+  const names = ['construction', 'research', 'colonies', 'messages', 'ships', 'resources'];
   const got = await Promise.all(names.map(n => getJson('/api/' + n).then(r => r).catch(() => ({ items: [] }))));
   const data = {};
   names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; });
@@ -1458,6 +1462,20 @@ function blockHtml(id) {
         <small>${esc(m.date || '')}</small><span><i style="color:${color(m.priority)}">◆</i> ${esc(m.title)}</span><em>${esc(m.relatedName || '')}</em></button>`).join('')
       || '<div class="ovempty">No messages yet.</div>');
   }
+  if (id === 'supply') {
+    // The game's supply table: each count opens the Resources tab filtered to it.
+    const all = (ov.resources || []).filter(resRelevant);
+    if (!all.length) return panel('Supply', 'var(--acc)', linkTo('Resources', 'resources'), '<div class="ovempty">No resource data yet.</div>');
+    const fuels = all.filter(r => inCat(r, 'fuel') && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
+    const rows = RES_CATS.map(([key, label]) => `<tr><td><i class="catsq" data-cat="${key}"></i>${esc(key === 'fuel' && fuels.length ? `${label} (${fuels.join(', ')})` : label)}</td>${
+      ['adequate', 'low', 'critical'].map(st => {
+        const list = all.filter(r => inCat(r, key) && resStatus(r) === st);
+        const color = list.length && st !== 'adequate' ? STATUS_COLOR[st] : '';
+        return `<td><button type="button" style="color:${color}" title="${esc(list.map(r => r.name).join(', '))}" ${act(goTab('resources', () => { resSupply = { cat: key, status: st }; resView = 'resources'; renderResources(); }))}>${list.length}</button></td>`;
+      }).join('')}</tr>`).join('');
+    return panel('Supply', 'var(--acc)', linkTo('Resources', 'resources'),
+      `<table class="supply ovsupply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${rows}</tbody></table>`);
+  }
   if (id === 'idle') {
     const rows = ov.ships.filter(s => shipBucket(s) === 'idle');
     return panel('Idle ships', 'var(--acc)', linkTo('Ships', 'ships'),
@@ -1535,28 +1553,26 @@ const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury',
 /** Net change per second, as the game shows it: current minus required. */
 const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
 /**
- * The game shows the stock in red when it is below the level to maintain (its "Maintain" column, e.g. Caslon
- * 4,627 of 20,000), so: low below that level, critical below half of it. Where the mod gives no maintain
- * level (older version), the rates decide: critical when needed and nothing comes in, low when less comes in.
+ * Matches the game's supply table (2026-11-26: Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2): critical with
+ * nothing in stock (a construction or fuel resource, or one in demand) or below half the level to maintain
+ * (the game's "Maintain" column; it shows the stock in red below it, e.g. Caslon 4,627 of 20,000); low below
+ * that level. Without a maintain level (older mod), the rates decide.
  */
 function resStatus(r) {
   if (r.critical) return 'critical';
+  const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
+  if (stock <= 0 && (req > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
   if (r.maintain != null) {
-    // Matches the game's supply table (2026-11-26: Fuel 0/0/1, Construction 14/0/2, Luxury 3/0/2): critical
-    // with nothing in stock (a construction or fuel resource, or one in demand), or below half the level to
-    // maintain; low below the level to maintain.
-    const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
-    if (stock <= 0 && (req > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
     if (r.maintain <= 0) return 'adequate';
     return stock < r.maintain / 2 ? 'critical' : stock < r.maintain ? 'low' : 'adequate';
   }
-  const req = r.rateRequired ?? 0, cur = r.rateCurrent ?? 0;
+  if (r.stock == null && r.rateRequired == null && r.rateCurrent == null) return 'adequate';
+  const cur = r.rateCurrent ?? 0;
   if (req > 0 && cur <= 0) return 'critical';
   if (cur < req) return 'low';
   return 'adequate';
 }
-/** Leaves out the resources the empire has nothing to do with (the game lists every one with a zero rate). */
-/** A resource can be in several categories (Caslon: fuel and construction), as the game counts it. */
+/** Every category of a resource (the game's flags: fuel, construction, luxury). */
 const inCat = (r, cat) => (r.categories && r.categories.length ? r.categories : [r.category]).includes(cat);
 const resRelevant = r => (r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || (r.known ?? 0) > 0 || r.deposits > 0
   || inCat(r, 'construction') || inCat(r, 'fuel');   // the game lists every construction and fuel resource

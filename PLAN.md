@@ -26,6 +26,9 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
   - inimigos chegando (`Empire.IncomingEnemyFleets`) e naves atacadas (mensagens High/Critical já cobrem parte);
   - decisões pendentes (mensagens que pedem resposta: diplomacia, investigações).
 
+- **Revisão da aba Resources** (pedido do Leandro, 2026-11-26): ficou mais complexa que a tela do jogo, rever o que ela mostra e como se lê.
+- **Revisão tela por tela** (pedido do Leandro): quando as funcionalidades estiverem ok, passar cada aba junto, olhando a interface.
+
 ## Sequência
 
 1. [x] Construção: estaleiros, filas, instalações, estaleiros parados. Testado no jogo em 2026-11-26.
