@@ -1,0 +1,8 @@
+{
+  "name": "DW2Overview",
+  "displayName": "Empire Overview",
+  "mainModule": "DW2Overview.dll",
+  "mainClass": "DW2Overview.Mod",
+  "version": "0.1.0",
+  "dependencies": []
+}

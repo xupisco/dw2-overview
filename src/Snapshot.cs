@@ -1,0 +1,330 @@
+using System.Diagnostics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using DistantWorlds.Types;
+using DistantWorlds2;
+using HarmonyLib;
+
+namespace DW2Overview;
+
+/// <summary>One row of the construction list.</summary>
+internal sealed class BuildItem
+{
+    /// <summary>ship, base or facility.</summary>
+    public string Category { get; set; }
+    /// <summary>building (in a yard), queued (waiting for a yard), outsideYard (under construction or repair, not found in any yard), facility, idle (a yard with nothing in it).</summary>
+    public string State { get; set; }
+    /// <summary>Construction, Repair, Retrofit, Retire (the game's ConstructionType), or Facility.</summary>
+    public string Work { get; set; }
+    public string Name { get; set; }
+    public string Design { get; set; }
+    public string Role { get; set; }
+    /// <summary>The game's own value (ConstructionLevel or ConstructionProgress); scale still to be confirmed.</summary>
+    public double? Progress { get; set; }
+    public string Where { get; set; }
+    public string WhereKind { get; set; }
+    public string System { get; set; }
+    public int? Queue { get; set; }
+    public int? ShipId { get; set; }
+    public int? OrbId { get; set; }
+    /// <summary>The yard owner (or the facility's colony), for "go to": "ship" (ShipId) or "orb" (OrbId).</summary>
+    public string WhereType { get; set; }
+    public int? WhereId { get; set; }
+
+    public BuildItem At(Where where)
+    {
+        Where = where.Name;
+        WhereKind = where.Kind;
+        System = where.System;
+        WhereType = where.Type;
+        WhereId = where.Id;
+        return this;
+    }
+}
+
+/// <summary>A yard owner or colony: its name, kind (ship, base, colony), system, and how to find it again (type + id).</summary>
+internal readonly record struct Where(string Name, string Kind, string System, string Type, int Id);
+
+/// <summary>
+/// Reads the game's data on the game thread (DWGame.Update postfix), at most once a second and only while
+/// someone has asked for it recently, and keeps the result as ready-made JSON for the server thread.
+/// </summary>
+internal static class Snapshot
+{
+    private const double IntervalSeconds = 1.0;
+    private const double KeepCollectingSeconds = 10.0;
+
+    private static readonly Stopwatch clock = Stopwatch.StartNew();
+    private static readonly JsonSerializerOptions json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+    };
+
+    private static double nextCollect;
+    private static double lastRequest = double.NegativeInfinity;
+    private static bool dumped;
+    private static int errors;
+
+    public static volatile string InfoJson = "{\"loaded\":false}";
+    public static volatile string ConstructionJson = "{\"loaded\":false,\"items\":[]}";
+
+    /// <summary>Called by the server on each API request, so collection runs only while a page is open.</summary>
+    public static void Touch() => Volatile.Write(ref lastRequest, clock.Elapsed.TotalSeconds);
+
+    public static void Install(Harmony h)
+    {
+        h.Patch(AccessTools.Method(typeof(DWGame), "Update"),
+            postfix: new HarmonyMethod(typeof(Snapshot), nameof(UpdatePostfix)));
+    }
+
+    private static void UpdatePostfix(DWGame __instance)
+    {
+        Commands.Run(__instance);
+        double now = clock.Elapsed.TotalSeconds;
+        if (now < nextCollect)
+        {
+            return;
+        }
+        nextCollect = now + IntervalSeconds;
+        try
+        {
+            var galaxy = __instance.Galaxy;
+            var empire = (__instance.Renderer as ScaledRenderer)?.PlayerEmpire;
+            bool loaded = galaxy != null && empire != null;
+            if (!loaded)
+            {
+                InfoJson = Serialize(new { api = 1, mod = Core.Version, loaded = false, token = Commands.Token });
+                ConstructionJson = "{\"loaded\":false,\"items\":[]}";
+                return;
+            }
+
+            bool wanted = now - Volatile.Read(ref lastRequest) < KeepCollectingSeconds || !dumped;
+            if (!wanted)
+            {
+                return;
+            }
+
+            var sw = Stopwatch.StartNew();
+            var stats = new Dictionary<string, int>();
+            var items = Collect(galaxy, empire, stats);
+            sw.Stop();
+
+            var collectedAt = DateTime.Now.ToString("HH:mm:ss");
+            InfoJson = Serialize(new
+            {
+                api = 1,
+                mod = Core.Version,
+                loaded = true,
+                empire = Safe(() => empire.Name),
+                starDate = Safe(() => galaxy.StarDate),
+                starDateText = Safe(() => TextHelper.ResolveStarDateDescription(galaxy.StarDate)),
+                token = Commands.Token,
+                collectedAt,
+                collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
+                stats,
+            });
+            ConstructionJson = Serialize(new { loaded = true, collectedAt, items });
+
+            if (!dumped)
+            {
+                dumped = true;
+                Dump(items, stats, sw.Elapsed.TotalMilliseconds);
+            }
+        }
+        catch (Exception e)
+        {
+            if (errors++ < 20)
+            {
+                Log.Error("Collect: " + e);
+            }
+        }
+    }
+
+    private static List<BuildItem> Collect(Galaxy galaxy, Empire empire, Dictionary<string, int> stats)
+    {
+        var items = new List<BuildItem>();
+        var seenShips = new HashSet<int>();
+
+        // Yards on ships: spaceports, other bases with construction yards, construction ships.
+        foreach (var owner in Copy(empire.Ships))
+        {
+            var cs = Safe(() => owner.ConstructionSystem);
+            if (cs != null)
+            {
+                Count(stats, "yardOwnerShips");
+                var where = new Where(Safe(() => owner.Name), owner.IsBase ? "base" : "ship", SystemName(galaxy, owner), "ship", owner.ShipId);
+                ReadYards(galaxy, empire, cs, where, items, seenShips, stats);
+            }
+        }
+
+        // Yards on colonies, and facilities under construction.
+        foreach (var orb in Copy(empire.Colonies))
+        {
+            Count(stats, "colonies");
+            var where = new Where(Safe(() => orb.Name), "colony", SystemName(galaxy, orb), "orb", orb.OrbId);
+            var cs = Safe(() => orb.Colony?.ConstructionSystem);
+            if (cs != null)
+            {
+                Count(stats, "yardOwnerColonies");
+                ReadYards(galaxy, empire, cs, where, items, seenShips, stats);
+            }
+            foreach (var facility in Copy(Safe(() => orb.Facilities)))
+            {
+                Count(stats, "facilities");
+                float progress = Safe(() => facility.ConstructionProgress);
+                if (progress >= 1f)
+                {
+                    continue;
+                }
+                items.Add(new BuildItem
+                {
+                    Category = "facility",
+                    State = "facility",
+                    Work = "Facility",
+                    Name = Safe(() => facility.Name),
+                    Progress = Clean(progress),
+                    OrbId = orb.OrbId,
+                }.At(where));
+            }
+        }
+
+        // Ships the game says are under construction or repair but that no yard listed (e.g. bases being built in place).
+        foreach (var ship in Copy(empire.Ships))
+        {
+            if (seenShips.Contains(ship.ShipId) || !Safe(() => ship.IsUnderConstructionOrRepair))
+            {
+                continue;
+            }
+            Count(stats, "outsideYard");
+            items.Add(new BuildItem
+            {
+                Category = ship.IsBase ? "base" : "ship",
+                State = "outsideYard",
+                Work = "ConstructionOrRepair",
+                Name = Safe(() => ship.Name),
+                Design = Safe(() => ship.Design?.Name),
+                Role = Safe(() => ship.Role.ToString()),
+                Progress = Clean(Safe(() => ship.ConstructionLevel)),
+                System = SystemName(galaxy, ship),
+                ShipId = ship.ShipId,
+                WhereType = "ship",
+                WhereId = ship.ShipId,
+            });
+        }
+        return items;
+    }
+
+    private static void ReadYards(Galaxy galaxy, Empire empire, ConstructionSystem cs, Where where,
+        List<BuildItem> items, HashSet<int> seenShips, Dictionary<string, int> stats)
+    {
+        foreach (var yard in Copy(Safe(() => cs.Yards)))
+        {
+            Count(stats, "yards");
+            // IsEmpty said false for idle yards in the first test (2026-11-26), so judge by the content instead.
+            if (yard.ShipUnderConstructionId <= 0 && yard.ConstructionType == ConstructionType.Undefined)
+            {
+                Count(stats, "yardsIdle");
+                items.Add(new BuildItem { Category = "yard", State = "idle" }.At(where));
+                continue;
+            }
+            Count(stats, "yardsBusy");
+            items.Add(Describe(galaxy, empire, yard.ShipUnderConstructionId, yard.DesignId, yard.ConstructionType, "building", null, seenShips).At(where));
+        }
+        int position = 0;
+        foreach (var wait in Copy(Safe(() => cs.WaitQueue)))
+        {
+            position++;
+            Count(stats, "queued");
+            items.Add(Describe(galaxy, empire, wait.ShipUnderConstructionId, wait.DesignId, wait.ConstructionType, "queued", position, seenShips).At(where));
+        }
+    }
+
+    private static BuildItem Describe(Galaxy galaxy, Empire empire, int shipId, int designId, ConstructionType type, string state, int? queue,
+        HashSet<int> seenShips)
+    {
+        var ship = shipId > 0 ? Safe(() => galaxy.Ships.GetById(shipId)) : null;
+        if (ship != null)
+        {
+            seenShips.Add(ship.ShipId);
+        }
+        var design = Safe(() => empire.Designs.GetById(designId)) ?? Safe(() => galaxy.Designs.GetById(designId)) ?? Safe(() => ship?.Design);
+        return new BuildItem
+        {
+            Category = ship != null && ship.IsBase ? "base" : "ship",
+            State = state,
+            Work = type.ToString(),
+            Name = ship != null ? Safe(() => ship.Name) : null,
+            Design = Safe(() => design?.Name),
+            Role = ship != null ? Safe(() => ship.Role.ToString()) : null,
+            Progress = ship != null ? Clean(Safe(() => ship.ConstructionLevel)) : null,
+            Queue = queue,
+            ShipId = shipId > 0 ? shipId : null,
+        };
+    }
+
+    private static string SystemName(Galaxy galaxy, StellarObject obj)
+    {
+        return Safe(() =>
+        {
+            int id = obj.GetSystemId(galaxy);
+            return galaxy.Systems.TryGetValue(id, out var system) ? system.Name : null;
+        });
+    }
+
+    private static void Dump(List<BuildItem> items, Dictionary<string, int> stats, double ms)
+    {
+        Log.Info($"First snapshot: {items.Count} items in {ms:0.0} ms; " + string.Join(", ", stats.Select(kv => $"{kv.Key}={kv.Value}")));
+        foreach (var i in items.Take(200))
+        {
+            Log.Info($"  {i.State,-11} {i.Category,-8} {i.Work,-12} {i.Progress?.ToString("0.###") ?? "-",6}  {i.Name ?? "(no ship yet)"} [{i.Design}] {i.Role} @ {i.Where} ({i.WhereKind}) in {i.System} q={i.Queue} ship={i.ShipId} orb={i.OrbId}");
+        }
+    }
+
+    private static string Serialize(object value) => JsonSerializer.Serialize(value, json);
+
+    private static double? Clean(float value) => float.IsFinite(value) ? Math.Round(value, 4) : null;
+
+    private static void Count(Dictionary<string, int> stats, string key) => stats[key] = stats.GetValueOrDefault(key) + 1;
+
+    /// <summary>Copies a game list; the game may change it while we read, so a failure just ends the copy early.</summary>
+    private static List<T> Copy<T>(IEnumerable<T> source)
+    {
+        var list = new List<T>();
+        if (source == null)
+        {
+            return list;
+        }
+        try
+        {
+            foreach (var item in source)
+            {
+                if (item != null)
+                {
+                    list.Add(item);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            if (errors++ < 20)
+            {
+                Log.Warn($"Copy of {typeof(T).Name} list stopped early: {e.Message}");
+            }
+        }
+        return list;
+    }
+
+    private static T Safe<T>(Func<T> read)
+    {
+        try
+        {
+            return read();
+        }
+        catch
+        {
+            return default;
+        }
+    }
+}

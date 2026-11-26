@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Empire Overview</title>
+<style>
+  :root {
+    --bg: #101214; --panel: #171a1d; --line: #2a2f35; --text: #d7dbe0; --dim: #8a929b;
+    --accent: #5fb3d9; --ok: #6cc28a; --warn: #e0b45a; --bad: #e06c6c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 1; }
+  h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .meta { color: var(--dim); font-size: 13px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); margin-right: 6px; vertical-align: middle; }
+  .dot.on { background: var(--ok); }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; align-items: center; }
+  .filters input, .filters select, .filters button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font: inherit; }
+  .filters input { min-width: 220px; flex: 1 1 220px; max-width: 360px; }
+  .filters button { cursor: pointer; }
+  .count { color: var(--dim); margin-left: auto; }
+  .wrap { padding: 0 16px 24px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; user-select: none; }
+  th.sorted::after { content: " ▾"; } th.sorted.asc::after { content: " ▴"; }
+  tbody tr:hover { background: #1c2024; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 12px; border: 1px solid var(--line); color: var(--dim); }
+  .tag.building { color: var(--ok); border-color: #2f5a3d; }
+  .tag.queued { color: var(--warn); border-color: #5e4c26; }
+  .tag.outsideYard { color: var(--accent); border-color: #2b4c5c; }
+  .tag.facility { color: #b59ad9; border-color: #4b3d5e; }
+  .tag.idle { color: var(--dim); border-style: dashed; }
+  tbody tr { cursor: pointer; }
+  tbody tr.flash { background: #1f3340; }
+  .go { color: var(--accent); text-decoration: none; }
+  .go:hover { text-decoration: underline; }
+  .hint { color: var(--dim); font-size: 12px; padding: 0 16px 8px; }
+  .bar { position: relative; width: 120px; height: 14px; background: #22272c; border-radius: 3px; overflow: hidden; }
+  .bar > span { position: absolute; inset: 0 auto 0 0; background: #3b7f9e; }
+  .bar > em { position: absolute; inset: 0; text-align: center; font-size: 11px; font-style: normal; line-height: 14px; }
+  .none { color: var(--dim); }
+  .empty { padding: 40px 16px; color: var(--dim); text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Empire Overview</h1>
+  <span class="meta"><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
+  <span class="meta" id="empire"></span>
+</header>
+
+<div class="filters">
+  <input id="search" type="search" placeholder="Search name, design, place, system…" autofocus>
+  <select id="state">
+    <option value="active">Active (no idle yards)</option>
+    <option value="">Everything</option>
+    <option value="building">Building</option>
+    <option value="queued">Queued</option>
+    <option value="outsideYard">Outside a yard</option>
+    <option value="facility">Facilities</option>
+    <option value="idle">Idle yards</option>
+  </select>
+  <select id="category">
+    <option value="">All kinds</option>
+    <option value="ship">Ships</option>
+    <option value="base">Bases</option>
+    <option value="facility">Facilities</option>
+    <option value="yard">Yards</option>
+  </select>
+  <select id="work">
+    <option value="">All work</option>
+  </select>
+  <button id="pause" type="button">Pause</button>
+  <span class="count" id="count"></span>
+</div>
+
+<div class="hint">Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.</div>
+<div class="wrap">
+  <table>
+    <thead><tr>
+      <th data-key="state">State</th>
+      <th data-key="name">Name</th>
+      <th data-key="design">Design</th>
+      <th data-key="role">Role</th>
+      <th data-key="work">Work</th>
+      <th data-key="progress">Progress</th>
+      <th data-key="where">Where</th>
+      <th data-key="system">System</th>
+      <th data-key="queue">Queue</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="empty" class="empty" hidden></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let items = [], shown = [], paused = false, sortKey = 'state', sortAsc = true, token = null;
+const stateOrder = { building: 0, outsideYard: 1, queued: 2, facility: 3, idle: 4 };
+
+async function getJson(url) {
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function refresh() {
+  if (paused) return;
+  try {
+    const [info, data] = await Promise.all([getJson('/api/info'), getJson('/api/construction')]);
+    $('dot').classList.add('on');
+    token = info.token;
+    if (!info.loaded) {
+      $('status').textContent = 'connected · no game loaded';
+      $('empire').textContent = '';
+      items = [];
+    } else {
+      $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)`;
+      $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate}`;
+      items = data.items || [];
+    }
+    fillWorkOptions();
+    render();
+  } catch (e) {
+    $('dot').classList.remove('on');
+    $('status').textContent = 'game not reachable (is it running with the mod?)';
+  }
+}
+
+function fillWorkOptions() {
+  const sel = $('work'), current = sel.value;
+  const works = [...new Set(items.map(i => i.work).filter(Boolean))].sort();
+  const have = [...sel.options].slice(1).map(o => o.value);
+  if (works.join() === have.join()) return;
+  sel.length = 1;
+  for (const w of works) sel.add(new Option(w, w));
+  sel.value = works.includes(current) ? current : '';
+}
+
+function progressCell(p) {
+  if (p == null) return '<span class="none">–</span>';
+  const pct = p <= 1 ? p * 100 : p;   // scale still unconfirmed: 0..1 or 0..100
+  const w = Math.max(0, Math.min(100, pct));
+  return `<div class="bar" title="raw ${p}"><span style="width:${w}%"></span><em>${pct.toFixed(0)}%</em></div>`;
+}
+
+const esc = s => s == null ? '' : String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const cell = s => s == null || s === '' ? '<span class="none">–</span>' : esc(s);
+
+function compare(a, b) {
+  let x = a[sortKey], y = b[sortKey];
+  if (sortKey === 'state') { x = stateOrder[x] ?? 9; y = stateOrder[y] ?? 9; }
+  if (x == null && y == null) return 0;
+  if (x == null) return 1;
+  if (y == null) return -1;
+  const r = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+  return sortAsc ? r : -r;
+}
+
+function render() {
+  const q = $('search').value.trim().toLowerCase();
+  const st = $('state').value, cat = $('category').value, work = $('work').value;
+  shown = items.filter(i =>
+    (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) &&
+    (!q || [i.name, i.design, i.role, i.where, i.system, i.work].some(v => v && v.toLowerCase().includes(q)))
+  ).sort(compare);
+
+  $('rows').innerHTML = shown.map((i, n) => `<tr data-n="${n}" title="Go to ${esc(i.where)}">
+      <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
+      <td>${nameCell(i)}</td>
+      <td>${cell(i.design)}</td>
+      <td>${cell(i.role)}</td>
+      <td>${cell(i.work)}</td>
+      <td>${progressCell(i.progress)}</td>
+      <td>${cell(i.where)}${i.whereKind ? ` <span class="none">(${esc(i.whereKind)})</span>` : ''}</td>
+      <td>${cell(i.system)}</td>
+      <td>${i.queue ?? '<span class="none">–</span>'}</td>
+    </tr>`).join('');
+  $('count').textContent = `${shown.length} of ${items.length}`;
+  $('empty').hidden = shown.length > 0;
+  $('empty').textContent = items.length ? 'Nothing matches the filters.' : 'Nothing under construction (or no game loaded).';
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.toggle('sorted', th.dataset.key === sortKey);
+    th.classList.toggle('asc', th.dataset.key === sortKey && sortAsc);
+  });
+}
+
+function nameCell(i) {
+  if (i.state === 'idle') return '<span class="none">(idle yard)</span>';
+  if (!i.name) return '<span class="none">(not started)</span>';
+  if (i.shipId) return `<a class="go" href="#" data-ship="${i.shipId}" title="Go to this ship">${esc(i.name)}</a>`;
+  return esc(i.name);
+}
+
+async function goTo(type, id) {
+  if (!token || !id) return;
+  try {
+    const r = await fetch('/api/goto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token },
+      body: JSON.stringify({ type, id }),
+    });
+    if (!r.ok) $('status').textContent = `go to failed (${r.status})`;
+  } catch (e) {
+    $('status').textContent = 'go to failed (game not reachable)';
+  }
+}
+
+$('rows').addEventListener('click', e => {
+  const tr = e.target.closest('tr');
+  if (!tr) return;
+  e.preventDefault();
+  const link = e.target.closest('[data-ship]');
+  const item = shown[+tr.dataset.n];
+  if (link) goTo('ship', +link.dataset.ship);
+  else if (item) goTo(item.whereType, item.whereId);
+  tr.classList.add('flash');
+  setTimeout(() => tr.classList.remove('flash'), 400);
+});
+
+document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+  if (sortKey === th.dataset.key) sortAsc = !sortAsc; else { sortKey = th.dataset.key; sortAsc = true; }
+  render();
+}));
+['search', 'state', 'category', 'work'].forEach(id => $(id).addEventListener('input', render));
+$('pause').addEventListener('click', () => {
+  paused = !paused;
+  $('pause').textContent = paused ? 'Resume' : 'Pause';
+  if (!paused) refresh();
+});
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

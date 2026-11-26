@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>DW2Overview</AssemblyName>
+    <RootNamespace>DW2Overview</RootNamespace>
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <!-- Override with: dotnet build -p:GameDir="..." -->
+    <GameDir Condition="'$(GameDir)' == ''">D:\games\steam\steamapps\common\Distant Worlds 2</GameDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony" HintPath="$(GameDir)\0Harmony.dll" Private="false" />
+    <Reference Include="DistantWorlds2" HintPath="$(GameDir)\DistantWorlds2.dll" Private="false" />
+    <Reference Include="DistantWorlds.Core" HintPath="$(GameDir)\DistantWorlds.Core.dll" Private="false" />
+    <Reference Include="DistantWorlds.Types" HintPath="$(GameDir)\DistantWorlds.Types.dll" Private="false" />
+    <Reference Include="DistantWorlds.UI" HintPath="$(GameDir)\DistantWorlds.UI.dll" Private="false" />
+    <Reference Include="Stride.Core" HintPath="$(GameDir)\Stride.Core.dll" Private="false" />
+    <Reference Include="Stride.Core.Mathematics" HintPath="$(GameDir)\Stride.Core.Mathematics.dll" Private="false" />
+    <Reference Include="Stride.Engine" HintPath="$(GameDir)\Stride.Engine.dll" Private="false" />
+    <Reference Include="Stride.Games" HintPath="$(GameDir)\Stride.Games.dll" Private="false" />
+    <Reference Include="Stride.Graphics" HintPath="$(GameDir)\Stride.Graphics.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="mod.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="web\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
