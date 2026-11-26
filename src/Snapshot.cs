@@ -8,6 +8,12 @@ using HarmonyLib;
 namespace DW2Overview;
 
 /// <summary>One row of the construction list.</summary>
+internal sealed class SiteResource
+{
+    public string Name { get; set; }
+    public int Abundance { get; set; }
+}
+
 internal sealed class BuildItem
 {
     /// <summary>ship, base or facility.</summary>
@@ -30,6 +36,11 @@ internal sealed class BuildItem
     /// <summary>The yard owner (or the facility's colony), for "go to": "ship" (ShipId) or "orb" (OrbId).</summary>
     public string WhereType { get; set; }
     public int? WhereId { get; set; }
+    /// <summary>A base built in place: the planet, moon or asteroid it sits on (Ship.Parent).</summary>
+    public string Site { get; set; }
+    public int? SiteOrbId { get; set; }
+    /// <summary>A mining base: the resources known at its site, most abundant first.</summary>
+    public List<SiteResource> Extracts { get; set; }
 
     public BuildItem At(Where where)
     {
@@ -366,7 +377,7 @@ internal static class Snapshot
                 continue;
             }
             Count(stats, "outsideYard");
-            items.Add(new BuildItem
+            items.Add(AddSite(galaxy, empire, ship, new BuildItem
             {
                 Category = ship.IsBase ? "base" : "ship",
                 State = "outsideYard",
@@ -379,7 +390,7 @@ internal static class Snapshot
                 ShipId = ship.ShipId,
                 WhereType = "ship",
                 WhereId = ship.ShipId,
-            });
+            }));
         }
         return items;
     }
@@ -418,7 +429,7 @@ internal static class Snapshot
             seenShips.Add(ship.ShipId);
         }
         var design = Safe(() => empire.Designs.GetById(designId)) ?? Safe(() => galaxy.Designs.GetById(designId)) ?? Safe(() => ship?.Design);
-        return new BuildItem
+        return AddSite(galaxy, empire, ship, new BuildItem
         {
             Category = ship != null && ship.IsBase ? "base" : "ship",
             State = state,
@@ -429,7 +440,37 @@ internal static class Snapshot
             Progress = ship != null ? Clean(Safe(() => ship.ConstructionLevel)) : null,
             Queue = queue,
             ShipId = shipId > 0 ? shipId : null,
-        };
+        });
+    }
+
+    /// <summary>
+    /// Where a base being built in place will stand (a construction ship builds it on a planet, moon or
+    /// asteroid: the base already exists with Ship.Parent there), and for a mining base what that site holds.
+    /// </summary>
+    private static BuildItem AddSite(Galaxy galaxy, Empire empire, Ship ship, BuildItem item)
+    {
+        if (ship == null || !ship.IsBase)
+        {
+            return item;
+        }
+        var parent = Safe(() => ship.Parent);   // a struct: the type and id of what the base sits on
+        var orb = parent.Type == ItemType.Orb ? Safe(() => galaxy.Orbs.GetById(parent.Id)) : null;
+        if (orb == null)
+        {
+            return item;
+        }
+        item.Site = Safe(() => orb.Name);
+        item.SiteOrbId = orb.OrbId;
+        if ((item.Role ?? "").Contains("Mining"))
+        {
+            byte level = Safe(() => empire.ExplorationMap.CheckExplorationLevel(orb));
+            item.Extracts = Copy(Safe(() => orb.Resources))
+                .Where(r => !r.IsEmpty && r.DiscoveryLevel <= level)
+                .OrderByDescending(r => r.Abundance)
+                .Select(r => new SiteResource { Name = Safe(() => r.Name), Abundance = r.Abundance })
+                .ToList();
+        }
+        return item;
     }
 
     internal static string SystemName(Galaxy galaxy, StellarObject obj)

@@ -134,6 +134,8 @@
   .go:hover { color: var(--tx); }
 
   /* Status tags: colored text on a faint tint */
+  .siteline { display: block; color: var(--mut); font-size: 12px; margin-top: 1px; }
+  .siteline b { color: var(--tx); font-weight: 500; }
   .tag { display: inline-block; padding: 0 6px; font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
@@ -603,7 +605,7 @@
       <th data-key="role">Role</th>
       <th data-key="work">Work</th>
       <th data-key="progress">Progress</th>
-      <th data-key="where">Where</th>
+      <th data-key="where" title="The yard, or the construction ship, doing the work">Built by</th>
       <th data-key="system">System</th>
       <th data-key="queue">Queue</th>
     </tr></thead>
@@ -1194,7 +1196,7 @@ function render() {
   const st = $('state').value, cat = $('category').value, work = $('work').value, role = $('role').value;
   shown = items.filter(i =>
     (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) && (!role || i.role === role) &&
-    (!q || [i.name, i.design, i.role, i.where, i.system, i.work].some(v => v && v.toLowerCase().includes(q)))
+    (!q || [i.name, i.design, i.role, i.where, i.system, i.work, i.site, ...(i.extracts || []).map(r => r.name)].some(v => v && v.toLowerCase().includes(q)))
   ).sort(compare);
 
   // "One row per yard": the yard's first item (in the current sort) stands for it, the rest fold under it.
@@ -1248,8 +1250,17 @@ function whereCell(i, kind, key, more) {
 function nameCell(i) {
   if (i.state === 'idle') return '<span class="none">(idle yard)</span>';
   if (!i.name) return '<span class="none">(not started)</span>';
-  if (i.shipId) return `<a class="go" href="#" data-ship="${i.shipId}" title="Go to this ship">${esc(i.name)}</a>`;
-  return esc(i.name);
+  const name = i.shipId ? `<a class="go" href="#" data-ship="${i.shipId}" title="Go to this ship">${esc(i.name)}</a>` : esc(i.name);
+  return name + siteLine(i);
+}
+
+/** A base built in place: where it will stand and, for a mining base, what that place holds (best first). */
+function siteLine(i) {
+  if (!i.site) return '';
+  const res = (i.extracts || []).slice(0, 4).map(r => `${esc(r.name)} <b>${r.abundance}%</b>`).join(', ');
+  const more = (i.extracts || []).length > 4 ? ` +${i.extracts.length - 4}` : '';
+  const what = i.extracts ? (i.extracts.length ? ` · ${res}${more}` : ' · <span class="mk-warn">no known resources</span>') : '';
+  return `<small class="siteline">at <a class="go" href="#" data-orb="${i.siteOrbId}" title="Go to ${esc(i.site)}">${esc(i.site)}</a>${what}</small>`;
 }
 
 async function goTo(type, id) {
@@ -1521,8 +1532,10 @@ $('rows').addEventListener('click', e => {
     return;
   }
   const link = e.target.closest('[data-ship]');
+  const site = e.target.closest('[data-orb]');
   const item = rowItems[+tr.dataset.n];
   if (link) goTo('ship', +link.dataset.ship);
+  else if (site) goTo('orb', +site.dataset.orb);
   else if (item) goTo(item.whereType, item.whereId);
   tr.classList.add('flash');
   setTimeout(() => tr.classList.remove('flash'), 400);
