@@ -19,7 +19,7 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 
 1. [x] Construção: estaleiros, filas, instalações, estaleiros parados. Testado no jogo em 2026-11-26.
 2. [x] Clique na linha seleciona e centraliza o estaleiro ou a colônia. Testado em 2026-11-26 (movimento brusco).
-   - [ ] Clique no nome de uma nave em construção (vai até a nave): falta testar.
+   - [x] Clique no nome de uma nave em construção (vai até a nave): testado em 2026-11-26 com a Kintaris Dream (53%) e a Solitary Gamble (na fila, 0%), sem erro no log.
    - [ ] Movimento suave: testar `ZoomToItemButtonClick` ou `ZoomToItem` no lugar de `MoveViewNoZoom`.
    - [x] Item na fila de espera: aparece com nome, design e posição na fila (2026-11-26).
    - [ ] Ainda não vista no jogo: instalação em construção.
