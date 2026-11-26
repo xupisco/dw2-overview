@@ -74,6 +74,13 @@
   .pitem .pmeta { color: var(--dim); font-size: 12px; white-space: nowrap; }
   .pitem .own { color: var(--ok); }
   .pfoot { color: var(--dim); font-size: 12px; padding: 6px 16px; border-top: 1px solid var(--line); }
+  .pin { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+  .pin input { border-bottom: 0; }
+  .pscope { margin-left: 16px; padding: 2px 8px; border-radius: 4px; background: #23292f; color: var(--accent); white-space: nowrap; }
+  .pscope[hidden] { display: none; }
+  .psec { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 10px 16px 4px; }
+  .pkey { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; visibility: hidden; }
+  .pitem.on .pkey { visibility: visible; }
 </style>
 </head>
 <body>
@@ -172,7 +179,7 @@
 
 <div id="palette" hidden>
   <div class="pbox" role="dialog" aria-label="Go to">
-    <input id="pinput" type="text" placeholder="Go to… (ships, bases, colonies, fleets, known planets)" autocomplete="off">
+    <div class="pin"><span id="pscope" class="pscope" hidden></span><input id="pinput" type="text" placeholder="Go to… name, kind or system" autocomplete="off"></div>
     <div class="plist" id="plist"></div>
     <div class="pfoot" id="pfoot">↑↓ choose · Enter go · Esc close</div>
   </div>
@@ -549,8 +556,13 @@ setInterval(refresh, 2000);
 // ---- Command palette (Ctrl+K) ----
 // Own things come from /api/index (fetched when the palette opens) and are matched here, instantly.
 // Everything else the empire knows comes from the game's own search (/api/search), asked after a short pause
-// in typing. Both lists are merged, own things first.
-const palette = { open: false, index: [], remote: [], results: [], sel: 0, timer: null, seq: 0 };
+// in typing. Matching looks at the name, the kind (role, planet type) and the system.
+// Groups: every kind and every system is also an entry ("Exploration Ship · 6"). Tab or Enter on a group
+// scopes the palette to it (lists all its items, typing filters inside); Backspace on an empty search leaves it.
+const palette = { open: false, index: [], remote: [], rows: [], sel: 0, timer: null, seq: 0, scope: null };
+
+/** "ExplorationShip" → "Exploration Ship"; "Base SpaceportSmall" → "Base Spaceport Small". */
+const human = s => (s || '').replace(/([a-z])([A-Z])/g, '$1 $2');
 
 function fuzzy(text, q) {
   // Score a subsequence match: contiguous runs and word starts score higher. Returns null when no match.
@@ -570,32 +582,94 @@ function fuzzy(text, q) {
 }
 
 function highlight(text, hits) {
-  const set = new Set(hits);
+  const set = new Set(hits || []);
   return [...(text || '')].map((c, i) => set.has(i) ? `<b>${esc(c)}</b>` : esc(c)).join('');
 }
 
+/** Everything known so far, own first, without duplicates. */
+function paletteItems() {
+  const seen = new Set(), all = [];
+  for (const item of [...palette.index, ...palette.remote]) {
+    const k = item.type + ':' + item.id;
+    if (!seen.has(k)) { seen.add(k); all.push(item); }
+  }
+  return all;
+}
+
+const inScope = (item, scope) => !scope || (scope.by === 'kind' ? human(item.kind) === scope.value : item.system === scope.value);
+
 function paletteResults() {
   const q = $('pinput').value.trim().toLowerCase();
-  const seen = new Set(), out = [];
-  const add = (item, m) => {
-    const k = item.type + ':' + item.id;
-    if (seen.has(k)) return;
-    seen.add(k);
-    out.push({ item, score: (m ? m.score : 0) + (item.own ? 3 : 0), hits: m ? m.hits : [] });
-  };
-  for (const item of palette.index) {
-    if (!q) { add(item, null); continue; }
-    const m = fuzzy(item.name, q);
-    if (m) add(item, m);
+  const scope = palette.scope;
+  const items = paletteItems().filter(i => inScope(i, scope));
+
+  // Items: best of name, kind and system (only name hits are highlighted).
+  const found = [];
+  for (const item of items) {
+    if (!q) { found.push({ item, score: item.own ? 3 : 0, hits: [] }); continue; }
+    const byName = fuzzy(item.name, q), byKind = fuzzy(human(item.kind), q), bySystem = fuzzy(item.system, q);
+    const score = Math.max(byName ? byName.score : -1, byKind ? byKind.score * 0.7 : -1, bySystem ? bySystem.score * 0.6 : -1);
+    if (score < 0) continue;
+    found.push({ item, score: score + (item.own ? 3 : 0), hits: byName ? byName.hits : [] });
   }
-  for (const item of palette.remote) add(item, q ? fuzzy(item.name, q) : null);
-  out.sort((a, b) => b.score - a.score || (a.item.name || '').localeCompare(b.item.name || ''));
-  palette.results = out.slice(0, 40);
-  palette.sel = Math.min(palette.sel, Math.max(0, palette.results.length - 1));
-  $('plist').innerHTML = palette.results.map((r, n) => `<div class="pitem${n === palette.sel ? ' on' : ''}" data-n="${n}">
-      <span class="pname">${highlight(r.item.name, r.hits)}</span>
-      <span class="pmeta">${r.item.own ? '<span class="own">own</span> · ' : ''}${esc(r.item.kind || r.item.type)}${r.item.system ? ' · ' + esc(r.item.system) : ''}</span>
-    </div>`).join('') || `<div class="pitem"><span class="pname none">${q ? 'Nothing found' : 'Type to search'}</span></div>`;
+  found.sort((a, b) => b.score - a.score || (a.item.name || '').localeCompare(b.item.name || ''));
+
+  // Groups (outside a scope only): kinds and systems with how many known items each has.
+  const groups = [];
+  if (!scope) {
+    const count = new Map();
+    for (const item of items) {
+      for (const [by, value] of [['kind', human(item.kind)], ['system', item.system]]) {
+        if (!value) continue;
+        const k = by + '|' + value;
+        count.set(k, (count.get(k) || 0) + 1);
+      }
+    }
+    for (const [k, n] of count) {
+      const [by, value] = k.split('|');
+      const m = q ? fuzzy(value, q) : { score: n, hits: [] };
+      if (m) groups.push({ group: { by, value, count: n }, score: m.score, hits: m.hits });
+    }
+    groups.sort((a, b) => b.score - a.score || a.group.value.localeCompare(b.group.value));
+  }
+
+  // Without a search, groups first (it is a browser); with one, the best items first and a few groups.
+  const g = q ? groups.slice(0, 5) : groups.slice(0, 12);
+  const f = found.slice(0, 40);
+  palette.rows = [];
+  let html = '';
+  const section = (title, rows) => {
+    if (!rows.length) return;
+    html += `<div class="psec">${esc(title)}</div>`;
+    for (const r of rows) {
+      const n = palette.rows.length;
+      palette.rows.push(r);
+      const on = n === palette.sel ? ' on' : '';
+      if (r.group) {
+        html += `<div class="pitem${on}" data-n="${n}">
+          <span class="pname">${highlight(r.group.value, r.hits)}</span>
+          <span class="pmeta">${r.group.by === 'kind' ? 'kind' : 'system'} · ${r.group.count}</span>
+          <span class="pkey">Tab</span></div>`;
+      } else {
+        const it = r.item;
+        html += `<div class="pitem${on}" data-n="${n}">
+          <span class="pname">${highlight(it.name, r.hits)}</span>
+          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.system ? ' · ' + esc(it.system) : ''}</span>
+          <span class="pkey">Enter</span></div>`;
+      }
+    }
+  };
+  // A search that matches a kind or system as well as any name ("explor") puts the groups first.
+  const groupsFirst = !q || (g.length && (!f.length || g[0].score >= f[0].score));
+  if (groupsFirst) { section('Groups', g); section(!q ? (scope ? 'All' : 'Own') : 'Results', f); }
+  else { section('Results', f); section('Groups', g); }
+  palette.sel = Math.min(palette.sel, Math.max(0, palette.rows.length - 1));
+  $('plist').innerHTML = html || `<div class="pitem"><span class="pname none">${q ? 'Nothing found' : 'Type to search'}</span></div>`;
+  $('pscope').hidden = !scope;
+  $('pscope').textContent = scope ? `${scope.value} ›` : '';
+  $('pfoot').textContent = scope
+    ? '↑↓ choose · Enter go · Backspace (empty search) leave group · Esc close'
+    : '↑↓ choose · Enter go · Tab or Enter on a group lists it · Esc close';
   const on = $('plist').querySelector('.pitem.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
 }
@@ -603,6 +677,7 @@ function paletteResults() {
 async function openPalette() {
   palette.open = true;
   palette.remote = [];
+  palette.scope = null;
   palette.sel = 0;
   $('palette').hidden = false;
   $('pinput').value = '';
@@ -620,40 +695,58 @@ function closePalette() {
   $('palette').hidden = true;
 }
 
-function paletteGo(n) {
-  const r = palette.results[n];
+function enterGroup(group) {
+  palette.scope = { by: group.by, value: group.value };
+  palette.sel = 0;
+  $('pinput').value = '';
+  // A system or kind may hold things only the game's search knows about: ask it for the group's name.
+  if (group.by === 'system') searchRemote(group.value);
+  paletteResults();
+}
+
+function paletteChoose(n, viaTab) {
+  const r = palette.rows[n];
   if (!r) return;
+  if (r.group) { enterGroup(r.group); return; }
+  // Tab on an item lists everything of its kind.
+  if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: human(r.item.kind) }); return; }
   goTo(r.item.type, r.item.id);
   closePalette();
 }
 
-$('pinput').addEventListener('input', () => {
-  palette.sel = 0;
-  paletteResults();
+function searchRemote(q) {
   clearTimeout(palette.timer);
-  const q = $('pinput').value.trim();
-  if (!q) { palette.remote = []; return; }
+  if (!q) return;
   palette.timer = setTimeout(async () => {
     const seq = ++palette.seq;
     try {
       const res = await getJson('/api/search?q=' + encodeURIComponent(q));
       if (seq !== palette.seq || !palette.open) return;
-      palette.remote = res.items || [];
+      const seen = new Set(palette.remote.map(i => i.type + ':' + i.id));
+      for (const item of res.items || []) if (!seen.has(item.type + ':' + item.id)) palette.remote.push(item);
       paletteResults();
-    } catch (e) { /* older mod without /api/search, or game busy: own things still work */ }
+    } catch (e) { /* game busy or older mod: own things still work */ }
   }, 180);
+}
+
+$('pinput').addEventListener('input', () => {
+  palette.sel = 0;
+  paletteResults();
+  searchRemote($('pinput').value.trim());
 });
 
 $('pinput').addEventListener('keydown', e => {
-  if (e.key === 'ArrowDown') { palette.sel = Math.min(palette.sel + 1, palette.results.length - 1); paletteResults(); e.preventDefault(); }
+  if (e.key === 'ArrowDown') { palette.sel = Math.min(palette.sel + 1, palette.rows.length - 1); paletteResults(); e.preventDefault(); }
   else if (e.key === 'ArrowUp') { palette.sel = Math.max(palette.sel - 1, 0); paletteResults(); e.preventDefault(); }
-  else if (e.key === 'Enter') { paletteGo(palette.sel); e.preventDefault(); }
+  else if (e.key === 'Enter') { paletteChoose(palette.sel, false); e.preventDefault(); }
+  else if (e.key === 'Tab') { paletteChoose(palette.sel, true); e.preventDefault(); }
+  else if (e.key === 'Backspace' && !$('pinput').value && palette.scope) { palette.scope = null; palette.sel = 0; paletteResults(); e.preventDefault(); }
   else if (e.key === 'Escape') { closePalette(); e.preventDefault(); }
 });
 
 $('plist').addEventListener('click', e => {
   const it = e.target.closest('.pitem[data-n]');
-  if (it) paletteGo(+it.dataset.n);
+  if (it) paletteChoose(+it.dataset.n, false);
 });
 $('palette').addEventListener('mousedown', e => { if (e.target.id === 'palette') closePalette(); });
 
