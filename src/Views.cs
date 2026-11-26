@@ -3,6 +3,13 @@ using static DW2Overview.Snapshot;
 
 namespace DW2Overview;
 
+internal sealed class RaceRow
+{
+    public string Name { get; set; }
+    public long Amount { get; set; }
+    public double? Growth { get; set; }
+}
+
 /// <summary>One colony. Values are the game's own; scales are still to be checked against the game's screens.</summary>
 internal sealed class ColonyRow
 {
@@ -25,6 +32,25 @@ internal sealed class ColonyRow
     public int Facilities { get; set; }
     public bool AutoTax { get; set; }
     public bool AutoPopulation { get; set; }
+    /// <summary>The planet, for a drawn thumbnail: its type (Continental, Ocean...) and the colours the game
+    /// draws it with (OrbTypes.xml: atmosphere, clouds, gas), whether it has rings, its diameter.</summary>
+    public string PlanetType { get; set; }
+    public string Surface { get; set; }
+    public string Atmosphere { get; set; }
+    public string Clouds { get; set; }
+    public string Gas { get; set; }
+    public bool Rings { get; set; }
+    public int Diameter { get; set; }
+    /// <summary>Resources known at the planet, most abundant first.</summary>
+    public List<SiteResource> Resources { get; set; }
+    /// <summary>Each race living there: amount and its yearly growth (the game's Population at screen).</summary>
+    public List<RaceRow> Races { get; set; }
+    /// <summary>The whole population's yearly growth (Population.ReproductionRate of the list).</summary>
+    public double? PopulationGrowth { get; set; }
+    public int Troops { get; set; }
+    /// <summary>Under attack: ships attacking it, or troops invading it.</summary>
+    public int Attackers { get; set; }
+    public int Invaders { get; set; }
 }
 
 /// <summary>One research project: queued, recently finished, or available next.</summary>
@@ -405,10 +431,48 @@ internal static class Views
                 Facilities = Copy(Safe(() => orb.Facilities)).Count,
                 AutoTax = colony.AutomateTaxRates,
                 AutoPopulation = colony.AutomatePopulationPolicy,
-            });
+            }.WithPlanet(galaxy, empire, orb, colony));
         }
         return rows;
     }
+
+    /// <summary>The planet and its people, after the game's colony panel (type, colours, resources, races, threats).</summary>
+    private static ColonyRow WithPlanet(this ColonyRow row, Galaxy galaxy, Empire empire, Orb orb, Colony colony)
+    {
+        var type = Safe(() => galaxy.OrbTypes.GetById(orb.TypeId));
+        row.PlanetType = Safe(() => type?.Name);
+        row.Surface = Safe(() => type?.SurfaceDrawType.ToString());
+        row.Atmosphere = Safe(() => type == null ? null : Hex(type.AtmosphereColor));
+        row.Clouds = Safe(() => type == null ? null : Hex(type.CloudColor));
+        row.Gas = Safe(() => type == null ? null : Hex(type.GasGradientPrimaryColor));
+        row.Rings = orb.HasRings;
+        row.Diameter = orb.Diameter;
+        byte level = Safe(() => empire.ExplorationMap.CheckExplorationLevel(orb));
+        row.Resources = Copy(Safe(() => orb.Resources))
+            .Where(r => !r.IsEmpty && r.DiscoveryLevel <= level)
+            .OrderByDescending(r => r.Abundance)
+            .Select(r => new SiteResource { Name = Safe(() => r.Name), Abundance = r.Abundance })
+            .ToList();
+        var people = Safe(() => colony.Population);
+        row.Races = Copy(people)
+            .OrderByDescending(x => x.Amount)
+            .Select(x => new RaceRow { Name = Safe(() => x.Race?.Name), Amount = x.Amount, Growth = Num(x.ReproductionRate) })
+            .ToList();
+        row.PopulationGrowth = Num(Safe(() => people?.ReproductionRate ?? float.NaN));
+        row.Troops = Copy(Safe(() => colony.Troops)).Count;
+        row.Attackers = Copy(Safe(() => colony.Attackers)).Count;
+        row.Invaders = Copy(Safe(() => colony.TroopsInvading)).Count;
+        if (colonyLogged.Add(orb.OrbId))
+        {
+            // To see which growth matches the game's Population screen (+4.4% at Goma on 2026-11-26).
+            Log.Info($"Colony {row.Name}: {row.PlanetType} ({row.Surface}, atmosphere {row.Atmosphere}, gas {row.Gas}, rings {row.Rings}); growth CalculateGrowthRate={row.Growth} ReproductionRate={row.PopulationGrowth}; races {string.Join(", ", row.Races.Select(x => $"{x.Name} {x.Amount} {x.Growth}"))}; troops {row.Troops}");
+        }
+        return row;
+    }
+
+    private static readonly HashSet<int> colonyLogged = new();
+
+    private static string Hex(Stride.Core.Mathematics.Color c) => c.A == 0 ? null : $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 
     public static (List<ResearchRow> rows, int concurrent) Research(Empire empire)
     {

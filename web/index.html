@@ -409,22 +409,30 @@
   .colcard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel); cursor: pointer; min-width: 0; }
   .colcard:hover { background: var(--hover); }
   .colcard.flash { background: var(--acc-d); }
-  .colcard.warn { box-shadow: inset 3px 0 0 var(--warn); }
-  .colcard.bad { box-shadow: inset 3px 0 0 var(--bad); }
-  .colcard .cchead { display: flex; align-items: flex-start; gap: 10px; }
+  .colcard.ctrouble-warn { box-shadow: inset 3px 0 0 var(--warn); }
+  .colcard.ctrouble-bad { box-shadow: inset 3px 0 0 var(--bad); }
+  .colcard .cchead { display: flex; align-items: center; gap: 12px; }
+  .colcard .cthumb { flex: none; width: 46px; height: 46px; }
   .colcard .cname { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  .colcard .cname b { font: 600 17px var(--cond); letter-spacing: .02em; }
-  .colcard .cname small, .colcard small { color: var(--mut); font-size: 12px; }
+  .colcard .cname b { font: 600 18px var(--cond); letter-spacing: .02em; }
+  .colcard small { color: var(--mut); font-size: 12px; }
+  .colcard .cflags { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
   .colcard .ccpop { display: flex; flex-direction: column; gap: 5px; }
-  .colcard .ccpop > span { display: flex; align-items: baseline; gap: 8px; }
+  .colcard .ccpop > span { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .colcard .ccpop b { font: 600 20px var(--cond); }
   .colcard em { font-style: normal; color: var(--mut); font-size: 12px; }
+  .colcard .ccpop .grow { color: var(--ok); }
+  .colcard .ccpop .grow.neg { color: var(--bad); }
+  .colcard .ccpop .races { margin-left: auto; }
   .colcard .ccpop .pb { height: 3px; }
   .colcard .ccpop .pb > i { box-shadow: none; }
-  .colcard .cckpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .colcard .cckpis span { display: flex; flex-direction: column; }
-  .colcard .cckpis small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
-  .colcard .cckpis b { font: 600 16px var(--cond); font-variant-numeric: tabular-nums; }
+  .colcard .cckpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .colcard .cckpis span { display: flex; flex-direction: column; min-width: 0; }
+  .colcard .cckpis small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+  .colcard .cckpis b { font: 600 16px var(--cond); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .colcard .ccres { display: flex; flex-wrap: wrap; gap: 4px; }
+  .colcard .ccres span { font-size: 12px; background: var(--track); padding: 1px 6px; }
+  .colcard .ccres span b { font-weight: 500; }
   .colcard .ccmeta { color: var(--mut); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
   .slegend.roles svg { color: var(--acc); }
   /* Cards: name, mission, orders and place, fuel and energy in one block, so the eye stays on one ship */
@@ -874,7 +882,7 @@ function renderOther() {
   }).join('')}</tr>`).join('');
   const cards = tab === 'colonies' && colView === 'cards';
   // Cards put the colonies in trouble first (rebelling, then unhappy or restless); the table keeps its sort.
-  const trouble = c => c.rebelling ? 0 : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 1 : 2;
+  const trouble = c => c.rebelling || (c.attackers || 0) > 0 || (c.invaders || 0) > 0 ? 0 : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 1 : 2;
   if (cards) rows.sort((a, b) => trouble(a) - trouble(b));
   otherShown = rows;
   $('tab-other').hidden = cards;
@@ -892,22 +900,73 @@ let otherShown = [];
 // amber, rebelling in red.
 let colView = 'cards';
 try { colView = localStorage.getItem('overview.colView') || 'cards'; } catch (e) { }
+/**
+ * A small planet drawn from the game's own data: its type picks the surface colours (an ocean world with
+ * land, a desert, ice, lava...), a gas giant uses the game's gas colour in bands, the atmosphere glows in
+ * the game's atmosphere colour, rings when it has them. Not the game's picture (that one lives inside the
+ * engine's asset packs), but the same planet at a glance.
+ */
+const PLANET_LOOK = [
+  [/Deep Ocean/, '#1f4f8c', '#2a66a8'], [/Ocean/, '#24599a', '#3f8a5a'], [/Continental/, '#2d5e8e', '#5b8e4c'],
+  [/Mangrove|Swamp/, '#3f5a3a', '#6b7a45'], [/Forest/, '#2f5a33', '#4f7f3e'], [/Grassland/, '#5f8a3e', '#8aa857'],
+  [/Savanna/, '#b08f52', '#7f8a46'], [/Sandy Desert/, '#caa266', '#e0bd82'], [/Rocky Desert/, '#9c6b45', '#b88458'],
+  [/Ice Tundra/, '#b9cbd3', '#8ea38a'], [/Frozen Ice|^Ice/, '#d6e6ef', '#aac6d8'], [/Rocky Ice/, '#9fb3c2', '#c8d6e0'],
+  [/Sulphur/, '#8a7a2a', '#d8c24a'], [/Volcanic/, '#3a2622', '#d0552a'], [/Metallic/, '#787b83', '#9a9da4'],
+  [/Silicon/, '#8a8378', '#a69f92'], [/Carbonaceous/, '#4a4440', '#5e5752'], [/Frozen Gas/, '#a8c8de', '#cfe1ec'],
+];
+function mixHex(a, b, t) {
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [p(a), p(b)];
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function planetSvg(c) {
+  const t = c.planetType || '';
+  const gas = /Gas/.test(c.surface || '') || /Gas Giant/.test(t);
+  const look = PLANET_LOOK.find(([re]) => re.test(t));
+  const base = gas && c.gas ? c.gas : look ? look[1] : (c.atmosphere || '#777777');
+  const spot = look ? look[2] : mixHex(base, '#ffffff', 0.25);
+  const id = 'pl' + (c.orbId ?? Math.floor(Math.random() * 1e9));
+  const surface = gas
+    ? [-0.62, -0.3, 0.02, 0.34, 0.62].map((y, i) => `<rect x="-1" y="${y}" width="2" height="${i % 2 ? 0.2 : 0.13}" fill="${i % 2 ? mixHex(base, '#ffffff', 0.3) : mixHex(base, '#000000', 0.25)}" opacity=".55"/>`).join('')
+    : `<ellipse cx="-.35" cy="-.25" rx=".42" ry=".28" fill="${spot}"/><ellipse cx=".35" cy=".25" rx=".38" ry=".22" fill="${spot}"/><ellipse cx="-.1" cy=".6" rx=".3" ry=".14" fill="${spot}"/>`;
+  const rings = c.rings ? `<ellipse cx="0" cy="0" rx="1.38" ry=".34" fill="none" stroke="${mixHex(base, '#ffffff', 0.45)}" stroke-width=".09" opacity=".8" transform="rotate(-18)"/>` : '';
+  return `<svg class="cthumb" viewBox="-1.45 -1.45 2.9 2.9" aria-hidden="true">
+    <defs><radialGradient id="${id}s" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>
+      <clipPath id="${id}c"><circle r="1"/></clipPath></defs>
+    ${c.atmosphere ? `<circle r="1.08" fill="none" stroke="${c.atmosphere}" stroke-width=".1" opacity=".55"/>` : ''}
+    <g clip-path="url(#${id}c)"><circle r="1" fill="${base}"/>${surface}<circle r="1" fill="url(#${id}s)"/></g>
+    ${rings}</svg>`;
+}
+
+/**
+ * A colony as a card, after the game's colony panel: the planet (type, quality), the population against its
+ * maximum with its yearly growth and races, the panel's four numbers (development, corruption, the tax base
+ * at the tax rate, approval), the planet's resources, then troops and facilities. Trouble colours the card:
+ * rebelling or under attack red, unhappy or restless amber.
+ */
 function colonyCard(c, n) {
-  const trouble = c.rebelling ? 'bad' : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 'warn' : '';
+  const attacked = (c.attackers || 0) > 0 || (c.invaders || 0) > 0;
+  const trouble = c.rebelling || attacked ? 'ctrouble-bad' : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 'ctrouble-warn' : '';
   const apColor = c.rebelling || c.approval < 0 ? 'var(--bad)' : c.approval < 3 ? 'var(--warn)' : 'var(--ok)';
   const popPct = c.population != null && c.maxPopulation ? Math.max(2, Math.min(100, c.population / c.maxPopulation * 100)) : 0;
-  const kpi = (label, value, color, sub) => `<span><small>${label}</small><b style="${color ? 'color:' + color : ''}">${value ?? '–'}</b>${sub ? `<em>${sub}</em>` : ''}</span>`;
+  const kpi = (label, value, color) => `<span><small>${label}</small><b style="${color ? 'color:' + color : ''}">${value ?? '–'}</b></span>`;
+  const growth = c.populationGrowth;
+  const races = (c.races || []).length > 1
+    ? c.races.slice(0, 3).map(r => `${esc(r.name)} ${Math.round(r.amount / (c.population || 1) * 100)}%`).join(' · ')
+    : esc(c.race || '');
+  const place = [c.planetType, c.quality != null ? `Quality ${fmt.pct(c.quality)}` : '', c.system].filter(Boolean).map(esc).join(' · ');
   const quiet = [
-    c.development != null ? `Development ${fmt.pct(c.development)}` : '',
-    c.corruption != null ? `Corruption ${fmt.pct(c.corruption)}` : '',
+    c.troops != null ? `${c.troops || 'No'} troop${c.troops === 1 ? '' : 's'}` : '',
+    c.facilities ? `${c.facilities} facilit${c.facilities === 1 ? 'y' : 'ies'}` : '',
     c.unrest ? `<span class="mk-warn">Unrest ${fmt.num(c.unrest)}</span>` : '',
-    c.quality != null ? `Quality ${fmt.pct(c.quality)}` : '',
-    c.facilities ? `${c.facilities} facilities` : '',
+    c.autoTax ? 'auto tax' : '',
   ].filter(Boolean).join(' · ');
   return `<div class="colcard ${trouble}" data-n="${n}" title="Go to ${esc(c.name)}">
-    <div class="cchead"><span class="cname"><b>${esc(c.name)}</b><small>${esc([c.system, c.race].filter(Boolean).join(' · '))}</small></span>${c.rebelling ? '<span class="flag">REBELLING</span>' : ''}</div>
-    <div class="ccpop"><span><small>Population</small><b>${fmt.big(c.population) ?? '–'}</b>${c.maxPopulation ? `<em>of ${fmt.big(c.maxPopulation)}</em>` : ''}</span><i class="pb"><i style="width:${popPct}%"></i></i></div>
-    <div class="cckpis">${kpi('Approval', fmt.int(c.approval), apColor)}${kpi('Revenue / yr', fmt.big(c.revenue))}${kpi('Tax', fmt.pct(c.taxRate), '', c.autoTax ? 'auto' : '')}</div>
+    <div class="cchead">${planetSvg(c)}<span class="cname"><b>${esc(c.name)}</b><small>${place}</small></span>
+      <span class="cflags">${c.rebelling ? '<span class="flag">REBELLING</span>' : ''}${attacked ? `<span class="flag">UNDER ATTACK${c.invaders ? ' · invaded' : ''}</span>` : ''}</span></div>
+    <div class="ccpop"><span><b>${fmt.big(c.population) ?? '–'}</b>${c.maxPopulation ? `<em>of ${fmt.big(c.maxPopulation)}</em>` : ''}${growth != null ? `<em class="grow${growth < 0 ? ' neg' : ''}">${growth >= 0 ? '+' : ''}${(growth * 100).toFixed(1)}%/yr</em>` : ''}<em class="races">${races}</em></span><i class="pb"><i style="width:${popPct}%"></i></i></div>
+    <div class="cckpis">${kpi('Development', fmt.pct(c.development))}${kpi('Corruption', fmt.pct(c.corruption), c.corruption > 0.3 ? 'var(--warn)' : '')}${kpi('Tax', c.revenue != null ? `${fmt.big(Math.round(c.revenue))} @ ${fmt.pct(c.taxRate)}` : fmt.pct(c.taxRate))}${kpi('Approval', fmt.int(c.approval), apColor)}</div>
+    ${(c.resources || []).length ? `<div class="ccres">${c.resources.slice(0, 6).map(r => `<span>${esc(r.name)} <b>${r.abundance}%</b></span>`).join('')}</div>` : ''}
     ${quiet ? `<div class="ccmeta">${quiet}</div>` : ''}
   </div>`;
 }
