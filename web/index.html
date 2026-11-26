@@ -394,8 +394,7 @@
   .mres-at { color: var(--mut); font-size: 12px; margin-right: 2px; }
   .mresblock { margin-top: 10px; }
   .lchip b { font-weight: 500; }
-  .lchip.st-critical { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
-  .lchip.st-low { box-shadow: inset 0 0 0 1px var(--warn); color: var(--warn); }
+  .lchip.st-short { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
@@ -1746,9 +1745,20 @@ let resKnow = new Map(), resKnowAt = 0;
 function learnResources(items) {
   resKnow = new Map((items || []).filter(resRelevant).map(r => [r.name, resStatus(r)]));
   resCat = new Map((items || []).map(r => [r.name, r.category]));
+  resSurplus = new Map((items || []).map(r => [r.name, r.surplus]));
   resKnowAt = Date.now();
 }
-let resCat = new Map();
+let resCat = new Map(), resSurplus = new Map();
+/**
+ * A deposit chip's mark, as the game marks resource icons on places (mining suggestions, New Mining Locations):
+ * red with "PRODUCTION SHORTAGE 0.31/sec" when the empire makes less than it uses (CalculateResourceRateSurplus
+ * below zero; checked 2026-11-26: Mebnar -0.3066 here, 0.31/sec in the game). That is about the rate, not the
+ * stock, so it differs from the supply table's Critical / Low.
+ */
+function chipMark(surplus) {
+  return surplus != null && surplus < 0
+    ? { cls: 'st-short', note: `Production shortage ${(-surplus).toFixed(2)}/sec` } : { cls: '', note: '' };
+}
 /**
  * The resources at the places a message's task names (the site of a suggested mining station...), as the game's
  * suggestion dialog shows them: chips with the resource's type colour and how short the empire is of it.
@@ -1756,8 +1766,9 @@ let resCat = new Map();
 function placeResources(m) {
   return (m.places || []).filter(p => p.type === 'orb' && (p.resources || []).length).map(p =>
     `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
-      const st = resKnow.get(x.name) || 'adequate';
-      return `<span class="lchip st-${st}" data-cat="${esc(resCat.get(x.name) || '')}" title="${esc(x.name)}${st !== 'adequate' ? ' · ' + st : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+      const st = resKnow.get(x.name) || 'adequate', mk = chipMark(resSurplus.get(x.name));
+      const note = [mk.note, st !== 'adequate' ? 'supply ' + st : ''].filter(Boolean).join(' · ');
+      return `<span class="lchip ${mk.cls}" data-cat="${esc(resCat.get(x.name) || '')}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
     }).join('')}</span>`).join('');
 }
 async function refreshResKnow() {
@@ -2953,10 +2964,10 @@ function renderLocations(all, deps, q) {
   // A chip carries the resource's type colour (as in the list), its shortage as an outline, and fades when the
   // empire does not use that resource at all.
   const chip = x => {
-    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate';
+    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
     const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
-    const note = [r ? human(r.category) : '', st !== 'adequate' ? st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
-    return `<span class="lchip st-${st}${used ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}" title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
+    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}" title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
   };
   $('resLocations').innerHTML = list.map(d => {
     const g = going.get(d.orbId);
