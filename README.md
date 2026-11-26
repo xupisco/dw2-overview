@@ -28,6 +28,12 @@ Requires the [DW2 Mod Launcher](https://github.com/lucky-wolf/DW2-Mod-Launcher/r
 - **Keys:** `Space` play / pause, `Q` the message log, `/` the search, `Esc` clears the filters.
 - **Narrow windows:** a menu button, tables as cards (the server answers on this computer only, so a phone cannot reach it yet).
 
+## Privacy and performance
+
+- **Nothing leaves your computer.** The server answers only on this machine (`localhost`), so other machines cannot reach it, and the page loads nothing from the internet (fonts and scripts are in the mod). No telemetry, no accounts.
+- **Other websites can't use it:** they cannot read its answers, and commands need a per-session token (details under [How it works](#how-it-works)).
+- **Light on the game:** it reads the game at most once a second, and only while a page is open; with no page open it does nothing. Early in a game a read takes a few milliseconds (each list's time is in the log). Big late games are not measured yet: if you notice a slowdown, please [say so](https://github.com/xupisco/dw2-overview/issues).
+
 ## Install (development)
 
 Requirements: .NET SDK (8 or newer) and the game installed.
