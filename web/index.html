@@ -66,6 +66,41 @@
   .tool { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 28px; height: 28px; padding: 0 8px;
     border: 0; background: var(--panel); color: var(--mut); font-size: 12px; cursor: pointer; white-space: nowrap; }
   .tool:hover, .tool.on { background: var(--hover); color: var(--tx); }
+  #menuBtn { display: none; }
+  .menutools:empty { display: none; }
+  /* Phones: brand, play / pause, search and the menu on top; the menu opens the tabs (a list, with their
+     counts) and the sound, alerts, log and theme controls. Tables become one card per row. */
+  @media (max-width: 760px) {
+    .hrow { flex-wrap: wrap; row-gap: 6px; }
+    .brand b { font-size: 14px; }
+    #menuBtn { display: flex; }
+    #searchBtn span, #searchBtn kbd { display: none; }
+    .tools { flex-wrap: wrap; justify-content: flex-end; }
+    .gamectl { margin-right: 0; }
+    .tools #audio, .tools .bellwrap, .tools #logBtn, .tools #themeBtn { display: none !important; }
+    .menutools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+    .menutools #audio { display: inline-flex !important; }
+    .tabs { display: none; flex-basis: 100%; flex-direction: column; overflow: visible; order: 4; }
+    body.menu-open .tabs { display: flex; }
+    .tabs button { justify-content: space-between; padding: 10px 12px; border-bottom: 0; border-left: 2px solid transparent; font-size: 15px; }
+    .tabs button.on { border-left-color: var(--acc); background: var(--acc-d); }
+    .alertpanel { position: fixed; top: 60px; left: 12px; right: 12px; width: auto; }
+    /* Tables as cards: the name (or title) on top, the other columns labelled under it */
+    #tab-construction, #tab-other { overflow: visible; background: transparent; clip-path: none; }
+    #tab-construction table, #tab-other table, #tab-construction tbody, #tab-other tbody { display: block; width: 100%; }
+    #tab-construction thead, #tab-other thead { display: none; }
+    #tab-construction tbody, #tab-other tbody { display: flex; flex-direction: column; gap: 6px; }
+    #tab-construction tr, #tab-other tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 10px 12px; background: var(--panel); }
+    #tab-construction td, #tab-other td { display: block; padding: 0; border: 0; text-align: left; background: none !important; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    #tab-construction td[data-label]::before, #tab-other td[data-label]::before { content: attr(data-label); display: block; font: 600 11px var(--cond); letter-spacing: .08em; text-transform: uppercase; color: var(--mut); }
+    #tab-construction td.k-name, #tab-other td.k-name, #tab-other td.k-title { order: -1; grid-column: 1 / -1; font-size: 15px; font-weight: 500; white-space: normal; }
+    #tab-construction td.k-name::before, #tab-other td.k-name::before, #tab-other td.k-title::before { display: none; }
+    #tab-construction td.k-progress, #tab-other td.k-progress { grid-column: 1 / -1; }
+    /* A card shows only what has a value */
+    #tab-construction td:empty, #tab-other td:empty, #tab-construction td:has(> span.none:only-child), #tab-other td:has(> span.none:only-child) { display: none; }
+    .supply button { width: 100%; min-width: 44px; }
+    .supply { width: 100%; }
+  }
   .tool kbd { font: 12px Barlow, sans-serif; background: var(--track); padding: 0 4px; }
   .tool .badge { position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; background: var(--warn); color: #1a1205;
     font-size: 12px; font-weight: 600; line-height: 15px; text-align: center; }
@@ -185,9 +220,10 @@
   .bar > em { font-style: normal; font-size: 12px; min-width: 34px; text-align: right; color: var(--acc); }
 
   /* Overview: a grid of blocks (3 / 2 / 1 columns by width) */
-  .ovgrid { --ovcols: 3; display: grid; grid-template-columns: repeat(var(--ovcols), minmax(0, 1fr)); grid-auto-flow: row dense; gap: 12px; }
-  @media (max-width: 1200px) { .ovgrid { --ovcols: 2; } }
-  @media (max-width: 760px) { .ovgrid { --ovcols: 1; } }
+  .ovgrid { display: flex; flex-direction: column; gap: 12px; }
+  .ovsplit { display: grid; grid-template-columns: minmax(0, 35fr) minmax(0, 65fr); gap: 12px; align-items: start; }
+  .ovstack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  @media (max-width: 1000px) { .ovsplit { grid-template-columns: minmax(0, 1fr); } }
   .ovcell { display: flex; flex-direction: column; min-width: 0; }
   .ovpanel { flex: 1; background: var(--panel); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
   .ovhead { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--panel-h); }
@@ -558,6 +594,7 @@
       <button type="button" data-tab="resources">Resources <em></em></button>
       <button type="button" data-tab="research">Research <em></em></button>
       <button type="button" data-tab="messages">Messages <em></em></button>
+      <div id="menuTools" class="menutools"></div>
     </nav>
     <div class="tools">
       <div id="gamectl" class="gamectl" hidden>
@@ -598,6 +635,9 @@
       </button>
       <button type="button" class="tool" id="themeBtn" title="Theme">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>
+      </button>
+      <button type="button" class="tool" id="menuBtn" title="Menu: tabs, sound, alerts, log, theme" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       </button>
     </div>
   </div>
@@ -926,7 +966,7 @@ function renderOther() {
   $('orows').innerHTML = rows.map((r, n) => `<tr data-n="${n}">${cols.map(c => {
     const v = r[c.key], out = c.f ? c.f(v, r) : v;
     const text = out == null || out === '' ? (c.f && out === '' ? '' : '<span class="none">–</span>') : (c.html ? out : esc(out));
-    return `<td class="${c.num ? 'num' : ''}" title="${v == null ? '' : esc(v)}">${text}</td>`;
+    return `<td class="${c.num ? 'num' : ''} k-${c.key}" data-label="${esc(c.label)}" title="${v == null ? '' : esc(v)}">${text}</td>`;
   }).join('')}</tr>`).join('');
   const cards = tab === 'colonies' && colView === 'cards';
   // Cards put the colonies in trouble first (rebelling, then unhappy or restless); the table keeps its sort.
@@ -1037,6 +1077,7 @@ $('colview').addEventListener('click', e => {
 });
 
 function setTab(name, fromHistory) {
+  setMenu(false);
   setTimeout(syncFilters, 0);
   if (!fromHistory && name !== tab) history.pushState({ tab: name }, '', '#' + name);
   tab = name;
@@ -1466,15 +1507,15 @@ function render() {
   rowItems = rows.map(r => r.item);
 
   $('rows').innerHTML = rows.map(({ item: i, kind, key, more }, n) => `<tr data-n="${n}" class="${kind}" title="Go to ${esc(i.where)}">
-      <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
-      <td>${nameCell(i)}</td>
-      <td>${cell(i.design)}</td>
-      <td>${cell(i.role)}</td>
-      <td>${cell(i.work)}</td>
-      <td>${progressCell(i.progress)}</td>
-      <td>${whereCell(i, kind, key, more)}</td>
-      <td>${kind === 'child' ? '' : cell(i.system)}</td>
-      <td>${i.queue ?? '<span class="none">–</span>'}</td>
+      <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
+      <td class="k-name" data-label="Name">${nameCell(i)}</td>
+      <td data-label="Design">${cell(i.design)}</td>
+      <td data-label="Role">${cell(i.role)}</td>
+      <td data-label="Work">${cell(i.work)}</td>
+      <td class="k-progress" data-label="Progress">${progressCell(i.progress)}</td>
+      <td data-label="Built by">${whereCell(i, kind, key, more)}</td>
+      <td data-label="System">${kind === 'child' ? '' : cell(i.system)}</td>
+      <td data-label="Queue">${i.queue ?? '<span class="none">–</span>'}</td>
     </tr>`).join('');
   $('count').textContent = `${shown.length} of ${items.length}`;
   $('empty').hidden = shown.length > 0;
@@ -1835,6 +1876,18 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
 $('clearFilters').addEventListener('click', clearFilters);
+/** Phones: the tabs and the less used tools live behind the menu button. */
+let menuHomes = null;
+function setMenu(open) {
+  // The tools the top bar has no room for move into the menu while it is open, and back when it closes.
+  if (!menuHomes) menuHomes = [$('audio'), document.querySelector('.bellwrap'), $('logBtn'), $('themeBtn')].map(el => [el, el.parentNode, el.nextSibling]);
+  if (open) menuHomes.forEach(([el]) => $('menuTools').appendChild(el));
+  else [...menuHomes].reverse().forEach(([el, parent, next]) => { if (el.parentNode !== parent) parent.insertBefore(el, next); });
+  document.body.classList.toggle('menu-open', open);
+  $('menuBtn').setAttribute('aria-expanded', open);
+  $('menuBtn').classList.toggle('on', open);
+}
+$('menuBtn').addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
 $('buildRoles').addEventListener('click', e => { const b = e.target.closest('[data-brole]'); if (b) toggleBuildRole(b.dataset.brole); });
 $('search').addEventListener('keydown', e => { if (e.key === 'Escape' && $('search').value) { e.preventDefault(); $('search').value = ''; tab === 'construction' ? render() : renderOther(); } });
 $('mprio').addEventListener('input', renderOther);
@@ -1990,7 +2043,7 @@ const shipBucketFilter = new Set();     // empty = all buckets
 const shipRoleFilter = new Set();       // empty = all roles; click one: only it; click another: both
 const shipCollapsed = new Set(['role:Bases']);   // bases do no missions: folded at the end until opened
 let shipView = 'rows';
-try { shipView = localStorage.getItem('overview.shipView') || 'rows'; } catch (e) { }
+try { shipView = localStorage.getItem('overview.shipView') || (innerWidth <= 760 ? 'cards' : 'rows'); } catch (e) { }
 /** What needs the player first: idle, then short of fuel or energy or damaged, then the rest. */
 const shipUrgency = s => shipBucket(s) === 'idle' ? 0
   : (s.fuel != null && s.fuel < 0.25) || (s.energy != null && s.energy < 0.25) || s.damage > 0 ? 1 : 2;
@@ -2152,7 +2205,7 @@ $('shipList').addEventListener('click', e => {
 });
 
 // ---- Overview: a configurable dashboard (v3 proposal) ----
-// Blocks the player turns on and off, sizes (S = 1 column, M = 2, L = the whole row) and orders, kept in this
+// Blocks the player turns on and off, places (S = the narrow left column, M = the wide right one, L = the whole width) and orders, kept in this
 // browser. Everything comes from the other tabs' endpoints, read together; "Needs attention" is a set of
 // rules over that data, the same kind of rules the background alerts will use.
 
@@ -2160,9 +2213,9 @@ const OV_BLOCKS = [
   // Few blocks on by default, each one important ("if everything is there, nothing is important"); the
   // rest stays in Customize. What is urgent in the others reaches Needs attention.
   { id: 'summary', name: 'Summary', note: 'Cash, population, yards, research, idle ships', size: 'L', on: true },
-  { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'M', on: true },
+  { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
   { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical, as the game shows it', size: 'S', on: true },
-  { id: 'construction', name: 'Construction', note: 'What the yards are building, by role, sorted, a few lines', size: 'L', on: true },
+  { id: 'construction', name: 'Construction', note: 'What the yards are building, by role, sorted, a few lines', size: 'M', on: true },
   { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: false },
   { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: false },
   { id: 'messages', name: 'Latest messages', note: 'Newest five from the log (Q opens the whole log)', size: 'M', on: false },
@@ -2170,13 +2223,13 @@ const OV_BLOCKS = [
 ];
 let ovLayout = OV_BLOCKS.map(b => ({ id: b.id, size: b.size, on: b.on }));
 try {
-  const saved = JSON.parse(localStorage.getItem('overview.layout3') || 'null');
+  const saved = JSON.parse(localStorage.getItem('overview.layout4') || 'null');
   if (Array.isArray(saved)) {
     const known = saved.filter(s => OV_BLOCKS.some(b => b.id === s.id));
     ovLayout = [...known, ...ovLayout.filter(d => !known.some(s => s.id === d.id))];   // new blocks join at the end
   }
 } catch (e) { }
-const saveLayout = () => { try { localStorage.setItem('overview.layout3', JSON.stringify(ovLayout)); } catch (e) { } };
+const saveLayout = () => { try { localStorage.setItem('overview.layout4', JSON.stringify(ovLayout)); } catch (e) { } };
 
 // Idle ships worth a look: fighters and bombers wait in their carriers and bases by design, and freighters
 // waiting for cargo can be hidden (kept in this browser).
@@ -2207,7 +2260,7 @@ function buildRoleChips(list, attr) {
 }
 let ovBuildSort = 'progress';
 try { ovBuildSort = localStorage.getItem('overview.buildSort') || 'progress'; } catch (e) { }
-const OV_BUILD_LINES = 10;
+const OV_BUILD_LINES = 9;
 
 let ov = null, ovInfo = null, ovActions = [];
 
@@ -2364,8 +2417,20 @@ function blockHtml(id) {
 function renderOverview() {
   if (!ov || !ovInfo) { $('ovGrid').innerHTML = '<div class="empty">Waiting for the game…</div>'; return; }
   ovActions = [];
-  const span = s => s === 'L' ? 'var(--ovcols)' : s === 'M' ? 'min(2, var(--ovcols))' : '1';
-  $('ovGrid').innerHTML = ovLayout.filter(b => b.on).map(b => `<div class="ovcell" style="grid-column: span ${span(b.size)}">${blockHtml(b.id)}</div>`).join('');
+  // L blocks take the whole width; between them, S blocks stack in the narrow left column (35%) and M blocks
+  // in the wide right one (65%), each in the order chosen. A side with nothing gives its room to the other.
+  let html = '', left = [], right = [];
+  const flush = () => {
+    if (left.length && right.length) html += `<div class="ovsplit"><div class="ovstack">${left.join('')}</div><div class="ovstack">${right.join('')}</div></div>`;
+    else if (left.length || right.length) html += `<div class="ovstack">${[...left, ...right].join('')}</div>`;
+    left = []; right = [];
+  };
+  for (const b of ovLayout.filter(b => b.on)) {
+    const cell = `<div class="ovcell">${blockHtml(b.id)}</div>`;
+    if (b.size === 'L') { flush(); html += cell; } else (b.size === 'S' ? left : right).push(cell);
+  }
+  flush();
+  $('ovGrid').innerHTML = html;
   $('count').textContent = '';
 }
 
@@ -2375,7 +2440,7 @@ function renderCustomize() {
     return `<div class="ovitem${b.on ? '' : ' off'}" data-i="${i}">
       <label class="switch"><input type="checkbox" data-on ${b.on ? 'checked' : ''}><i></i></label>
       <span><b>${esc(def.name)}</b><small>${esc(def.note)}</small></span>
-      <span class="sizes">${['S', 'M', 'L'].map(s => `<button type="button" data-size="${s}" class="${b.size === s ? 'on' : ''}">${s}</button>`).join('')}</span>
+      <span class="sizes">${['S', 'M', 'L'].map(s => `<button type="button" data-size="${s}" title="${{ S: 'Narrow left column', M: 'Wide right column', L: 'Whole width' }[s]}" class="${b.size === s ? 'on' : ''}">${s}</button>`).join('')}</span>
       <span class="moves"><button type="button" data-move="-1" title="Up">▴</button><button type="button" data-move="1" title="Down">▾</button></span>
     </div>`;
   }).join('');
