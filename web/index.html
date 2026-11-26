@@ -517,7 +517,15 @@ async function refresh() {
       $('empire').style.display = 'contents';
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
-      tabCounts[tab] = countFor(tab, rows);
+      if (info.counts) {
+        Object.assign(tabCounts, info.counts);
+        $('bellBadge').hidden = !info.counts.pending;
+        $('bellBadge').textContent = info.counts.pending || '';
+        $('bellBadge').title = `${info.counts.pending} advisor suggestion(s) waiting for a decision`;
+      } else {
+        tabCounts[tab] = countFor(tab, rows);
+        surveyCounts();
+      }
       showTabCounts();
     }
     if (info.loaded && $('notify').value !== 'off') {
@@ -637,6 +645,23 @@ function countFor(name, rows) {
   if (name === 'research') return rows.filter(r => r.state === 'active' || r.state === 'queued').length;
   return rows.length;
 }
+// Older mod without counts in /api/info: read every tab once, in the background, so the numbers show up
+// without clicking each tab. (Ships are collected only after being asked for, hence the second try.)
+let surveyed = false;
+async function surveyCounts() {
+  if (surveyed) return;
+  surveyed = true;
+  for (const name of ['construction', 'ships', 'colonies', 'research', 'messages']) {
+    if (tabCounts[name] != null) continue;
+    try {
+      let rows = (await getJson('/api/' + name)).items || [];
+      if (!rows.length && name === 'ships') { await new Promise(r => setTimeout(r, 1500)); rows = (await getJson('/api/ships')).items || []; }
+      tabCounts[name] = countFor(name, rows);
+      showTabCounts();
+    } catch (e) { }
+  }
+}
+
 function showTabCounts() {
   document.querySelectorAll('.tabs button').forEach(b => { b.querySelector('em').textContent = tabCounts[b.dataset.tab] ?? ''; });
 }

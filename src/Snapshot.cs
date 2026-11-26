@@ -201,6 +201,16 @@ internal static class Snapshot
                 starDateText = Safe(() => TextHelper.ResolveStarDateDescription(galaxy.StarDate)),
                 token = Commands.Token,
                 economy = Views.Economy(empire),
+                // What each tab of the page shows next to its name, from data already collected in this tick.
+                counts = new
+                {
+                    construction = items.Count(i => i.State != "idle"),
+                    ships = Copy(empire.Ships).Count,
+                    colonies = colonies.Count,
+                    research = research.Count(r => r.State == "active" || r.State == "queued"),
+                    messages = messages.Count(m => !m.Pending),
+                    pending = messages.Count(m => m.Pending),
+                },
                 paused = Safe(() => __instance.GetGamePaused()),
                 speed = Safe(() => __instance.GetGameSpeed()),
                 collectedAt,
