@@ -61,6 +61,31 @@ internal sealed class MessageRow
     public string Task { get; set; }
 }
 
+/// <summary>One of the empire's own ships or bases, with what it is doing.</summary>
+internal sealed class ShipRow
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Kind { get; set; }
+    public bool IsBase { get; set; }
+    public string Design { get; set; }
+    public string System { get; set; }
+    public string Fleet { get; set; }
+    /// <summary>The current mission's type, or "Idle" when there is none.</summary>
+    public string Mission { get; set; }
+    public string Target { get; set; }
+    public string TargetType { get; set; }
+    public int? TargetId { get; set; }
+    public int Queued { get; set; }
+    public bool Manual { get; set; }
+    /// <summary>How the ship gets its missions: FullyAutomate, Manual, AutoExplore, AutoPatrol...</summary>
+    public string Automation { get; set; }
+    public bool Docked { get; set; }
+    public bool Building { get; set; }
+    public double? Damage { get; set; }
+    public double? Fuel { get; set; }
+}
+
 /// <summary>Something the command palette can jump to.</summary>
 internal sealed class IndexRow
 {
@@ -172,6 +197,41 @@ internal static class Views
                 Own = obj is Ship ship ? ship.EmpireId == empire.EmpireId : kind == "Colony",
             });
         }
+    }
+
+    public static List<ShipRow> Ships(Galaxy galaxy, Empire empire)
+    {
+        var rows = new List<ShipRow>();
+        foreach (var ship in Copy(empire.Ships))
+        {
+            var mission = Safe(() => ship.Mission);
+            bool idle = mission == null || mission.Type == ShipMissionType.Undefined;
+            var target = idle ? null : Safe(() => mission.PrimaryTarget.Resolve(galaxy)) ?? Safe(() => (IDw2Item)ship.CurrentTarget);
+            var (targetType, targetId) = Target(target as StellarObject);
+            float range = Safe(() => ship.CurrentFuelRange()), maxRange = Safe(() => ship.MaximumFuelRange());
+            rows.Add(new ShipRow
+            {
+                Id = ship.ShipId,
+                Name = Safe(() => ship.Name),
+                Kind = ship.IsBase ? "Base " + ship.Role : ship.Role.ToString(),
+                IsBase = ship.IsBase,
+                Design = Safe(() => ship.Design?.Name),
+                System = SystemName(galaxy, ship),
+                Fleet = Safe(() => ship.Fleet?.Name),
+                Mission = idle ? "Idle" : mission.Type.ToString(),
+                Target = Safe(() => (target as INamed)?.Name),
+                TargetType = targetType,
+                TargetId = targetId,
+                Queued = Safe(() => ship.NextMissions?.Count ?? 0),
+                Manual = !idle && mission.IsManuallyAssigned,
+                Automation = ship.MissionAssignmentType.ToString(),
+                Docked = Safe(() => ship.IsDocked),
+                Building = Safe(() => ship.IsUnderConstructionOrRepair),
+                Damage = Num(ship.HullDamageLevel),
+                Fuel = maxRange > 0 ? Num(range / maxRange) : null,
+            });
+        }
+        return rows;
     }
 
     /// <summary>

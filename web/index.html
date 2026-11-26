@@ -90,6 +90,7 @@
   <span class="meta" id="empire"></span>
   <nav class="tabs">
     <button type="button" data-tab="construction">Construction</button>
+    <button type="button" data-tab="ships">Ships</button>
     <button type="button" data-tab="colonies">Colonies</button>
     <button type="button" data-tab="research">Research</button>
     <button type="button" data-tab="messages">Messages</button>
@@ -134,6 +135,7 @@
     <option value="">Everything</option>
   </select>
   </span>
+  <span id="gfilters" class="group"></span>
   <span id="mfilters" class="group" hidden>
   <select id="mprio">
     <option value="0">All priorities</option>
@@ -242,6 +244,8 @@ const columns = {
     { key: 'atStation', label: 'At station', f: fmt.bool },
   ],
 };
+/** "ExplorationShip" → "Exploration Ship"; "Base SpaceportSmall" → "Base Spaceport Small". */
+const human = s => (s || '').replace(/([a-z])([A-Z])/g, '$1 $2');
 const priorityRank = { Low: 0, Normal: 1, High: 2, Critical: 3 };
 /** Message text without the game's markup ([LOCATION]…[/LOCATION]) and with collapsed whitespace. */
 const plain = s => (s || '').replace(/\[\/?[A-Z]+\]/g, '').replace(/\s+/g, ' ').trim();
@@ -256,10 +260,47 @@ columns.messages = [
 ];
 otherSort.messages = { key: 'date', asc: false };
 
+// Ships: every own ship and base with what it is doing. Columns marked `filter` get a select built from the
+// values present in the data ("Idle" in Mission shows the ships with nothing to do).
+columns.ships = [
+  { key: 'name', label: 'Ship' },
+  { key: 'kind', label: 'Kind', f: human, filter: 'All kinds' },
+  { key: 'design', label: 'Design' },
+  { key: 'mission', label: 'Mission', f: v => v === 'Idle' ? '<span class="flag">Idle</span>' : esc(human(v)), html: true, filter: 'All missions' },
+  { key: 'target', label: 'Target', f: (v, r) => v ? (r.targetId ? `<a class="go" href="#" data-tt="${esc(r.targetType)}" data-tid="${r.targetId}" title="Go to the target">${esc(v)}</a>` : esc(v)) : '', html: true },
+  { key: 'queued', label: 'Next', num: true, f: v => v ? String(v) : '' },
+  { key: 'automation', label: 'Orders', f: v => human(v), filter: 'All orders' },
+  { key: 'system', label: 'System', filter: 'All systems' },
+  { key: 'fleet', label: 'Fleet', filter: 'All fleets' },
+  { key: 'damage', label: 'Damage', f: v => v ? fmt.pct(v) : '', num: true },
+  { key: 'fuel', label: 'Fuel', f: fmt.pct, num: true },
+  { key: 'docked', label: 'Docked', f: fmt.bool },
+  { key: 'building', label: 'Building', f: fmt.bool },
+];
+otherSort.ships = { key: 'name', asc: true };
+const filterValues = {};   // tab -> key -> chosen value
+
+/** (Re)builds the filter selects of the current tab from the values in its data, keeping the choices. */
+function buildFilters() {
+  const cols = (columns[tab] || []).filter(c => c.filter);
+  const box = $('gfilters');
+  const chosen = filterValues[tab] || (filterValues[tab] = {});
+  const wanted = cols.map(c => c.key + ':' + [...new Set(other.rows.map(r => r[c.key]).filter(v => v != null && v !== ''))].sort().join('|')).join('/');
+  if (box.dataset.sig === tab + wanted) return;
+  box.dataset.sig = tab + wanted;
+  box.innerHTML = cols.map(c => {
+    const values = [...new Set(other.rows.map(r => r[c.key]).filter(v => v != null && v !== ''))].sort((a, b) => String(a).localeCompare(String(b)));
+    if (chosen[c.key] && !values.includes(chosen[c.key])) values.push(chosen[c.key]);
+    return `<select data-fkey="${c.key}"><option value="">${esc(c.filter)}</option>${values.map(v =>
+      `<option value="${esc(v)}"${chosen[c.key] === String(v) ? ' selected' : ''}>${esc(c.f && !c.html ? c.f(v) : human(String(v)))}</option>`).join('')}</select>`;
+  }).join('');
+}
+
 const hints = {
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
   colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
   messages: 'The game\'s message log, newest first. Click a message to go to what it is about. Notifications need the browser\'s permission once.',
+  ships: 'Your ships and bases and what each is doing. Mission "Idle" = nothing to do. Click a ship to go to it, or its target to go there.',
   research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
 };
 
@@ -270,8 +311,11 @@ function renderOther() {
   const rs = $('rstate').value;
   const stateOk = r => tab !== 'research' || !rs || (rs === 'queue' ? r.state === 'active' || r.state === 'queued' : r.state === rs);
   const msgOk = r => tab !== 'messages' || (priorityRank[r.priority] ?? 0) >= +$('mprio').value;
+  buildFilters();
+  const chosen = Object.entries(filterValues[tab] || {}).filter(([, v]) => v);
+  const filtersOk = r => chosen.every(([k, v]) => String(r[k] ?? '') === v);
   const sk = col?.sortKey || s.key;
-  const rows = other.rows.filter(r => stateOk(r) && msgOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
+  const rows = other.rows.filter(r => stateOk(r) && msgOk(r) && filtersOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
     .sort((a, b) => {
       let x = a[sk], y = b[sk];
       if (col?.order) { x = col.order[x] ?? 9; y = col.order[y] ?? 9; }
@@ -302,6 +346,8 @@ function setTab(name) {
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
   $('mfilters').hidden = tab !== 'messages';
+  $('gfilters').innerHTML = '';
+  $('gfilters').dataset.sig = '';
   $('hint').textContent = hints[tab];
   try { localStorage.setItem('overview.tab', tab); } catch (e) { }
   lastSnapshot = null;
@@ -512,6 +558,12 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
 $('mprio').addEventListener('input', renderOther);
+$('gfilters').addEventListener('input', e => {
+  const sel = e.target.closest('select[data-fkey]');
+  if (!sel) return;
+  (filterValues[tab] || (filterValues[tab] = {}))[sel.dataset.fkey] = sel.value;
+  renderOther();
+});
 try { $('notify').value = localStorage.getItem('overview.notify') || 'off'; } catch (e) { }
 $('notify').addEventListener('input', async () => {
   try { localStorage.setItem('overview.notify', $('notify').value); } catch (e) { }
@@ -541,8 +593,12 @@ $('orows').addEventListener('click', e => {
   const tr = e.target.closest('tr');
   const row = tr && otherShown[+tr.dataset.n];
   if (!row) return;
+  e.preventDefault();
+  const tgt = e.target.closest('[data-tt]');
   if (tab === 'colonies') goTo('orb', row.orbId);
   else if (tab === 'messages' && row.relatedId) goTo(row.relatedType, row.relatedId);
+  else if (tab === 'ships' && tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
+  else if (tab === 'ships') goTo('ship', row.id);
   else return;
   tr.classList.add('flash');
   setTimeout(() => tr.classList.remove('flash'), 400);
@@ -561,8 +617,6 @@ setInterval(refresh, 2000);
 // scopes the palette to it (lists all its items, typing filters inside); Backspace on an empty search leaves it.
 const palette = { open: false, index: [], remote: [], rows: [], sel: 0, timer: null, seq: 0, scope: null };
 
-/** "ExplorationShip" → "Exploration Ship"; "Base SpaceportSmall" → "Base Spaceport Small". */
-const human = s => (s || '').replace(/([a-z])([A-Z])/g, '$1 $2');
 
 function fuzzy(text, q) {
   // Score a subsequence match: contiguous runs and word starts score higher. Returns null when no match.

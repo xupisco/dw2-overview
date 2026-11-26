@@ -30,4 +30,5 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 6. [x] Command palette v1: Ctrl+K na página, busca fuzzy nas próprias naves, bases, colônias e frotas (`/api/index`) e, para o resto do que o império conhece, a busca do próprio jogo (`/api/search?q=`, `ResolveKnownItems` na thread do jogo; com busca vazia ele não devolve nada). Testado no jogo em 2026-11-26 (busca, setas, Enter e ir até).
 7. [ ] Comandos na palette, um por vez (pausa e velocidade, abrir telas).
 8. [ ] Mais visões: naves e frotas paradas, recursos em falta.
+   - 2026-11-26: aba Ships (`/api/ships`: missão, alvo, próximas missões, ordens, frota, dano, combustível, atracada) com filtros montados dos dados; "Idle" = sem missão. Falta testar no jogo (DLL).
 9. [ ] Acabamento para publicar: opções pelo launcher (porta), descrição da Workshop em inglês com crédito ao Claude, nome final.

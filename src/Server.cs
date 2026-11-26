@@ -125,6 +125,10 @@ internal static class Server
                     Snapshot.Touch();
                     Send(response, 200, contentTypes[".json"], Snapshot.MessagesJson);
                     return;
+                case "/api/ships":
+                    Snapshot.TouchShips();
+                    Send(response, 200, contentTypes[".json"], Snapshot.ShipsJson);
+                    return;
                 case "/api/search":
                     HandleSearch(request, response);
                     return;

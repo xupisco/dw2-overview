@@ -73,6 +73,16 @@ internal static class Snapshot
     public static volatile string ResearchJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string MessagesJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string IndexJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string ShipsJson = "{\"loaded\":false,\"items\":[]}";
+    private static double lastShipsRequest = double.NegativeInfinity;
+    private static bool shipsLogged;
+
+    /// <summary>The Ships tab asked: collect the ship list from the next tick on (it is skipped otherwise).</summary>
+    public static void TouchShips()
+    {
+        Volatile.Write(ref lastShipsRequest, clock.Elapsed.TotalSeconds);
+        Touch();
+    }
 
     private const int MessageLimit = 200;
     private const double IndexIntervalSeconds = 10.0;
@@ -118,7 +128,7 @@ internal static class Snapshot
             if (!loaded)
             {
                 InfoJson = Serialize(new { api = 1, mod = Core.Version, loaded = false, token = Commands.Token });
-                ConstructionJson = ColoniesJson = ResearchJson = MessagesJson = IndexJson = "{\"loaded\":false,\"items\":[]}";
+                ConstructionJson = ColoniesJson = ResearchJson = MessagesJson = IndexJson = ShipsJson = "{\"loaded\":false,\"items\":[]}";
                 indexLogged = false;
                 nextIndex = 0;
                 return;
@@ -141,6 +151,24 @@ internal static class Snapshot
             double mark = sw.Elapsed.TotalMilliseconds;
             var messages = Views.Messages(empire, MessageLimit);
             double messagesMs = sw.Elapsed.TotalMilliseconds - mark;
+
+            // Every own ship with its mission: only while the Ships tab asks for it.
+            double shipsMs = 0;
+            if (now - Volatile.Read(ref lastShipsRequest) < KeepCollectingSeconds)
+            {
+                mark = sw.Elapsed.TotalMilliseconds;
+                var ships = Views.Ships(galaxy, empire);
+                shipsMs = sw.Elapsed.TotalMilliseconds - mark;
+                ShipsJson = Serialize(new { loaded = true, collectedAt = DateTime.Now.ToString("HH:mm:ss"), items = ships });
+                if (!shipsLogged)
+                {
+                    shipsLogged = true;
+                    Log.Info($"First ships list: {ships.Count} in {shipsMs:0.00} ms; missions: "
+                        + string.Join(", ", ships.GroupBy(s => s.Mission).Select(g => $"{g.Key}={g.Count()}"))
+                        + "; automation: " + string.Join(", ", ships.GroupBy(s => s.Automation).Select(g => $"{g.Key}={g.Count()}"))
+                        + "; sample: " + string.Join(" | ", ships.Take(6).Select(s => $"{s.Name} {s.Mission}->{s.Target} dmg={s.Damage} fuel={s.Fuel} docked={s.Docked}")));
+                }
+            }
 
             // The palette's index is bigger and changes slowly: rebuilt at most every IndexIntervalSeconds,
             // and only while a page asked for it recently.
@@ -180,6 +208,7 @@ internal static class Snapshot
                     colonies = Math.Round(coloniesMs, 2),
                     research = Math.Round(researchMs, 2),
                     messages = Math.Round(messagesMs, 2),
+                    ships = Math.Round(shipsMs, 2),
                     index = Math.Round(indexMs, 2),
                 },
                 stats,
