@@ -286,7 +286,9 @@
   .ovtable tbody tr:hover td { background: var(--hover); }
   .ovtable .ovname b { display: block; font-weight: 500; }
   .ovtable .ovname small { color: var(--mut); font-size: 12px; }
-  .ovtable .ovrole { color: var(--mut); white-space: nowrap; }
+  .ovtable .ovrole { white-space: nowrap; }
+  .rolecell { display: flex; flex-direction: column; line-height: 1.25; }
+  .rolecell small { color: var(--mut); font-size: 12px; }
   .ovtable .ovprog { width: 32%; min-width: 140px; }
   @media (max-width: 760px) { .ovtable .ovrole, .ovtable th:nth-child(3) { display: none; } .ovtable .ovprog { min-width: 90px; } }
   .ovsort { margin-left: auto; margin-right: 10px; }
@@ -1521,7 +1523,7 @@ function render() {
       <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
       <td class="k-name" data-label="Name">${nameCell(i)}</td>
       <td data-label="Design">${cell(i.design)}</td>
-      <td data-label="Role">${cell(i.role)}</td>
+      <td data-label="Role">${roleCell(i)}</td>
       <td data-label="Work">${cell(i.work)}</td>
       <td class="k-progress" data-label="Progress">${progressCell(i.progress)}</td>
       <td data-label="Built by">${whereCell(i, kind, key, more)}</td>
@@ -1544,6 +1546,13 @@ function whereCell(i, kind, key, more) {
   if (!more) return `<span class="caret blank"></span>${place}`;
   const open = expanded.has(key);
   return `<span class="caret" data-toggle="${esc(key)}" title="${open ? 'Fold' : 'Show'} the other ${more}">${open ? '▾' : '▸'}</span>${place}<span class="more">+${more}</span>`;
+}
+
+/** Role: the group the filter chips use (Exploration, Logistics...), and under it the game's exact type. */
+function roleCell(i) {
+  const group = buildRole(i), exact = human(i.role || '');
+  if (!group) return '<span class="none">–</span>';
+  return `<span class="rolecell">${esc(group)}${exact && exact.toLowerCase() !== group.toLowerCase() ? `<small>${esc(exact)}</small>` : ''}</span>`;
 }
 
 function nameCell(i) {
@@ -2371,7 +2380,7 @@ function blockHtml(id) {
       `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
         <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
         <td class="ovname"><b>${esc(i.name || i.design || 'Not started')}</b><small>${esc([i.design, i.where && 'by ' + i.where].filter(Boolean).join(' · '))}${i.site ? ' · at ' + esc(i.site) : ''}${i.queue ? ' · queue #' + i.queue : ''}</small></td>
-        <td class="ovrole">${esc(human(i.role || i.category || ''))}</td>
+        <td class="ovrole">${roleCell(i)}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
       || '<div class="ovempty">No yard is building anything.</div>');
   }
