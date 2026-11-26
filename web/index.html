@@ -2983,7 +2983,7 @@ function depTags(d) {
   return miners + who;
 }
 
-function renderLocations(all, deps, q) {
+function renderLocations(all, deps, q, known = deps.length) {
   refreshResBuilds();
   const byId = new Map(all.map(r => [r.id, r]));
   // Most needed: a place with a critical resource first, then one with a low resource, then the rest; within
@@ -2999,7 +2999,7 @@ function renderLocations(all, deps, q) {
   $('resLocations').innerHTML = list.map(d => `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
       <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${depTags(d) ? `<span class="ltags">${depTags(d)}</span>` : ''}</span>
       <span class="lres">${depChips(d, byId)}</span></div>`).join('')
-    || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
+    || `<div class="empty">${known ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
 }
 $('resSort').addEventListener('click', e => {
@@ -3100,25 +3100,34 @@ function renderResources() {
   $('psub').textContent = critical ? `${critical} critical` : '';
 
   const deps = resData.deposits || [];
+  // Places: in a view (mined or new), matching the search (place or resource name), having a resource of the
+  // chosen types. The tab counts are what each view would show.
+  const catById = new Map((resData.items || []).map(r => [r.id, r.category]));
+  const inView = (d, view) => view === 'mined' ? d.minedBy : !d.minedBy;
+  const depQ = d => !q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q));
+  const depType = (d, types) => !types.size || d.resources.some(x => types.has(catById.get(x.id)));
+  const filtering = q || resTypeFilter.size;
   document.querySelectorAll('#resViews button').forEach(b => {
     b.classList.toggle('on', b.dataset.view === resView);
     const em = b.querySelector('em');
-    // With a search, the count is what that view would show (same match as renderLocations).
-    if (em) em.textContent = deps.filter(d => (b.dataset.view === 'mined' ? d.minedBy : !d.minedBy)
-      && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q)))).length || (q ? '0' : '');
+    if (em) em.textContent = deps.filter(d => inView(d, b.dataset.view) && depQ(d) && depType(d, resTypeFilter)).length || (filtering ? '0' : '');
   });
   $('resLayout').hidden = resView !== 'resources';
   document.querySelectorAll('#resLayout button').forEach(b => b.classList.toggle('on', b.dataset.layout === resLayout));
   $('resListWrap').hidden = resView !== 'resources' || resLayout === 'cards';
   $('resCards').hidden = resView !== 'resources' || resLayout !== 'cards';
   $('resLocations').hidden = resView === 'resources';
-  $('resTypes').hidden = resView !== 'resources';
-  if (resView !== 'resources') { renderLocations(all, deps, q); return; }
+  // Type chips in every view (resources: how many of each type; places: how many places in this view have one);
+  // the availability chips only make sense for resources.
+  const locs = resView !== 'resources';
   const types = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury'], ['other', 'Other']].filter(([k]) => all.some(r => r.category === k));
+  const typeCount = k => locs ? deps.filter(d => inView(d, resView) && depQ(d) && depType(d, new Set([k]))).length : all.filter(r => r.category === k).length;
   const avails = [['mined', 'Mined'], ['found', 'Not mined'], ['notfound', 'Not found']];
-  $('resTypes').innerHTML = types.map(([k, label]) => `<button type="button" data-rtype="${k}" class="${!resTypeFilter.size || resTypeFilter.has(k) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all"><i class="catsq" data-cat="${k}"></i>${label} <em>${all.filter(r => r.category === k).length}</em></button>`).join('')
-    + '<span class="lsep"></span>'
-    + avails.map(([k, label]) => `<button type="button" data-avail="${k}" class="${!resAvailFilter.size || resAvailFilter.has(k) ? '' : 'off'}" title="${k === 'mined' ? 'Mined somewhere by the empire' : k === 'found' ? 'A deposit is known, none is mined' : 'No known deposit'}">${label} <em>${all.filter(r => resAvail(r) === k).length}</em></button>`).join('');
+  $('resTypes').hidden = false;
+  $('resTypes').innerHTML = types.map(([k, label]) => `<button type="button" data-rtype="${k}" class="${!resTypeFilter.size || resTypeFilter.has(k) ? '' : 'off'}" title="${locs ? 'Places with a resource of this type' : 'Show these'}; click more to add; none chosen shows all"><i class="catsq" data-cat="${k}"></i>${label} <em>${typeCount(k)}</em></button>`).join('')
+    + (locs ? '' : '<span class="lsep"></span>'
+    + avails.map(([k, label]) => `<button type="button" data-avail="${k}" class="${!resAvailFilter.size || resAvailFilter.has(k) ? '' : 'off'}" title="${k === 'mined' ? 'Mined somewhere by the empire' : k === 'found' ? 'A deposit is known, none is mined' : 'No known deposit'}">${label} <em>${all.filter(r => resAvail(r) === k).length}</em></button>`).join(''));
+  if (locs) { renderLocations(all, deps.filter(d => depType(d, resTypeFilter)), q, deps.length); return; }
   document.querySelectorAll('#resSort button').forEach(b => b.classList.toggle('on', b.dataset.sort === resSort));
   $('resSort').hidden = resView !== 'resources';
 
