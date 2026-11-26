@@ -15,6 +15,16 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 - **Detalhe da pesquisa:** ao abrir um projeto, mostrar o que ele libera, como o tooltip do jogo: componentes (`ResearchProjectDefinition.Components`), instalações (`PlanetaryFacilityIds`), cascos (`ShipHulls`), bônus (`EmpireBonuses`), e também os dias que faltam e o custo do crash program. O tooltip do jogo mostra "211 days to research", "55% Complete" (bate com o nosso `ProgressRatio`) e "Crash Program for 3,384 credits from Cash on Hand of 9,320 credits".
 - **Dinheiro em caixa** no cabeçalho: feito, com o fluxo de caixa (`Economy.Money`, `CalculateCashflowActual`).
 
+- **Alertas para jogar em segundo plano** (o jogo fica no segundo monitor enquanto o Leandro faz outra coisa). Regras na página, comparando um retrato com o anterior, cada uma ligável e com intervalo mínimo, mais um resumo periódico opcional. Ideias, a decidir juntos:
+  - jogo parado esperando o jogador (a data não anda há N segundos depois de andar: pausa ou janela de decisão);
+  - pesquisa sem nada ativo (fila vazia);
+  - estaleiro que ficou parado, fila de construção que esvaziou;
+  - nave que ficou Idle (por tipo: exploração, construção…), combustível baixo, dano alto;
+  - colônia com aprovação abaixo de um limite, inquietação, rebelião;
+  - fluxo de caixa negativo, caixa abaixo de um valor;
+  - inimigos chegando (`Empire.IncomingEnemyFleets`) e naves atacadas (mensagens High/Critical já cobrem parte);
+  - decisões pendentes (mensagens que pedem resposta: diplomacia, investigações).
+
 ## Sequência
 
 1. [x] Construção: estaleiros, filas, instalações, estaleiros parados. Testado no jogo em 2026-11-26.
