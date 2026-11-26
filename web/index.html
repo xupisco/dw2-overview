@@ -276,7 +276,7 @@
   .reswrap { display: block; }
   .reswrap[hidden] { display: none; }
   .rlist { background: var(--panel); }
-  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 160px minmax(220px, 2.2fr) 70px; gap: 12px; align-items: center; padding: 7px 12px; }
+  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 160px minmax(220px, 2.2fr) 70px 70px; gap: 12px; align-items: center; padding: 7px 12px; }
   .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
   .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
   .rrow:focus-visible { outline: 1px solid var(--acc); outline-offset: -1px; }
@@ -404,6 +404,28 @@
   .slegend button.off { opacity: .4; }
   .slegend button.off:hover { opacity: .8; }
   .slegend.roles { border-top: 1px solid var(--line); padding-top: 8px; }
+  .colcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+  .colcards[hidden] { display: none; }
+  .colcard { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .colcard:hover { background: var(--hover); }
+  .colcard.flash { background: var(--acc-d); }
+  .colcard.warn { box-shadow: inset 3px 0 0 var(--warn); }
+  .colcard.bad { box-shadow: inset 3px 0 0 var(--bad); }
+  .colcard .cchead { display: flex; align-items: flex-start; gap: 10px; }
+  .colcard .cname { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .colcard .cname b { font: 600 17px var(--cond); letter-spacing: .02em; }
+  .colcard .cname small, .colcard small { color: var(--mut); font-size: 12px; }
+  .colcard .ccpop { display: flex; flex-direction: column; gap: 5px; }
+  .colcard .ccpop > span { display: flex; align-items: baseline; gap: 8px; }
+  .colcard .ccpop b { font: 600 20px var(--cond); }
+  .colcard em { font-style: normal; color: var(--mut); font-size: 12px; }
+  .colcard .ccpop .pb { height: 3px; }
+  .colcard .ccpop .pb > i { box-shadow: none; }
+  .colcard .cckpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .colcard .cckpis span { display: flex; flex-direction: column; }
+  .colcard .cckpis small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
+  .colcard .cckpis b { font: 600 16px var(--cond); font-variant-numeric: tabular-nums; }
+  .colcard .ccmeta { color: var(--mut); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
   .slegend.roles svg { color: var(--acc); }
   /* Cards: name, mission, orders and place, fuel and energy in one block, so the eye stays on one ship */
   .shipcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin-top: 2px; }
@@ -604,6 +626,9 @@
   <span id="gfilters" class="group"></span>
   <span id="resfilters" class="group" hidden>
   </span>
+  <span id="colfilters" class="group" hidden>
+    <span id="colview" class="seg" title="Rows or cards"><button type="button" data-view="cards">Cards</button><button type="button" data-view="rows">Rows</button></span>
+  </span>
   <span id="sfilters" class="group" hidden>
     <span id="sgroupby" class="seg" title="Group the ships by">
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
@@ -637,7 +662,7 @@
   </div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
-      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span></span></div>
+      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
       <div id="resList"></div>
     </div>
   </div>
@@ -653,6 +678,7 @@
   </table>
   <div id="oempty" class="empty" hidden></div>
 </div>
+<div id="colCards" class="colcards" hidden></div>
 <div class="wrap" id="tab-construction">
   <table>
     <thead><tr>
@@ -809,7 +835,7 @@ const hints = {
   overview: 'What matters at a glance. Click anything to go to it; the tabs have the details.',
   resources: 'Most urgent first. Click a supply count to filter; click a resource for its prices, where it is mined and the known deposits; click a place to go there.',
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
-  colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
+  colonies: 'Click a colony to go to it in the game. Cards put colonies in trouble first; in Rows, hover a value for the raw number.',
   messages: 'The game\'s message log, newest first. Click a message to read it whole (and answer a suggestion, or go to what it is about). Notifications need the browser\'s permission once.',
   ships: 'Your ships and bases and what each is doing. Mission "Idle" = nothing to do. Click a ship to go to it, or its target to go there.',
   research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
@@ -846,12 +872,60 @@ function renderOther() {
     const text = out == null || out === '' ? (c.f && out === '' ? '' : '<span class="none">–</span>') : (c.html ? out : esc(out));
     return `<td class="${c.num ? 'num' : ''}" title="${v == null ? '' : esc(v)}">${text}</td>`;
   }).join('')}</tr>`).join('');
+  const cards = tab === 'colonies' && colView === 'cards';
+  // Cards put the colonies in trouble first (rebelling, then unhappy or restless); the table keeps its sort.
+  const trouble = c => c.rebelling ? 0 : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 1 : 2;
+  if (cards) rows.sort((a, b) => trouble(a) - trouble(b));
   otherShown = rows;
+  $('tab-other').hidden = cards;
+  $('colCards').hidden = !cards;
+  document.querySelectorAll('#colview button').forEach(b => b.classList.toggle('on', b.dataset.view === colView));
+  if (cards) $('colCards').innerHTML = rows.map(colonyCard).join('') || `<div class="empty">${other.rows.length ? 'Nothing matches the search.' : 'No colonies (or no game loaded).'}</div>`;
   $('count').textContent = `${rows.length} of ${other.rows.length}` + (tab === 'research' && other.concurrent ? ` · ${other.concurrent} at once` : '');
   $('oempty').hidden = rows.length > 0;
   $('oempty').textContent = other.rows.length ? 'Nothing matches the search.' : 'Nothing to show (or no game loaded).';
 }
 let otherShown = [];
+
+// Colonies as cards (the default there): who they are, population against its maximum, then approval,
+// revenue and tax; the rest in one quiet line. A colony in trouble colours its card: unhappy or restless in
+// amber, rebelling in red.
+let colView = 'cards';
+try { colView = localStorage.getItem('overview.colView') || 'cards'; } catch (e) { }
+function colonyCard(c, n) {
+  const trouble = c.rebelling ? 'bad' : (c.approval != null && c.approval < 0) || (c.unrest || 0) > 0 ? 'warn' : '';
+  const apColor = c.rebelling || c.approval < 0 ? 'var(--bad)' : c.approval < 3 ? 'var(--warn)' : 'var(--ok)';
+  const popPct = c.population != null && c.maxPopulation ? Math.max(2, Math.min(100, c.population / c.maxPopulation * 100)) : 0;
+  const kpi = (label, value, color, sub) => `<span><small>${label}</small><b style="${color ? 'color:' + color : ''}">${value ?? '–'}</b>${sub ? `<em>${sub}</em>` : ''}</span>`;
+  const quiet = [
+    c.development != null ? `Development ${fmt.pct(c.development)}` : '',
+    c.corruption != null ? `Corruption ${fmt.pct(c.corruption)}` : '',
+    c.unrest ? `<span class="mk-warn">Unrest ${fmt.num(c.unrest)}</span>` : '',
+    c.quality != null ? `Quality ${fmt.pct(c.quality)}` : '',
+    c.facilities ? `${c.facilities} facilities` : '',
+  ].filter(Boolean).join(' · ');
+  return `<div class="colcard ${trouble}" data-n="${n}" title="Go to ${esc(c.name)}">
+    <div class="cchead"><span class="cname"><b>${esc(c.name)}</b><small>${esc([c.system, c.race].filter(Boolean).join(' · '))}</small></span>${c.rebelling ? '<span class="flag">REBELLING</span>' : ''}</div>
+    <div class="ccpop"><span><small>Population</small><b>${fmt.big(c.population) ?? '–'}</b>${c.maxPopulation ? `<em>of ${fmt.big(c.maxPopulation)}</em>` : ''}</span><i class="pb"><i style="width:${popPct}%"></i></i></div>
+    <div class="cckpis">${kpi('Approval', fmt.int(c.approval), apColor)}${kpi('Revenue / yr', fmt.big(c.revenue))}${kpi('Tax', fmt.pct(c.taxRate), '', c.autoTax ? 'auto' : '')}</div>
+    ${quiet ? `<div class="ccmeta">${quiet}</div>` : ''}
+  </div>`;
+}
+$('colCards').addEventListener('click', e => {
+  const card = e.target.closest('.colcard');
+  const c = card && otherShown[+card.dataset.n];
+  if (!c) return;
+  goTo('orb', c.orbId);
+  card.classList.add('flash');
+  setTimeout(() => card.classList.remove('flash'), 400);
+});
+$('colview').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  colView = b.dataset.view;
+  try { localStorage.setItem('overview.colView', colView); } catch (er) { }
+  renderOther();
+});
 
 function setTab(name, fromHistory) {
   if (!fromHistory && name !== tab) history.pushState({ tab: name }, '', '#' + name);
@@ -865,6 +939,8 @@ function setTab(name, fromHistory) {
   $('search').hidden = tab === 'overview';
   if (tab !== 'overview') $('ovPanel').hidden = true;
   $('sfilters').hidden = tab !== 'ships';
+  $('colfilters').hidden = tab !== 'colonies';
+  if (tab !== 'colonies') $('colCards').hidden = true;
   $('resfilters').hidden = tab !== 'resources';
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
@@ -2296,6 +2372,7 @@ function renderResources() {
         <span class="num">${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
         <span class="rrate">${resRateCell(r)}</span>
         <span class="rnext">${resNext(r)}</span>
+        <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined ?? 0} of ${r.deposits ?? 0}</span>
         <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span>
       </div>${open ? resExpand(r) : ''}`;
   }).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet (needs the mod version with /api/resources).'}</div>`;
