@@ -75,6 +75,13 @@
   .statusline .up { color: var(--ok); } .statusline .down { color: var(--bad); } .statusline .paused { color: var(--warn); }
   .clockbtn { background: var(--panel); border: 0; color: var(--mut); padding: 1px 8px; cursor: pointer; font-size: 12px; }
   .clockbtn:hover { background: var(--hover); color: var(--tx); }
+  .audioctl { display: inline-flex; align-items: center; gap: 8px; }
+  .audioctl[hidden] { display: none; }
+  .clockbtn.muted { color: var(--warn); }
+  .clockbtn svg { vertical-align: -2px; }
+  .musicvol { display: inline-flex; align-items: center; gap: 6px; }
+  .musicvol input { width: 80px; accent-color: var(--acc); height: 12px; }
+  .musicvol em { font-style: normal; color: var(--tx); min-width: 32px; }
   .clockbtn.paused { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); font-weight: 600; }
   /* Game paused: a glow around the whole window (no layout change, clicks pass through) */
   body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: 0; transition: opacity .3s;
@@ -485,6 +492,10 @@
   <div class="statusline">
     <span><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
     <span id="empire"></span>
+    <span id="audio" class="audioctl" hidden>
+      <button type="button" class="clockbtn" id="muteBtn"></button>
+      <label class="musicvol" title="Music volume (the game's own setting)">Music <input type="range" id="musicVol" min="0" max="100" step="5"><em id="musicPct"></em></label>
+    </span>
   </div>
 </header>
 
@@ -824,6 +835,7 @@ async function refresh() {
     $('dot').classList.add('on');
     // The page's edges light up while the game is paused, so it shows from across the desk.
     document.body.classList.toggle('game-paused', !!(info.loaded && info.paused));
+    renderAudio(info.loaded ? info.audio : null);
     token = info.token;
     let rows = [];
     if (!info.loaded) {
@@ -1434,6 +1446,54 @@ async function toggleGamePause() {
   setTimeout(refresh, 300);
 }
 $('empire').addEventListener('click', e => { if (e.target.closest('[data-clock]')) toggleGamePause(); });
+
+// ---- Sound: mute the whole game (Windows mixer) and the music volume (the game's setting) ----
+let audioState = null, musicTouched = 0, musicTimer = null;
+const SPEAKER = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h4l5-4v14l-5-4H4z"/>';
+function renderAudio(a) {
+  if (!a || (a.muted == null && a.music == null)) { $('audio').hidden = true; audioState = null; return; }
+  audioState = a;
+  $('audio').hidden = false;
+  const btn = $('muteBtn');
+  btn.hidden = a.muted == null;
+  btn.classList.toggle('muted', !!a.muted);
+  btn.innerHTML = SPEAKER + (a.muted ? '<path d="m16 9 5 6m0-6-5 6"/></svg> Muted' : '<path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>');
+  btn.title = a.muted ? 'The game is muted: click to unmute' : 'Mute the game (music and effects, in the Windows mixer)';
+  const slider = $('musicVol');
+  slider.closest('label').hidden = a.music == null;
+  if (a.music != null && Date.now() - musicTouched > 2500) {
+    slider.value = Math.round(a.music * 100);
+    $('musicPct').textContent = Math.round(a.music * 100) + '%';
+  }
+}
+async function setAudio(body) {
+  if (!token) return;
+  try {
+    const r = await fetch('/api/audio', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token }, body: JSON.stringify(body) });
+    if (!r.ok) { notice(`Sound: the mod refused it (${r.status})`); return; }
+    renderAudio({ ...(audioState || {}), ...(await r.json()) });
+  } catch (e) { notice('Game not reachable'); }
+}
+const toggleMute = () => setAudio({ mute: !(audioState && audioState.muted) });
+$('muteBtn').addEventListener('click', toggleMute);
+$('musicVol').addEventListener('input', () => {
+  musicTouched = Date.now();
+  $('musicPct').textContent = $('musicVol').value + '%';
+  clearTimeout(musicTimer);
+  musicTimer = setTimeout(() => setAudio({ music: +$('musicVol').value / 100 }), 150);
+});
+/** The page's own commands in the palette (sound); the game's shortcuts come from /api/commands. */
+function pageCommands() {
+  const a = audioState;
+  if (!a) return [];
+  const list = [];
+  if (a.muted != null) list.push({ label: a.muted ? 'Unmute game sound' : 'Mute game sound', run: toggleMute });
+  if (a.music != null) {
+    list.push({ label: a.music > 0 ? 'Mute music' : 'Unmute music', run: () => setAudio({ music: a.music > 0 ? 0 : -1 }) });
+    for (const v of [25, 50, 75, 100]) list.push({ label: `Music volume ${v}%`, run: () => setAudio({ music: v / 100 }) });
+  }
+  return list;
+}
 
 async function pressKey(index) {
   if (!token) return;
@@ -2199,7 +2259,7 @@ const groupValue = (item, by) => by === 'kind' ? human(item.kind) : by === 'miss
 const inScope = (item, scope) => !scope || groupValue(item, scope.by) === scope.value;
 
 /** A command's name: the game's own description of the key mapping, else its action made readable. */
-const commandLabel = c => (c.description || human((c.action || '').replace(/^UI_/, '').replace(/_/g, ' ')))
+const commandLabel = c => c.label || (c.description || human((c.action || '').replace(/^UI_/, '').replace(/_/g, ' ')))
   + (c.role ? ` (${human(c.role)})` : '');
 
 function paletteResults() {
@@ -2210,7 +2270,7 @@ function paletteResults() {
   const q = raw.startsWith('>') ? raw.slice(1).trim() : raw;
   const commands = [];
   if (commandsOnly || q) {
-    for (const c of palette.commands) {
+    for (const c of [...pageCommands(), ...palette.commands]) {
       const label = commandLabel(c);
       const m = q ? fuzzy(label, q) : { score: 0, hits: [] };
       if (m) commands.push({ command: c, label, score: m.score, hits: m.hits });
@@ -2341,7 +2401,7 @@ function paletteChoose(n, viaTab) {
   const r = palette.rows[n];
   if (!r) return;
   if (r.group) { enterGroup(r.group); return; }
-  if (r.command) { if (!viaTab) { pressKey(r.command.index); closePalette(); } return; }
+  if (r.command) { if (!viaTab) { if (r.command.run) r.command.run(); else pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
   if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: human(r.item.kind) }); return; }
   goTo(r.item.type, r.item.id);

@@ -182,7 +182,7 @@ internal static class Server
             Send(response, 403, contentTypes[".json"], "{\"error\":\"forbidden\"}");
             return;
         }
-        if (path != "/api/goto" && path != "/api/key" && path != "/api/suggestion")
+        if (path != "/api/goto" && path != "/api/key" && path != "/api/suggestion" && path != "/api/audio")
         {
             Send(response, 404, contentTypes[".json"], "{\"error\":\"unknown command\"}");
             return;
@@ -204,6 +204,18 @@ internal static class Server
             if (body.Button != null) Commands.PressDialogButton(body.Key, body.Button);
             else Commands.AnswerSuggestion(body.Key, body.Accept.Value);
             Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
+            return;
+        }
+        if (path == "/api/audio")
+        {
+            // {"mute": true | false} and/or {"music": 0..1, or -1 for the volume before music was muted}
+            if (body == null || (body.Mute == null && body.Music == null))
+            {
+                Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {mute} or {music}\"}");
+                return;
+            }
+            var state = Commands.OnGameThread(game => Audio.Set(game, body.Mute, body.Music));
+            Send(response, state == null ? 503 : 200, contentTypes[".json"], JsonSerializer.Serialize(state ?? new { error = "game busy" }, apiJson));
             return;
         }
         if (path == "/api/key")
@@ -265,6 +277,8 @@ internal static class Server
         public string Key { get; set; }
         public bool? Accept { get; set; }
         public string Button { get; set; }
+        public bool? Mute { get; set; }
+        public float? Music { get; set; }
     }
 
     private static void ServeFile(HttpListenerResponse response, string urlPath)

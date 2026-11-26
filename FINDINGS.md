@@ -75,3 +75,8 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 | Ação | `GameTask` da mensagem (`Text`: "Build MS-1 (Large Mining Station) at Kintaris 4"); `RelatedObject` vem vazio | confirmado |
 | Responder | `ScaledRenderer.OpenMessage(msg, true, false)`, depois o botão do próprio diálogo: `UserInterfaceController.EmpireMessageDialog.YesButton` ("Assign Mission") ou `NoButton` ("Decline"), chamando `PreClickEvent` e `ClickEvent` com `new DWEventArgs(button.ExtraClickData)` (o `ExtraClickData` é a própria `EmpireMessage`) | confirmado (2026-11-26): Accept atribuiu a missão de construção à Shining Lady |
 | Alvo da missão de construir | a missão aparece como Build sem alvo na nossa aba Ships (o alvo não é um objeto que resolvemos) | a melhorar |
+
+## Som
+
+- DWGame.DWSettings.MusicVolume (0..1) é o volume da música das opções do jogo; SoundEffectsVolume, UserInterfaceSoundEffectsVolume, NebulaStormSoundEffectsVolume ao lado. DWGame.MusicSystem.Volume existe. A testar (2026-11-26): se mudar MusicVolume em jogo vale na hora (o log do mod mostra o MusicSystem.Volume depois da mudança).
+- Mute geral pelas sessões de áudio do processo no Windows (mesmo código do Window Fit); o Windows lembra o mute de um app entre execuções, por isso o mod desfaz o mute ao fechar o jogo.

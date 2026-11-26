@@ -132,6 +132,7 @@ internal static class Snapshot
     private static void UpdatePostfix(DWGame __instance, Stride.Games.GameTime gameTime)
     {
         Commands.Run(__instance, gameTime);
+        Audio.Tick(__instance);
         double now = clock.Elapsed.TotalSeconds;
         if (now < nextCollect)
         {
@@ -254,6 +255,7 @@ internal static class Snapshot
                     pending = messages.Count(m => m.Pending),
                 },
                 lastAnswer = Commands.LastAnswer,
+                audio = new { muted = Audio.Muted, music = Audio.Music, musicRestore = Audio.MusicRestore },
                 paused = Safe(() => __instance.GetGamePaused()),
                 // Paused by the game itself (an event or a decision waiting), not by the player.
                 autoPaused = Safe(() => __instance.AutoPaused),
