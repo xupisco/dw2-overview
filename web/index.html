@@ -285,6 +285,7 @@
   .kpi .ktoggle.on { color: var(--acc); background: var(--acc-d); }
   .restypes { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .restypes[hidden] { display: none; }
+  .restypes .lsep { width: 1px; align-self: stretch; background: var(--line-2); margin: 0 6px; }
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
@@ -470,7 +471,9 @@
   .mtext p { margin: 0 0 8px; line-height: 1.5; }
   .mtask { color: var(--mut); }
   .mactions { display: flex; flex-wrap: wrap; gap: 6px; }
-  .mbox.wide { width: min(760px, calc(100% - 32px)); }
+  .mbox.wide { width: min(600px, calc(100% - 32px)); }
+  #resModalBody .scard { background: var(--panel-h); }
+  #resModalBody .scard:hover { background: var(--hover); }
   #resModalMeta { display: flex; align-items: center; gap: 8px; }
   #resModalBody h3 { margin: 6px 0 2px; }
   #resModalBody .rmrate, #resModalBody .rmnext { font-size: 12px; color: var(--mut); margin-bottom: 6px; }
@@ -488,6 +491,7 @@
   .rcnums small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
   .rcnums b { font-weight: 500; font-size: 14px; }
   .rcnums em { font-style: normal; color: var(--mut); }
+  .rcnums .v { white-space: nowrap; }
   .rcnext { font-size: 12px; color: var(--mut); }
   .mactions .abtn { height: 30px; padding: 0 14px; font-size: 13px; }
   .mk-loc, .mk-res { color: var(--acc); } .mk-hl { color: oklch(var(--L) 0.11 60); } .mk-warn { color: var(--warn); } .mk-fac { color: var(--bad); }
@@ -768,6 +772,7 @@
   </span>
   <span id="gfilters" class="group"></span>
   <span id="resfilters" class="group" hidden>
+    <span id="resSort" class="seg" title="Order"><button type="button" data-sort="priority">Priority</button><button type="button" data-sort="name">Name</button></span>
     <span id="resLayout" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span>
     <span id="resViews" class="seg" title="What to list"><button type="button" data-view="resources">Resources</button><button type="button" data-view="mined">Mined locations <em></em></button><button type="button" data-view="new">New locations <em></em></button></span>
   </span>
@@ -988,7 +993,7 @@ function syncFilters() {
   mark($('rstate'), tab === 'research' && $('rstate').value !== 'queue');
   mark($('mprio'), tab === 'messages' && $('mprio').value !== '0');
   document.querySelectorAll('#gfilters select').forEach(el => mark(el, el.value !== ''));
-  const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && (resSupply || resTypeFilter.size));
+  const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && (resSupply || resTypeFilter.size || resAvailFilter.size));
   $('clearFilters').hidden = !(marks.length || chips || (tab === 'construction' && buildChips));
 }
 function clearFilters() {
@@ -999,7 +1004,7 @@ function clearFilters() {
   filterValues[tab] = {};
   document.querySelectorAll('#gfilters select').forEach(el => { el.value = ''; });
   if (tab === 'ships') { shipBucketFilter.clear(); shipRoleFilter.clear(); }
-  if (tab === 'resources') { resSupply = null; resTypeFilter.clear(); }
+  if (tab === 'resources') { resSupply = null; resTypeFilter.clear(); resAvailFilter.clear(); }
   renderOther();
 }
 
@@ -2741,7 +2746,7 @@ function resNext(r) {
   if (best) {
     return `<span class="${st !== 'adequate' ? 'mk-warn' : ''}">Not mined.</span> Best known: ${go(best)} (${best.ab}%)${free.length > 1 ? ` · ${free.length - 1} more` : ''}`;
   }
-  return st === 'adequate' ? '<span class="none">No known deposit</span>' : '<span class="mk-warn">No known deposit:</span> explore to find one';
+  return '<span class="none">No known deposit</span>';   // the card's or row's colour already says how short it is
 }
 
 /** Change per second (as the game shows it) and how long the stock lasts at that pace. */
@@ -2779,6 +2784,11 @@ function resExpand(r) {
 // the mod's "priority"), then most needed: a critical resource there, then a low one, by how much of it.
 let resView = 'resources';
 const resTypeFilter = new Set();
+let resSort = 'priority';
+try { resSort = localStorage.getItem('overview.resSort') || 'priority'; } catch (e) { }
+// Availability: mined somewhere, found but not mined, not found anywhere known (empty = all).
+const resAvailFilter = new Set();
+const resAvail = r => { const { mined, building, free } = resSites(r); return mined.length ? 'mined' : building.length || free.length ? 'found' : 'notfound'; };
 let resLayout = 'rows';
 try { resLayout = localStorage.getItem('overview.resLayout') || (innerWidth <= 760 ? 'cards' : 'rows'); } catch (e) { }   // fuel, construction, luxury, other; empty = all
 try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
@@ -2827,7 +2837,16 @@ function renderLocations(all, deps, q) {
   }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
 }
+$('resSort').addEventListener('click', e => {
+  const b = e.target.closest('[data-sort]');
+  if (!b) return;
+  resSort = b.dataset.sort;
+  try { localStorage.setItem('overview.resSort', resSort); } catch (er) { }
+  renderResources();
+});
 $('resTypes').addEventListener('click', e => {
+  const a = e.target.closest('[data-avail]');
+  if (a) { if (resAvailFilter.has(a.dataset.avail)) resAvailFilter.delete(a.dataset.avail); else resAvailFilter.add(a.dataset.avail); renderResources(); return; }
   const b = e.target.closest('[data-rtype]');
   if (!b) return;
   if (resTypeFilter.has(b.dataset.rtype)) resTypeFilter.delete(b.dataset.rtype); else resTypeFilter.add(b.dataset.rtype);
@@ -2855,8 +2874,8 @@ function resCard(r) {
     <div class="rchead"><span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
       <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
       <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span></div>
-    <div class="rcnums"><span><small>Stock</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span>
-      <span><small>Rate</small>${resRateCell(r)}</span></div>
+    <div class="rcnums"><span><small>Stock</small><span class="v"><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span></span>
+      <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span></div>
     <div class="rcnext">${resNext(r)}</div>
   </div>`;
 }
@@ -2924,14 +2943,20 @@ function renderResources() {
   $('resTypes').hidden = resView !== 'resources';
   if (resView !== 'resources') { renderLocations(all, deps, q); return; }
   const types = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury'], ['other', 'Other']].filter(([k]) => all.some(r => r.category === k));
-  $('resTypes').innerHTML = types.map(([k, label]) => `<button type="button" data-rtype="${k}" class="${!resTypeFilter.size || resTypeFilter.has(k) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all"><i class="catsq" data-cat="${k}"></i>${label} <em>${all.filter(r => r.category === k).length}</em></button>`).join('');
+  const avails = [['mined', 'Mined'], ['found', 'Not mined'], ['notfound', 'Not found']];
+  $('resTypes').innerHTML = types.map(([k, label]) => `<button type="button" data-rtype="${k}" class="${!resTypeFilter.size || resTypeFilter.has(k) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all"><i class="catsq" data-cat="${k}"></i>${label} <em>${all.filter(r => r.category === k).length}</em></button>`).join('')
+    + '<span class="lsep"></span>'
+    + avails.map(([k, label]) => `<button type="button" data-avail="${k}" class="${!resAvailFilter.size || resAvailFilter.has(k) ? '' : 'off'}" title="${k === 'mined' ? 'Mined somewhere by the empire' : k === 'found' ? 'A deposit is known, none is mined' : 'No known deposit'}">${label} <em>${all.filter(r => resAvail(r) === k).length}</em></button>`).join('');
+  document.querySelectorAll('#resSort button').forEach(b => b.classList.toggle('on', b.dataset.sort === resSort));
+  $('resSort').hidden = resView !== 'resources';
 
   // Every resource that matters, most urgent first (critical, low, then the rest), soonest to run out first.
   const rows = all.filter(r => (!resSupply || (inCat(r, resSupply.cat) && resStatus(r) === resSupply.status))
     && (!resTypeFilter.size || resTypeFilter.has(r.category))
+    && (!resAvailFilter.size || resAvailFilter.has(resAvail(r)))
     && (!q || (r.name || '').toLowerCase().includes(q)))
-    .sort((a, b) => RES_RANK[resStatus(a)] - RES_RANK[resStatus(b)]
-      || (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
+    .sort((a, b) => resSort === 'name' ? (a.name || '').localeCompare(b.name || '')
+      : RES_RANK[resStatus(a)] - RES_RANK[resStatus(b)] || (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
   if (resLayout === 'cards') {
     $('resCards').innerHTML = rows.map(resCard).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet.'}</div>`;
     $('count').textContent = `${rows.length} of ${all.length}`;
