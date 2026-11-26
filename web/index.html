@@ -395,6 +395,7 @@
   .toast:hover .ttimer { animation-play-state: paused; }
   @keyframes toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .tactions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+  .gbtns { display: contents; }
   .toast.prio-High { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--warn); }
   .toast.prio-Critical { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--bad); }
   .toast span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
@@ -856,13 +857,15 @@ async function refresh() {
     }
     // Messages are read once per tick for whoever needs them: the alerts and the log drawer.
     const wantMessages = info.loaded && ($('notify').value !== 'off' || logOpen);
+    let messages = tab === 'messages' ? rows : tab === 'overview' ? data.ov?.messages : null;
     if (wantMessages) {
-      const messages = tab === 'messages' ? rows : tab === 'overview' ? data.ov.messages : ((await getJson('/api/messages')).items || []);
+      if (!messages) messages = (await getJson('/api/messages')).items || [];
       if ($('notify').value !== 'off') checkNotify(messages, info.starDate);
       if (logOpen) renderLog(messages);
     } else if (logOpen && !info.loaded) {
       renderLog([]);
     }
+    if (messages) syncGameButtons(messages);
     if (tab === 'overview') {
       const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
       if (snap === lastSnapshot) return;
@@ -963,9 +966,10 @@ function toast(m, onClick) {
   el.className = 'toast prio-' + (m.priority || 'Normal');
   const suggestion = m.pending && m.advisor;
   el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.task && suggestion ? m.task : m.text))}</span>
-    <div class="tactions">${gameButtons(m)}${m.rule ? ''
+    <div class="tactions"><span class="gbtns">${gameButtons(m)}</span>${m.rule ? ''
       : `<button type="button" class="mute" data-t="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button>`}</div>`;
   el.title = 'Click to read it whole · right-click to dismiss';
+  el.msg = m;
   el.addEventListener('click', e => {
     const gb = e.target.closest('[data-gb]');
     const b = e.target.closest('[data-t]');
@@ -1242,7 +1246,7 @@ function openMessage(m) {
   $('msgMeta').innerHTML = `<span class="tag prio-${esc(m.priority)}">${esc(m.priority)}</span> ${esc(m.date || '')} · ${esc(human(m.type))}${m.advisor ? ' · advisor' : ''}${m.pending ? ' · <span class="mk-warn">awaiting your decision</span>' : ''}`;
   $('msgTitle').textContent = m.title || '';
   $('msgText').innerHTML = richText(m.text) + (m.task && m.task !== m.text && m.task !== m.title ? `<p class="mtask">Suggests: ${esc(plain(m.task))}</p>` : '');
-  $('msgActions').innerHTML = gameButtons(m)
+  $('msgActions').innerHTML = `<span class="gbtns">${gameButtons(m)}</span>`
     + (m.relatedId ? `<button type="button" class="abtn" data-m="goto">Go to ${esc(m.relatedName || '')} ›</button>` : '');
   $('msgModal').hidden = false;
 }
@@ -1268,6 +1272,25 @@ function gameButtons(m) {
   const list = m.buttons && m.buttons.length ? m.buttons
     : m.pending && m.advisor ? [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }] : [];
   return list.map((b, i) => `<button type="button" class="abtn${i === 0 ? ' ok' : ''}" data-gb="${esc(b.id)}">${esc(b.text)}</button>`).join('');
+}
+/**
+ * A message reaches the log a moment before the game opens its dialog, so a toast or the modal made on arrival
+ * has none of the dialog's buttons (Dismiss, Show Me...); and once the dialog closes they no longer work.
+ * Each tick puts the current ones on the open toasts and the modal. Keys match with or without "pending|".
+ */
+function syncGameButtons(messages) {
+  const bare = k => (k || '').replace(/^pending|/, '');
+  const byKey = new Map(messages.map(m => [bare(m.key), m]));
+  const update = (m, holder) => {
+    const now = byKey.get(bare(m.key));
+    if (!now || !holder) return;
+    const same = JSON.stringify(now.buttons || null) === JSON.stringify(m.buttons || null);
+    if (same) return;
+    m.buttons = now.buttons;
+    holder.innerHTML = gameButtons(m);
+  };
+  document.querySelectorAll('#toasts .toast').forEach(el => { if (el.msg) update(el.msg, el.querySelector('.gbtns')); });
+  if (msgOpen && !$('msgModal').hidden) update(msgOpen, $('msgActions').querySelector('.gbtns'));
 }
 const hasGameButtons = m => (m.buttons && m.buttons.length) || (m.pending && m.advisor);
 
