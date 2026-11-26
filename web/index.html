@@ -290,7 +290,19 @@
   /* The opened row: numbers, then where it is mined and the known deposits */
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
-  .rexp .dsite { width: calc(100% + var(--pl) + 12px); margin: 0 -12px 0 calc(-1 * var(--pl)); padding-left: var(--pl); }
+  .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
+  .scards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 230px)); gap: 6px; }
+  .scard { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 0; background: var(--panel); text-align: left; cursor: pointer; min-width: 0; }
+  .scard:hover { background: var(--hover); }
+  .scard .sctop { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .scard .sctop b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: auto; }
+  .scard .go { font-size: 12px; color: var(--acc); opacity: 0; flex: none; }
+  .scard:hover .go, .scard:focus-visible .go { opacity: 1; }
+  .scard small { color: var(--mut); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .scard .scab { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+  .scard .scab .pb { flex: 1; height: 3px; }
+  .scard .scab .pb > i { box-shadow: none; }
+  .scard .scab em { font-style: normal; font-size: 12px; font-variant-numeric: tabular-nums; }
   @media (max-width: 760px) {
     .rhead { display: none; }
     .rrow { grid-template-columns: 34px minmax(0, 1fr) auto; row-gap: 3px; }
@@ -2174,8 +2186,11 @@ function resRateCell(r) {
 /** The opened row: the numbers behind it, the prices, where it is mined and the known deposits. */
 function resExpand(r) {
   const { mined, building, free } = resSites(r);
-  const site = x => `<button type="button" class="dsite" data-orb="${x.d.orbId}"><span><b>${esc(x.d.name)}</b><small>${esc(human(x.d.kind))}${x.d.system ? ' · ' + esc(x.d.system) : ''}${x.d.minedBy ? ' · ' + x.d.minedBy : ''}${x.d.stationBuilding != null ? ` · <span class="mk-warn">station being built, ${Math.round(x.d.stationBuilding * 100)}%</span>` : ''}</small></span>
-    <i class="pb"><i style="width:${x.ab}%"></i></i><em>${x.ab}%</em><span class="go">Go to ›</span></button>`;
+  const site = x => `<button type="button" class="scard" data-orb="${x.d.orbId}" title="Go to ${esc(x.d.name)}">
+    <span class="sctop"><b>${esc(x.d.name)}</b><span class="go">Go to ›</span></span>
+    <small>${esc(human(x.d.kind))}${x.d.system ? ' · ' + esc(x.d.system) : ''}${x.d.minedBy ? ' · ' + x.d.minedBy : ''}${x.d.stationBuilding != null ? ` · <span class="mk-warn">building ${Math.round(x.d.stationBuilding * 100)}%</span>` : ''}</small>
+    <span class="scab"><i class="pb"><i style="width:${x.ab}%"></i></i><em>${x.ab}%</em></span></button>`;
+  const cards = list => `<div class="scards">${list.map(site).join('')}</div>`;
   const n = v => v != null ? fmt.num(v) : '–';
   const perSec = v => v != null ? (+v).toFixed(2) : '–';
   return `<div class="rexp">
@@ -2184,9 +2199,9 @@ function resExpand(r) {
       <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
       <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
     </div>
-    <h4>Mined at · ${mined.length}</h4>${mined.map(site).join('') || '<div class="none">Not mined anywhere.</div>'}
-    ${building.length ? `<h4>Station being built · ${building.length}</h4>${building.map(site).join('')}` : ''}
-    <h4>Known deposits, not mined · ${free.length}</h4>${free.map(site).join('') || '<div class="none">None known.</div>'}
+    <h4>Mined at · ${mined.length}</h4>${mined.length ? cards(mined) : '<div class="none">Not mined anywhere.</div>'}
+    ${building.length ? `<h4>Station being built · ${building.length}</h4>${cards(building)}` : ''}
+    <h4>Known deposits, not mined · ${free.length}</h4>${free.length ? cards(free) : '<div class="none">None known.</div>'}
   </div>`;
 }
 
