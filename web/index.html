@@ -282,6 +282,25 @@
   .heat td small { color: var(--mut); }
   .heat tbody tr:nth-child(even) td:not(.hc) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
 
+  /* Message log drawer: pushes the page aside on wide screens, over it on narrow ones */
+  .logdrawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 7; width: 380px; max-width: 100%; background: var(--panel);
+    box-shadow: -10px 0 30px rgba(0,0,0,.35); display: flex; flex-direction: column; }
+  .logdrawer[hidden] { display: none; }
+  @media (min-width: 1100px) { body.log-open header, body.log-open main { margin-right: 380px; } body.log-open .toasts { right: 396px; } }
+  .ldhead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel-h); }
+  .ldhead b { font: 600 14px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--acc); margin-right: auto; }
+  .ldhead .seg button { height: 24px; border: 0; background: transparent; color: var(--mut); padding: 0 8px; font-size: 12px; cursor: pointer; }
+  .ldhead .seg button.on { background: var(--acc-d); color: var(--acc); }
+  .loglist { flex: 1; overflow-y: auto; }
+  .lrow { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; cursor: pointer; }
+  .lrow:nth-child(even) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
+  .lrow:hover { background: var(--hover); }
+  .lrow.pend { box-shadow: inset 2px 0 0 var(--warn); }
+  .lmeta { display: flex; align-items: center; gap: 6px; color: var(--mut); font-size: 12px; }
+  .lmeta i { width: 6px; height: 6px; transform: rotate(45deg); flex: none; }
+  .lrow b { font-weight: 500; }
+  .lrow > span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
   /* Message modal */
   .modal { position: fixed; inset: 0; z-index: 11; background: rgba(0,0,0,.55); display: flex; justify-content: center; align-items: flex-start; padding-top: 10vh; }
   .modal[hidden] { display: none; }
@@ -430,6 +449,9 @@
           <div id="mutedList" class="mutelist"></div>
         </div>
       </span>
+      <button type="button" class="tool" id="logBtn" title="Message log, on the side (the page stays in view)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+      </button>
       <button type="button" class="tool" id="themeBtn" title="Theme">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>
       </button>
@@ -560,6 +582,12 @@
 </main>
 
 <div id="toasts" class="toasts"></div>
+<aside id="logDrawer" class="logdrawer" hidden>
+  <div class="ldhead"><b>Message log</b>
+    <span class="seg" id="logPrio"><button type="button" data-p="0">All</button><button type="button" data-p="1">Normal+</button><button type="button" data-p="2">High+</button></span>
+    <button type="button" class="ovlink" id="logClose">Close ✕</button></div>
+  <div id="logList" class="loglist"></div>
+</aside>
 <div id="msgModal" class="modal" hidden>
   <div class="mbox" role="dialog" aria-label="Message">
     <div class="mhead"><span id="msgMeta"></span><button type="button" class="ovlink" id="msgClose">Close ✕</button></div>
@@ -813,8 +841,14 @@ async function refresh() {
       }
       showTabCounts();
     }
-    if (info.loaded && $('notify').value !== 'off') {
-      checkNotify(tab === 'messages' ? rows : tab === 'overview' ? data.ov.messages : ((await getJson('/api/messages')).items || []), info.starDate);
+    // Messages are read once per tick for whoever needs them: the alerts and the log drawer.
+    const wantMessages = info.loaded && ($('notify').value !== 'off' || logOpen);
+    if (wantMessages) {
+      const messages = tab === 'messages' ? rows : tab === 'overview' ? data.ov.messages : ((await getJson('/api/messages')).items || []);
+      if ($('notify').value !== 'off') checkNotify(messages, info.starDate);
+      if (logOpen) renderLog(messages);
+    } else if (logOpen && !info.loaded) {
+      renderLog([]);
     }
     if (tab === 'overview') {
       const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
@@ -1133,6 +1167,55 @@ function richText(s) {
   html = html.replace(/\[\/?[A-Z]+\]/g, '');
   return html.split(/\n\s*\n/).map(p => `<p>${p.trim().replace(/\s*\n\s*/g, ' ')}</p>`).join('');
 }
+
+// ---- Message log drawer ----
+// The log on the right side, refreshed with the page; on a wide screen it pushes the page aside so both stay
+// in view. Pending suggestions first (with Accept / Decline), then the newest messages; click opens one whole.
+let logOpen = false, logPrio = 0, logShown = [], logSig = '';
+try { logOpen = localStorage.getItem('overview.log') === '1'; logPrio = +(localStorage.getItem('overview.logPrio') || 0); } catch (e) { }
+function setLog(open) {
+  logOpen = open;
+  $('logDrawer').hidden = !open;
+  document.body.classList.toggle('log-open', open);
+  $('logBtn').classList.toggle('on', open);
+  try { localStorage.setItem('overview.log', open ? '1' : '0'); } catch (e) { }
+  logSig = '';
+  if (open) refresh();
+}
+function renderLog(messages) {
+  const sig = logPrio + JSON.stringify(messages.slice(0, 80).map(m => m.key));
+  if (sig === logSig) return;
+  logSig = sig;
+  document.querySelectorAll('#logPrio button').forEach(b => b.classList.toggle('on', +b.dataset.p === logPrio));
+  const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
+  logShown = messages.filter(m => (m.pending && m.advisor) || (priorityRank[m.priority] ?? 0) >= logPrio).slice(0, 80);
+  $('logList').innerHTML = logShown.map((m, n) => {
+    const suggestion = m.pending && m.advisor;
+    return `<div class="lrow${suggestion ? ' pend' : ''}" data-n="${n}">
+      <div class="lmeta"><i style="background:${color(m.priority)}"></i>${esc(m.date || '')} · ${esc(human(m.type))}${suggestion ? ' · <span class="mk-warn">awaiting</span>' : ''}</div>
+      <b>${esc(m.title || '')}</b><span>${esc(plain(suggestion && m.task ? m.task : m.text))}</span>
+      ${suggestion ? '<div class="tactions"><button type="button" class="abtn ok" data-l="accept">Accept</button><button type="button" class="abtn" data-l="decline">Decline</button></div>' : ''}
+    </div>`;
+  }).join('') || '<div class="ovempty">No messages (or no game loaded).</div>';
+}
+$('logBtn').addEventListener('click', () => setLog(!logOpen));
+$('logClose').addEventListener('click', () => setLog(false));
+$('logPrio').addEventListener('click', e => {
+  const b = e.target.closest('[data-p]');
+  if (!b) return;
+  logPrio = +b.dataset.p;
+  try { localStorage.setItem('overview.logPrio', String(logPrio)); } catch (er) { }
+  logSig = '';
+  refresh();
+});
+$('logList').addEventListener('click', e => {
+  const row = e.target.closest('.lrow');
+  if (!row) return;
+  const m = logShown[+row.dataset.n];
+  const b = e.target.closest('[data-l]');
+  if (b) answerSuggestion(m.key, b.dataset.l === 'accept');
+  else openMessage(m);
+});
 
 /** Opens a message with its whole text; Accept / Decline for a pending advisor suggestion; Go to. */
 let msgOpen = null;
@@ -2111,6 +2194,7 @@ setFavicon(false, 0);
 let startTab = 'overview';
 try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
 setTab(['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
+if (logOpen) setLog(true);
 setInterval(refresh, 2000);
 </script>
 </body>
