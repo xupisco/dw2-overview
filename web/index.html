@@ -1770,7 +1770,7 @@ function pageCommands() {
 
 /** Opens the game's research screen on a project (the mod scrolls the tree to it). */
 async function openResearch(id) {
-  if (!token || !id) return;
+  if (!token || id == null) return;   // 0 is a real project id
   try {
     const r = await fetch('/api/research', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token }, body: JSON.stringify({ id }) });
     if (!r.ok) notice(r.status === 404 ? 'This needs the newer mod (open research)' : `The mod refused it (${r.status})`);

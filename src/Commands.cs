@@ -163,13 +163,13 @@ internal static class Commands
     // Opened with the game's own shortcut (the key mapping whose UiSection is the research screen); from the
     // next frame on, the tree (UserInterfaceController.ResearchScreen) is scrolled so the project sits in the
     // middle and shows as hovered. Positions are logged: the tree's coordinates are still to be confirmed.
-    private static int researchTarget, researchFrames;
+    private static int researchTarget = -1, researchFrames;   // -1: nothing to open (0 is a real project id)
 
     public static void OpenResearch(int projectId) => jobs.Enqueue(_ => { researchTarget = projectId; researchFrames = 0; });
 
     private static void RunResearch(DWGame game)
     {
-        if (researchTarget == 0)
+        if (researchTarget < 0)
         {
             return;
         }
@@ -201,7 +201,7 @@ internal static class Commands
                 if (researchFrames > 60)
                 {
                     Log.Warn($"Research {researchTarget}: the research screen did not open.");
-                    researchTarget = 0;
+                    researchTarget = -1;
                 }
                 return;
             }
@@ -210,7 +210,7 @@ internal static class Commands
             if (project == null)
             {
                 Log.Warn($"Research {researchTarget}: no such project for this empire.");
-                researchTarget = 0;
+                researchTarget = -1;
                 return;
             }
             var before = screen.ScrollOffset;
@@ -231,7 +231,7 @@ internal static class Commands
         {
             Log.Warn($"Research {researchTarget}: {e.Message}");
         }
-        researchTarget = 0;
+        researchTarget = -1;
     }
 
     public static void Run(DWGame game, Stride.Games.GameTime gameTime)

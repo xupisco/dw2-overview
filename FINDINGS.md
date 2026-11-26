@@ -80,3 +80,8 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 
 - DWGame.DWSettings.MusicVolume (0..1) é o volume da música das opções do jogo; SoundEffectsVolume, UserInterfaceSoundEffectsVolume, NebulaStormSoundEffectsVolume ao lado. DWGame.MusicSystem.Volume existe. A testar (2026-11-26): se mudar MusicVolume em jogo vale na hora (o log do mod mostra o MusicSystem.Volume depois da mudança).
 - Mute geral pelas sessões de áudio do processo no Windows (mesmo código do Window Fit); o Windows lembra o mute de um app entre execuções, por isso o mod desfaz o mute ao fechar o jogo.
+
+## Pesquisa
+
+- Abrir a tela de pesquisa num projeto: o atalho do jogo com `UiSection` de pesquisa (mapping 90 no teste) abre a tela; no quadro seguinte, `UserInterfaceController.ResearchScreen` (`ResearchTree`) existe e está visível. `CalculateProjectPosition(project)` dá a posição já descontada do `ScrollOffset` (Armor Plating: 106,2800 com scroll 13,239; 120,3040 com scroll 0); setar `ScrollOffset` rola a árvore e `HoveredProject` destaca. **Confirmado** pelo Leandro em 2026-11-26 (`certinho`). `DisplayRectangle` veio 132x132 (não é o tamanho da tela), então a centralização é aproximada.
+- Ids de projeto começam em 0 (Early Beam Weapons tem id 0): 0 é um projeto, não `nenhum`.

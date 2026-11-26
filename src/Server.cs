@@ -221,7 +221,7 @@ internal static class Server
         if (path == "/api/research")
         {
             // {"id": a research project id from /api/research}: the game's research screen, on that project
-            if (body == null || body.Id <= 0)
+            if (body == null || body.Id < 0)
             {
                 Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {id}\"}");
                 return;
