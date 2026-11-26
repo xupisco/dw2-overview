@@ -140,6 +140,78 @@
   .bar > i > span { position: absolute; inset: 0 auto 0 0; background: var(--acc); box-shadow: 0 0 6px var(--acc); }
   .bar > em { font-style: normal; font-size: 12px; min-width: 34px; text-align: right; color: var(--acc); }
 
+  /* Overview: a grid of blocks (3 / 2 / 1 columns by width) */
+  .ovgrid { --ovcols: 3; display: grid; grid-template-columns: repeat(var(--ovcols), minmax(0, 1fr)); grid-auto-flow: row dense; gap: 12px; }
+  @media (max-width: 1200px) { .ovgrid { --ovcols: 2; } }
+  @media (max-width: 760px) { .ovgrid { --ovcols: 1; } }
+  .ovcell { display: flex; flex-direction: column; min-width: 0; }
+  .ovpanel { flex: 1; background: var(--panel); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
+  .ovhead { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--panel-h); }
+  .ovhead > span { display: flex; align-items: center; gap: 7px; font: 600 13px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--c); }
+  .ovhead > span i { width: 3px; height: 12px; background: var(--c); }
+  .ovnote { font-size: 11px; color: var(--mut); }
+  .ovlink { border: 0; background: transparent; color: var(--acc); font-size: 11px; cursor: pointer; white-space: nowrap; padding: 0; }
+  .ovlink:hover { color: var(--tx); }
+  .ovrow { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: var(--pad) 10px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+  .ovrow:hover { background: var(--hover); }
+  .ovrow > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .ovrow b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ovrow small { font-size: 11px; color: var(--mut); }
+  .ovrow em { flex: none; font-style: normal; font-size: 11px; color: var(--acc); white-space: nowrap; }
+  .ovrow.att > i { flex: none; width: 6px; height: 6px; margin-top: 6px; transform: rotate(45deg); background: var(--acc); }
+  .ovrow.att > i.warn { background: var(--warn); } .ovrow.att > i.bad { background: var(--bad); }
+  .ovrow.att small { font-size: 12px; }
+  .ovrow.prog { flex-direction: column; gap: 5px; }
+  .pt { display: flex; justify-content: space-between; gap: 8px; width: 100%; }
+  .pt em { font-style: normal; font-size: 12px; color: var(--acc); }
+  .pt em.warn, .warn { color: var(--warn); }
+  .pb { display: block; width: 100%; height: 3px; background: var(--track); }
+  .pb.thick { height: 4px; }
+  .pb > i { display: block; height: 100%; background: var(--acc); box-shadow: 0 0 6px var(--acc); }
+  .ovres { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .ovres .pt b { font: 600 18px var(--cond); }
+  .ovres .pt em { font: 600 18px var(--cond); }
+  .ovres small { font-size: 11px; color: var(--mut); }
+  .ovsmall { padding: 6px 10px 10px; font-size: 12px; color: var(--mut); }
+  .ovrow.col { display: grid; grid-template-columns: minmax(0, 1fr) 60px 44px 60px; align-items: center; font-variant-numeric: tabular-nums; }
+  .ovrow.col > span:not(:first-child) { text-align: right; }
+  .ovrow.col .mut { color: var(--mut); }
+  .ovrow.msg { flex-wrap: wrap; gap: 2px 12px; align-items: baseline; }
+  .ovrow.msg small { flex: 0 0 72px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .ovrow.msg span { flex: 1 1 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+  .ovrow.msg span i { font-style: normal; }
+  .ovempty { padding: 14px 10px; color: var(--mut); font-size: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 2px; }
+  .kpi { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border: 0; background: var(--panel); text-align: left; cursor: pointer; min-width: 0; }
+  .kpi:hover { background: var(--hover); }
+  .kpi span { font: 600 11px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
+  .kpi b { font: 600 22px/1.1 var(--cond); font-variant-numeric: tabular-nums; }
+  .kpi small { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ovfoot { display: flex; justify-content: flex-end; padding-top: 4px; }
+  .ovfoot .ovlink { font-size: 12px; color: var(--mut); }
+  .ovdrawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 8; width: min(400px, 100%); background: var(--panel); box-shadow: -10px 0 30px rgba(0,0,0,.4);
+    padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  .ovdrawer[hidden] { display: none; }
+  .ovdhead { display: flex; justify-content: space-between; align-items: center; }
+  .ovdhead b { font: 600 15px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--acc); }
+  .ovdrawer p { margin: 0; color: var(--mut); font-size: 12px; }
+  .ovitem { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--panel-h); }
+  .ovitem.off > span:nth-child(2) { opacity: .5; }
+  .ovitem > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+  .ovitem small { color: var(--mut); font-size: 11px; }
+  .sizes, .moves { display: flex; gap: 2px; }
+  .sizes button, .moves button { width: 24px; height: 22px; border: 0; background: var(--panel); color: var(--mut); cursor: pointer; font-size: 11px; }
+  .sizes button.on { background: var(--acc-d); color: var(--acc); }
+  .sizes button:hover, .moves button:hover { color: var(--tx); }
+  .moves { flex-direction: column; }
+  .moves button { height: 13px; line-height: 1; }
+  .switch { position: relative; width: 30px; height: 16px; flex: none; cursor: pointer; }
+  .switch input { opacity: 0; position: absolute; inset: 0; margin: 0; cursor: pointer; }
+  .switch i { position: absolute; inset: 0; background: var(--track); }
+  .switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px; background: var(--mut); transition: left .15s; }
+  .switch input:checked + i { background: var(--acc-d); }
+  .switch input:checked + i::after { left: 17px; background: var(--acc); }
+
   /* Segmented control (group by) */
   .seg { display: inline-flex; background: var(--panel); }
   .filters .seg button { background: transparent; color: var(--mut); padding: 0 12px; }
@@ -228,6 +300,7 @@
   <div class="hrow">
     <div class="brand"><i></i><b>Empire Overview</b></div>
     <nav class="tabs">
+      <button type="button" data-tab="overview">Overview <em></em></button>
       <button type="button" data-tab="construction">Construction <em></em></button>
       <button type="button" data-tab="ships">Ships <em></em></button>
       <button type="button" data-tab="colonies">Colonies <em></em></button>
@@ -330,6 +403,16 @@
 </div>
 
 <div class="hint" id="hint"></div>
+<div id="tab-overview" hidden>
+  <div id="ovGrid" class="ovgrid"></div>
+  <div class="ovfoot"><button type="button" id="ovCustomize" class="ovlink">⚙ Customize overview</button></div>
+</div>
+<div id="ovPanel" class="ovdrawer" hidden>
+  <div class="ovdhead"><b>Overview blocks</b><button type="button" id="ovClose" class="ovlink">Close ✕</button></div>
+  <p>Turn blocks on or off, pick a width and change the order. S = one column, M = two, L = the whole row. Saved in this browser.</p>
+  <div id="ovList"></div>
+  <button type="button" id="ovReset" class="ovlink">Reset to default</button>
+</div>
 <div id="tab-ships" hidden>
   <div id="shipStatus" class="sstatus"></div>
   <div id="shipList" class="slist"></div>
@@ -480,6 +563,7 @@ function buildFilters() {
 }
 
 const hints = {
+  overview: 'What matters at a glance. Click anything to go to it; the tabs have the details.',
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
   colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
   messages: 'The game\'s message log, newest first. Click a message to go to what it is about. Notifications need the browser\'s permission once.',
@@ -528,8 +612,11 @@ function setTab(name) {
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
-  $('tab-other').hidden = tab === 'construction' || tab === 'ships';
+  $('tab-other').hidden = tab === 'construction' || tab === 'ships' || tab === 'overview';
   $('tab-ships').hidden = tab !== 'ships';
+  $('tab-overview').hidden = tab !== 'overview';
+  $('search').hidden = tab === 'overview';
+  if (tab !== 'overview') $('ovPanel').hidden = true;
   $('sfilters').hidden = tab !== 'ships';
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
@@ -541,7 +628,7 @@ function setTab(name) {
   try { localStorage.setItem('overview.tab', tab); } catch (e) { }
   lastSnapshot = null;
   other = { rows: [] };
-  if (tab === 'construction') render(); else renderOther();
+  if (tab === 'construction') render(); else if (tab === 'overview') renderOverview(); else renderOther();
   refresh();
 }
 
@@ -554,7 +641,7 @@ async function getJson(url) {
 async function refresh() {
   if (paused) return;
   try {
-    const [info, data] = await Promise.all([getJson('/api/info'), getJson('/api/' + tab)]);
+    const [info, data] = await Promise.all([getJson('/api/info'), tab === 'overview' ? loadOverview() : getJson('/api/' + tab)]);
     $('dot').classList.add('on');
     token = info.token;
     let rows = [];
@@ -590,7 +677,16 @@ async function refresh() {
       showTabCounts();
     }
     if (info.loaded && $('notify').value !== 'off') {
-      checkNotify(tab === 'messages' ? rows : ((await getJson('/api/messages')).items || []), info.starDate);
+      checkNotify(tab === 'messages' ? rows : tab === 'overview' ? data.ov.messages : ((await getJson('/api/messages')).items || []), info.starDate);
+    }
+    if (tab === 'overview') {
+      const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
+      if (snap === lastSnapshot) return;
+      lastSnapshot = snap;
+      ov = info.loaded ? data.ov : null;
+      ovInfo = info.loaded ? info : null;
+      renderOverview();
+      return;
     }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
     const snapshot = tab + JSON.stringify(rows) + (data.concurrent ?? '');
@@ -702,6 +798,7 @@ function progressCell(p) {
 // queue, messages). Known only for tabs loaded since the page opened.
 const tabCounts = {};
 function countFor(name, rows) {
+  if (name === 'overview') return undefined;
   if (name === 'construction') return rows.filter(r => r.state !== 'idle').length;
   if (name === 'research') return rows.filter(r => r.state === 'active' || r.state === 'queued').length;
   return rows.length;
@@ -1114,6 +1211,199 @@ $('shipList').addEventListener('click', e => {
   setTimeout(() => row.classList.remove('flash'), 400);
 });
 
+// ---- Overview: a configurable dashboard (v3 proposal) ----
+// Blocks the player turns on and off, sizes (S = 1 column, M = 2, L = the whole row) and orders, kept in this
+// browser. Everything comes from the other tabs' endpoints, read together; "Needs attention" is a set of
+// rules over that data, the same kind of rules the background alerts will use.
+
+const OV_BLOCKS = [
+  { id: 'summary', name: 'Summary', note: 'Cash, population, yards, research, unrest', size: 'L', on: true },
+  { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
+  { id: 'construction', name: 'Construction', note: 'Busy and queued yards', size: 'S', on: true },
+  { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: true },
+  { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: true },
+  { id: 'messages', name: 'Latest messages', note: 'Newest five from the log', size: 'M', on: true },
+  { id: 'idle', name: 'Idle ships', note: 'Ships without a mission', size: 'S', on: false },
+];
+let ovLayout = OV_BLOCKS.map(b => ({ id: b.id, size: b.size, on: b.on }));
+try {
+  const saved = JSON.parse(localStorage.getItem('overview.layout') || 'null');
+  if (Array.isArray(saved)) {
+    const known = saved.filter(s => OV_BLOCKS.some(b => b.id === s.id));
+    ovLayout = [...known, ...ovLayout.filter(d => !known.some(s => s.id === d.id))];   // new blocks join at the end
+  }
+} catch (e) { }
+const saveLayout = () => { try { localStorage.setItem('overview.layout', JSON.stringify(ovLayout)); } catch (e) { } };
+
+let ov = null, ovInfo = null, ovActions = [];
+
+/** Reads what the blocks need, in parallel; ships are collected only once asked for, so they may lag a tick. */
+async function loadOverview() {
+  const names = ['construction', 'research', 'colonies', 'messages', 'ships'];
+  const got = await Promise.all(names.map(n => getJson('/api/' + n).then(r => r).catch(() => ({ items: [] }))));
+  const data = {};
+  names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; });
+  return { items: [], ov: data };
+}
+
+const big = v => v == null ? '–' : fmt.big(v);
+const money0 = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
+
+/** Click targets inside the dashboard: an index into ovActions, so each button can do anything. */
+function act(fn) { ovActions.push(fn); return `data-act="${ovActions.length - 1}"`; }
+const goTab = (name, then) => () => { setTab(name); if (then) setTimeout(then, 0); };
+
+function attentionItems() {
+  const items = [];
+  const add = (level, title, body, cta, fn) => items.push({ level, title, body, cta, fn });
+  for (const m of ov.messages.filter(m => m.pending && m.advisor)) {
+    add('warn', 'Advisor suggestion', plain(m.task || m.text), 'Messages', goTab('messages'));
+  }
+  for (const c of ov.colonies) {
+    if (c.rebelling) add('bad', `${c.name} is rebelling`, `Approval ${fmt.int(c.approval)} · unrest ${fmt.num(c.unrest)}`, 'Go to', () => goTo('orb', c.orbId));
+    else if (c.approval != null && c.approval < 0) add('warn', `${c.name} is unhappy`, `Approval ${fmt.int(c.approval)}${c.unrest ? ' · unrest ' + fmt.num(c.unrest) : ''}`, 'Go to', () => goTo('orb', c.orbId));
+  }
+  const idleYards = ov.construction.filter(i => i.state === 'idle');
+  if (idleYards.length) add('warn', `${idleYards.length} idle yard${idleYards.length > 1 ? 's' : ''}`, `${[...new Set(idleYards.map(i => i.where))].join(', ')} ${idleYards.length > 1 ? 'have' : 'has'} nothing to build.`, 'Yards',
+    goTab('construction', () => { $('state').value = 'idle'; render(); }));
+  const active = ov.research.filter(r => r.state === 'active'), queued = ov.research.filter(r => r.state === 'queued');
+  if (!active.length) add('bad', 'Nothing being researched', 'The research queue is empty.', 'Research', goTab('research'));
+  else if (!queued.length) add('warn', 'Research queue ends soon', `Only ${active.map(r => r.name).join(', ')} ${active.length > 1 ? 'are' : 'is'} queued.`, 'Queue', goTab('research'));
+  const idleShips = ov.ships.filter(s => shipBucket(s) === 'idle');
+  if (idleShips.length) add('warn', `${idleShips.length} idle ship${idleShips.length > 1 ? 's' : ''}`, idleShips.slice(0, 4).map(s => s.name).join(', ') + (idleShips.length > 4 ? '…' : ''), 'Ships',
+    goTab('ships', () => { shipBucketFilter.clear(); shipBucketFilter.add('idle'); renderShips(); }));
+  const lowFuel = ov.ships.filter(s => s.fuel != null && s.fuel < 0.2);
+  if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${Math.round(s.fuel * 100)}%`).join(', '), 'Ships', goTab('ships'));
+  if ((ovInfo.economy?.cashflowActual ?? 0) < 0) add('bad', 'Negative cashflow', `${money0(ovInfo.economy.cashflowActual)} a year`, null, null);
+  const order = { bad: 0, warn: 1 };
+  return items.sort((a, b) => order[a.level] - order[b.level]);
+}
+
+function panel(title, color, link, body) {
+  return `<section class="ovpanel"><div class="ovhead"><span style="--c:${color}"><i></i>${esc(title)}</span>${link || ''}</div>${body}</section>`;
+}
+const linkTo = (label, name) => `<button type="button" class="ovlink" ${act(goTab(name))}>${esc(label)} ›</button>`;
+
+function blockHtml(id) {
+  const eco = ovInfo.economy || {};
+  if (id === 'summary') {
+    const pop = ov.colonies.reduce((s, c) => s + (c.population || 0), 0);
+    const yards = ov.construction.length, idleY = ov.construction.filter(i => i.state === 'idle').length;
+    const busyY = ov.construction.filter(i => i.state === 'building').length;
+    const active = ov.research.find(r => r.state === 'active');
+    const queued = ov.research.filter(r => r.state === 'queued').length;
+    const troubled = ov.colonies.filter(c => c.rebelling || (c.unrest || 0) > 0);
+    const kpi = (label, value, sub, subColor, fn) => `<button type="button" class="kpi" ${fn ? act(fn) : ''}><span>${label}</span><b>${value}</b><small style="color:${subColor}">${sub}</small></button>`;
+    return `<div class="kpis">
+      ${kpi('Cash', money0(eco.cash), `${eco.cashflowActual >= 0 ? '+' : ''}${money0(eco.cashflowActual)} / yr`, eco.cashflowActual >= 0 ? 'var(--ok)' : 'var(--bad)')}
+      ${kpi('Population', big(pop), `${ov.colonies.length} colon${ov.colonies.length === 1 ? 'y' : 'ies'}`, 'var(--mut)', goTab('colonies'))}
+      ${kpi('Yards', `${busyY} / ${busyY + idleY}`, idleY ? `${idleY} idle` : 'all busy', idleY ? 'var(--warn)' : 'var(--mut)', goTab('construction'))}
+      ${kpi('Research', active ? Math.round(active.progress * 100) + '%' : '–', active ? (queued ? `${queued} in queue` : 'queue empty after this') : 'nothing active', active && queued ? 'var(--mut)' : 'var(--warn)', goTab('research'))}
+      ${kpi('Unrest', troubled.length, troubled.length ? troubled.map(c => c.name + (c.rebelling ? ' rebelling' : '')).join(', ') : 'all calm', troubled.length ? 'var(--bad)' : 'var(--mut)', goTab('colonies'))}
+    </div>`;
+  }
+  if (id === 'attention') {
+    const list = attentionItems();
+    return panel('Needs attention', 'var(--warn)', `<span class="ovnote">${list.length} open</span>`,
+      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small></span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
+      || '<div class="ovempty">Nothing needs you right now.</div>');
+  }
+  if (id === 'construction') {
+    const rows = ov.construction.filter(i => i.state !== 'idle').sort((a, b) => (stateOrder[a.state] ?? 9) - (stateOrder[b.state] ?? 9)).slice(0, 6);
+    return panel('Construction', 'var(--acc)', linkTo('All yards', 'construction'),
+      rows.map(i => `<button type="button" class="ovrow prog" ${act(() => goTo(i.whereType, i.whereId))}>
+        <span class="pt"><b>${esc(i.name || i.design || 'Not started')}</b><em class="${i.state === 'queued' ? 'warn' : ''}">${i.progress != null ? Math.round(i.progress * 100) + '%' : i.state}</em></span>
+        <span class="pb"><i style="width:${Math.round((i.progress || 0) * 100)}%"></i></span>
+        <small>${esc([i.design, i.where].filter(Boolean).join(' · '))}${i.queue ? ' · queue #' + i.queue : ''}</small></button>`).join('')
+      || '<div class="ovempty">No yard is building anything.</div>');
+  }
+  if (id === 'research') {
+    const active = ov.research.filter(r => r.state === 'active');
+    const queued = ov.research.filter(r => r.state === 'queued');
+    return panel('Research', 'var(--acc)', linkTo('Queue', 'research'),
+      (active.map(r => `<div class="ovres"><span class="pt"><b>${esc(r.name)}</b><em>${Math.round((r.progress || 0) * 100)}%</em></span>
+        <span class="pb thick"><i style="width:${Math.round((r.progress || 0) * 100)}%"></i></span>
+        <small>Size ${fmt.num(r.size)}${r.rushing ? ' · crash program' : ''}${r.atStation ? ' · at a research station' : ''}</small></div>`).join('')
+        || '<div class="ovempty warn">Nothing is being researched.</div>')
+      + (queued.length ? `<div class="ovsmall">Next: ${queued.slice(0, 3).map(r => esc(r.name)).join(', ')}${queued.length > 3 ? '…' : ''}</div>`
+        : active.length ? '<div class="ovsmall warn">Queue empty after this project</div>' : ''));
+  }
+  if (id === 'colonies') {
+    const rows = [...ov.colonies].sort((a, b) => (b.population || 0) - (a.population || 0)).slice(0, 6);
+    return panel('Colonies', 'var(--acc)', linkTo('All colonies', 'colonies'),
+      rows.map(c => `<button type="button" class="ovrow col" ${act(() => goTo('orb', c.orbId))}>
+        <span><b>${esc(c.name)}</b><small>${esc(c.system || '')}</small></span>
+        <span>${big(c.population)}</span>
+        <span style="color:${c.rebelling || c.approval < 0 ? 'var(--bad)' : c.approval < 3 ? 'var(--warn)' : 'var(--ok)'}">${fmt.int(c.approval)}</span>
+        <span class="mut">${big(c.revenue)}</span></button>`).join('') || '<div class="ovempty">No colonies.</div>');
+  }
+  if (id === 'messages') {
+    const rows = ov.messages.filter(m => !m.pending).slice(0, 5);
+    const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
+    return panel('Latest messages', 'var(--acc)', linkTo('Message log', 'messages'),
+      rows.map(m => `<button type="button" class="ovrow msg" ${m.relatedId ? act(() => goTo(m.relatedType, m.relatedId)) : ''}>
+        <small>${esc(m.date || '')}</small><span><i style="color:${color(m.priority)}">◆</i> ${esc(m.title)}</span><em>${esc(m.relatedName || '')}</em></button>`).join('')
+      || '<div class="ovempty">No messages yet.</div>');
+  }
+  if (id === 'idle') {
+    const rows = ov.ships.filter(s => shipBucket(s) === 'idle');
+    return panel('Idle ships', 'var(--acc)', linkTo('Ships', 'ships'),
+      rows.map(s => `<button type="button" class="ovrow att" ${act(() => goTo('ship', s.id))}><i class="warn"></i><span><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.system ? ' · ' + esc(s.system) : ''}</small></span></button>`).join('')
+      || '<div class="ovempty">Every ship has something to do.</div>');
+  }
+  return '';
+}
+
+function renderOverview() {
+  if (!ov || !ovInfo) { $('ovGrid').innerHTML = '<div class="empty">Waiting for the game…</div>'; return; }
+  ovActions = [];
+  const span = s => s === 'L' ? 'var(--ovcols)' : s === 'M' ? 'min(2, var(--ovcols))' : '1';
+  $('ovGrid').innerHTML = ovLayout.filter(b => b.on).map(b => `<div class="ovcell" style="grid-column: span ${span(b.size)}">${blockHtml(b.id)}</div>`).join('');
+  $('count').textContent = '';
+}
+
+function renderCustomize() {
+  $('ovList').innerHTML = ovLayout.map((b, i) => {
+    const def = OV_BLOCKS.find(d => d.id === b.id);
+    return `<div class="ovitem${b.on ? '' : ' off'}" data-i="${i}">
+      <label class="switch"><input type="checkbox" data-on ${b.on ? 'checked' : ''}><i></i></label>
+      <span><b>${esc(def.name)}</b><small>${esc(def.note)}</small></span>
+      <span class="sizes">${['S', 'M', 'L'].map(s => `<button type="button" data-size="${s}" class="${b.size === s ? 'on' : ''}">${s}</button>`).join('')}</span>
+      <span class="moves"><button type="button" data-move="-1" title="Up">▴</button><button type="button" data-move="1" title="Down">▾</button></span>
+    </div>`;
+  }).join('');
+}
+
+$('ovGrid').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (el) ovActions[+el.dataset.act]?.();
+});
+$('ovCustomize').addEventListener('click', () => { renderCustomize(); $('ovPanel').hidden = false; });
+$('ovClose').addEventListener('click', () => { $('ovPanel').hidden = true; });
+$('ovReset').addEventListener('click', () => {
+  ovLayout = OV_BLOCKS.map(b => ({ id: b.id, size: b.size, on: b.on }));
+  saveLayout(); renderCustomize(); renderOverview();
+});
+$('ovList').addEventListener('click', e => {
+  const item = e.target.closest('.ovitem');
+  if (!item) return;
+  const i = +item.dataset.i, b = ovLayout[i];
+  const size = e.target.closest('[data-size]'), move = e.target.closest('[data-move]');
+  if (size) b.size = size.dataset.size;
+  else if (move) {
+    const j = i + +move.dataset.move;
+    if (j < 0 || j >= ovLayout.length) return;
+    [ovLayout[i], ovLayout[j]] = [ovLayout[j], ovLayout[i]];
+  } else return;
+  saveLayout(); renderCustomize(); renderOverview();
+});
+$('ovList').addEventListener('change', e => {
+  const box = e.target.closest('[data-on]');
+  if (!box) return;
+  ovLayout[+box.closest('.ovitem').dataset.i].on = box.checked;
+  saveLayout(); renderCustomize(); renderOverview();
+});
+
 // ---- Command palette (Ctrl+K) ----
 // Own things come from /api/index (fetched when the palette opens) and are matched here, instantly.
 // Everything else the empire knows comes from the game's own search (/api/search), asked after a short pause
@@ -1353,9 +1643,9 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- Start (last, so every declaration above exists before the first render) ----
-let startTab = 'construction';
+let startTab = 'overview';
 try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
-setTab(columns[startTab] || startTab === 'construction' ? startTab : 'construction');
+setTab(['overview', 'construction', 'ships', 'colonies', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
 setInterval(refresh, 2000);
 </script>
 </body>
