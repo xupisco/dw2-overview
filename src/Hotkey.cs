@@ -6,14 +6,14 @@ using Stride.Input;
 namespace DW2Overview;
 
 /// <summary>
-/// Ctrl+Alt+O in the game opens the page in the default browser. The first time a game is loaded in a
+/// Ctrl+Alt+9 in the game opens the page in the default browser. The first time a game is loaded in a
 /// session, the game's brief on-screen message says so. The game's own shortcuts ignore modifiers
 /// (Ctrl+Alt+letter also fires the letter), so at the first load the log says whether the player's key
-/// mappings use O too.
+/// mappings use 9 too.
 /// </summary>
 internal static class Hotkey
 {
-    public const string Name = "Ctrl+Alt+O";
+    public const string Name = "Ctrl+Alt+9";
     private static bool hinted;
     private static bool checkedMappings;
 
@@ -28,7 +28,7 @@ internal static class Hotkey
             if (input != null && input.HasKeyboard
                 && (input.IsKeyDown(Keys.LeftCtrl) || input.IsKeyDown(Keys.RightCtrl))
                 && (input.IsKeyDown(Keys.LeftAlt) || input.IsKeyDown(Keys.RightAlt))
-                && input.IsKeyPressed(Keys.O))
+                && (input.IsKeyPressed(Keys.D9) || input.IsKeyPressed(Keys.NumPad9)))
             {
                 OpenPage();
                 Brief(game, "Empire Overview: opening " + Url, 2.5f);
@@ -72,7 +72,7 @@ internal static class Hotkey
         }
     }
 
-    /// <summary>Logs the player's key mappings on O: they would fire together with Ctrl+Alt+O.</summary>
+    /// <summary>Logs the player's key mappings on 9: they would fire together with Ctrl+Alt+9.</summary>
     private static void CheckMappings(DWGame game)
     {
         if (checkedMappings)
@@ -85,11 +85,11 @@ internal static class Hotkey
         {
             return;
         }
-        var onO = mappings.Where(m => m != null && m.Key.ToString() == "O")
-            .Select(m => (m.ShiftActive ? "Shift+" : "") + "O: " + (m.TaskType != GameTaskType.Undefined ? m.TaskType.ToString() : m.UiSection.ToString()))
+        var onNine = mappings.Where(m => m != null && m.Key.ToString() is "D9" or "NumPad9")
+            .Select(m => (m.ShiftActive ? "Shift+" : "") + "9: " + (m.TaskType != GameTaskType.Undefined ? m.TaskType.ToString() : m.UiSection.ToString()))
             .ToList();
-        Log.Info(onO.Count == 0
-            ? $"{Name}: no game shortcut uses O."
-            : $"{Name}: the game also uses O ({string.Join(", ", onO)}); it fires together with the page shortcut.");
+        Log.Info(onNine.Count == 0
+            ? $"{Name}: no game shortcut uses 9."
+            : $"{Name}: the game also uses 9 ({string.Join(", ", onNine)}); it fires together with the page shortcut.");
     }
 }
