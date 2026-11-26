@@ -96,6 +96,10 @@ internal sealed class ShipRow
     public bool Building { get; set; }
     public double? Damage { get; set; }
     public double? Fuel { get; set; }
+    /// <summary>Reactor energy left, 0..1 of the storage capacity.</summary>
+    public double? Energy { get; set; }
+    /// <summary>Shield strength, 0..1 of the capacity (null for ships without shields).</summary>
+    public double? Shields { get; set; }
 }
 
 /// <summary>Something the command palette can jump to.</summary>
@@ -281,6 +285,8 @@ internal static class Views
                 Building = Safe(() => ship.IsUnderConstructionOrRepair),
                 Damage = Num(ship.HullDamageLevel),
                 Fuel = maxRange > 0 ? Num(range / maxRange) : null,
+                Energy = Ratio(Safe(() => (float)ship.Energy), Safe(() => ship.Summary.ReactorEnergyStorageCapacity)),
+                Shields = Ratio(Safe(() => (float)ship.Shields), Safe(() => ship.Summary.ShieldCapacity)),
             });
         }
         return rows;
@@ -471,6 +477,9 @@ internal static class Views
     /// large means "not computed yet", so the uncached one is used, and null if that is absurd too.
     /// </summary>
     private static double? Sane(float value) => Math.Abs(value) < 1e12f ? Num(value) : null;
+
+    /// <summary>value / capacity, clamped to 0..1; null when there is no capacity.</summary>
+    private static double? Ratio(float value, float capacity) => capacity > 0 && float.IsFinite(value) ? Math.Round(Math.Clamp(value / capacity, 0f, 1f), 4) : null;
 
     private static double? Num(float value) => float.IsFinite(value) ? Math.Round(value, 4) : null;
 }

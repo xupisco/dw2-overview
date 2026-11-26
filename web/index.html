@@ -360,10 +360,14 @@
   .smission .arrow { color: var(--mut); }
   .chip { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; }
   .sorders { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sfuel { display: flex; align-items: center; gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sfuel { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sfuel .mline { display: flex; align-items: center; gap: 6px; }
+  .sfuel .mline small { width: 40px; }
   .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
   .fbar > i { position: absolute; inset: 0 auto 0 0; background: var(--acc); }
   .fbar.low > i { background: var(--bad); }
+  .fbar.energy > i { background: var(--ok); }
+  .fbar.energy.low > i { background: var(--bad); }
   .sflags { color: var(--mut); display: flex; gap: 6px; justify-content: flex-end; }
   @media (max-width: 900px) {
     .srow { grid-template-columns: 30px 1fr 1fr; }
@@ -1473,6 +1477,14 @@ function miniBar(rows) {
   }).join('');
 }
 
+/** The reactor's energy as a second line under fuel (shields in its tooltip); nothing with an older mod. */
+function energyLine(s) {
+  if (s.energy == null) return '';
+  const pct = Math.round(s.energy * 100), low = s.energy < 0.25;
+  const tip = `Energy: ${pct}% of the reactor's storage` + (s.shields != null ? ` · shields ${Math.round(s.shields * 100)}%` : '');
+  return `<span class="mline" title="${tip}"><small class="mut">Energy</small><span class="fbar energy ${low ? 'low' : ''}"><i style="width:${pct}%"></i></span><span class="${low ? 'flag' : ''}">${pct}%</span></span>`;
+}
+
 function renderShips() {
   const all = other.rows;
   const q = $('search').value.trim().toLowerCase();
@@ -1532,7 +1544,7 @@ function renderShips() {
         <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}${next}</span>
         <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
         <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
-        <span class="sfuel">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>
+        <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
       </div>`;
     }
@@ -1876,7 +1888,7 @@ function renderResources() {
         <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(missionPhrase(s.mission) || '')}</span>${target}</span>
         <span class="sorders mut">cargo: later</span>
         <span class="ssys">${esc(s.system || '')}</span>
-        <span class="sfuel">${fuel}</span><span class="sflags">${s.docked ? '⚓' : ''}</span></div>`;
+        <span class="sfuel"><span class="mline">${fuel}</span>${energyLine(s)}</span><span class="sflags">${s.docked ? '⚓' : ''}</span></div>`;
     }).join('') || `<div class="empty">${resShips ? 'No mining ships.' : 'Loading the ships…'}</div>`}</div>`;
     $('count').textContent = `${rows.length} of ${miners.length}`;
     return;
