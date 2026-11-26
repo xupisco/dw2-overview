@@ -397,17 +397,15 @@
 
   /* In-page message toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; max-width: min(380px, calc(100% - 32px)); }
-  .toast { position: relative; overflow: hidden; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--acc); padding: 10px 12px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .toast { position: relative; overflow: hidden; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 10px 12px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
   /* time left: a thin bar that empties; it stops while the mouse is over the toast */
-  .toast .ttimer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--acc); opacity: .7; transform-origin: left; animation: toast-time linear forwards; }
+  .toast .ttimer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--acc); opacity: .9; transform-origin: left; animation: toast-time linear forwards; }
   .toast.prio-High .ttimer { background: var(--warn); } .toast.prio-Critical .ttimer { background: var(--bad); }
   .toast:hover .ttimer { animation-play-state: paused; }
   @keyframes toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .tactions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
   .gbtns { display: contents; }
-  .toast.prio-High { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--warn); }
-  .toast.prio-Critical { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--bad); }
-  .toast span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .toast > span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .toast .mute { height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
   .toast .mute:hover { background: var(--hover); color: var(--tx); }
 
@@ -1402,6 +1400,9 @@ const hasGameButtons = m => (m.buttons && m.buttons.length) || (m.pending && m.a
 /** Presses a button of the game's message dialog for that message (the mod opens it there first if needed). */
 async function pressDialog(key, button) {
   if (!token || !key) return;
+  const bare = k => (k || '').replace(/^pending\|/, '');
+  document.querySelectorAll('#toasts .toast').forEach(el => { if (el.msg && bare(el.msg.key) === bare(key)) el.remove(); });
+  if (msgOpen && bare(msgOpen.key) === bare(key)) closeMessage();
   try {
     const r = await fetch('/api/suggestion', {
       method: 'POST',
