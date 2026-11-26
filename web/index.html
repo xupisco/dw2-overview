@@ -357,11 +357,17 @@
 
   /* In-page message toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; max-width: min(380px, calc(100% - 32px)); }
-  .toast { background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--acc); padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  .toast { position: relative; overflow: hidden; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--acc); padding: 10px 12px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+  /* time left: a thin bar that empties; it stops while the mouse is over the toast */
+  .toast .ttimer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--acc); opacity: .7; transform-origin: left; animation: toast-time linear forwards; }
+  .toast.prio-High .ttimer { background: var(--warn); } .toast.prio-Critical .ttimer { background: var(--bad); }
+  .toast:hover .ttimer { animation-play-state: paused; }
+  @keyframes toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  .tactions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
   .toast.prio-High { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--warn); }
   .toast.prio-Critical { box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 2px 0 0 var(--bad); }
   .toast span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .toast .mute { align-self: flex-end; margin-top: 4px; height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
+  .toast .mute { height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
   .toast .mute:hover { background: var(--hover); color: var(--tx); }
 
   /* Command palette (Ctrl+K) */
@@ -890,18 +896,42 @@ function renderMuted() {
     : '<span class="none">No messages seen yet</span>';
 }
 
+/**
+ * Puts a toast in the corner with a time bar that empties until it goes away; the bar (and the countdown)
+ * stops while the mouse is over the toast. Its removal is the end of that bar's CSS animation.
+ */
+function showToast(el, seconds) {
+  const timer = document.createElement('i');
+  timer.className = 'ttimer';
+  timer.style.animationDuration = seconds + 's';
+  timer.addEventListener('animationend', () => el.remove());
+  el.appendChild(timer);
+  $('toasts').prepend(el);
+  while ($('toasts').children.length > 5) $('toasts').lastChild.remove();
+}
+
+/** A game message as a toast: click opens it whole; Accept / Decline for an advisor suggestion; Mute its type. */
 function toast(m, onClick) {
   const el = document.createElement('div');
   el.className = 'toast prio-' + (m.priority || 'Normal');
-  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.text))}</span>
-    <button type="button" class="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button>`;
-  el.title = 'Click to go to it · right-click to dismiss';
-  el.querySelector('.mute').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setMuted(m.type, true); el.remove(); });
-  el.addEventListener('click', () => { onClick(); el.remove(); });
+  const suggestion = m.pending && m.advisor;
+  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.task && suggestion ? m.task : m.text))}</span>
+    <div class="tactions">${suggestion ? '<button type="button" class="abtn ok" data-t="accept">Accept</button><button type="button" class="abtn" data-t="decline">Decline</button>' : ''}
+      <button type="button" class="mute" data-t="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button></div>`;
+  el.title = 'Click to read it whole · right-click to dismiss';
+  el.addEventListener('click', e => {
+    const b = e.target.closest('[data-t]');
+    if (b) {
+      e.stopPropagation();
+      if (b.dataset.t === 'mute') setMuted(m.type, true);
+      else answerSuggestion(m.key, b.dataset.t === 'accept');
+    } else {
+      openMessage(m);
+    }
+    el.remove();
+  });
   el.addEventListener('contextmenu', e => { e.preventDefault(); el.remove(); });
-  $('toasts').prepend(el);
-  setTimeout(() => el.remove(), (priorityRank[m.priority] ?? 1) >= 2 ? 15000 : 8000);
-  while ($('toasts').children.length > 5) $('toasts').lastChild.remove();
+  showToast(el, suggestion ? 30 : (priorityRank[m.priority] ?? 1) >= 2 ? 15 : 8);
 }
 
 function fillWorkOptions() {
@@ -1133,8 +1163,7 @@ function notice(text) {
   el.className = 'toast';
   el.innerHTML = `<span>${esc(text)}</span>`;
   el.addEventListener('click', () => el.remove());
-  $('toasts').prepend(el);
-  setTimeout(() => el.remove(), 6000);
+  showToast(el, 6);
 }
 let lastAnswerSeen;
 
