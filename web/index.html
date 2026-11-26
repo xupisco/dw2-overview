@@ -793,7 +793,7 @@
     <option value="2">High and up</option>
   </select>
   </span>
-  <button type="button" id="clearFilters" class="clearf" hidden title="Back to everything (Esc in the filter box clears the text)">✕ Clear filters</button>
+  <button type="button" id="clearFilters" class="clearf" hidden title="Back to everything · Esc">✕ Clear filters</button>
   <span class="count" id="count"></span>
 </div>
 
@@ -1743,11 +1743,13 @@ function setLog(open) {
   if (open) refresh();
 }
 // Page shortcuts (left hand, while the mouse stays on the page), not while typing or with the palette or a
-// message open: Q opens and closes the message log; / goes to the search; Space plays / pauses the game (as in the game itself;
+// message open: Q opens and closes the message log; / goes to the search; Esc clears the filters; Space plays / pauses the game (as in the game itself;
 // it also wins over a focused button, which Enter still presses).
 const SHORTCUTS = {
   q: () => setLog(!logOpen),
   ' ': () => { if (!$('gamectl').hidden) toggleGamePause(); },
+  // Esc: clear the tab's filters, when any is on (a modal or the palette takes Esc first).
+  escape: () => { if (!$('clearFilters').hidden) clearFilters(); },
   // / : the page's search (filter) where there is one, else the palette.
   '/': () => { const f = $('search'); if (f && f.offsetParent) { f.focus(); f.select(); } else openPalette(); },
 };
@@ -2022,7 +2024,12 @@ function setMenu(open) {
 }
 $('menuBtn').addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
 $('buildRoles').addEventListener('click', e => { const b = e.target.closest('[data-brole]'); if (b) toggleBuildRole(b.dataset.brole); });
-$('search').addEventListener('keydown', e => { if (e.key === 'Escape' && $('search').value) { e.preventDefault(); $('search').value = ''; tab === 'construction' ? render() : renderOther(); } });
+// Esc in the search box: first the text, then (pressed again, or with no text) every filter of the tab.
+$('search').addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if ($('search').value) { e.preventDefault(); $('search').value = ''; tab === 'construction' ? render() : renderOther(); }
+  else if (!$('clearFilters').hidden) { e.preventDefault(); clearFilters(); }
+});
 $('mprio').addEventListener('input', renderOther);
 $('gfilters').addEventListener('input', e => {
   const sel = e.target.closest('select[data-fkey]');
