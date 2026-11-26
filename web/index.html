@@ -2138,8 +2138,8 @@ function missionHtml(s, bucket, phrase, target) {
   if (!s.missionText) return `<span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}`;
   const now = s.heading && !s.missionText.toLowerCase().includes(s.heading.toLowerCase())
     ? ` <span class="arrow">· now →</span> ${s.headingId != null ? `<a class="go" href="#" data-tt="${esc(s.headingType)}" data-tid="${s.headingId}">${esc(s.heading)}</a>` : esc(s.heading)}` : '';
-  // The game sometimes glues its time estimate on: "(Alurthas system)(93 secs)".
-  const text = s.missionText.split(')(').join(') (');
+  // While a ship moves, the game glues its time estimate on: "Survey Varga(97 secs)", "(Alurthas system)(93 secs)".
+  const text = s.missionText.replace(/(\S)\((\d)/g, '$1 ($2');
   let html = esc(text);
   const places = [...(s.places || [])].sort((a, b) => b.name.length - a.name.length);
   places.forEach((pl, i) => { html = html.split(esc(pl.name)).join(`\u0001${i}\u0001`); });
