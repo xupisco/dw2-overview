@@ -278,7 +278,8 @@
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
-  .ovbuild { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 14px; }
+  .ovbuild { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+  @media (max-width: 760px) { .ovbuild { grid-template-columns: minmax(0, 1fr); } }
   .ovsort { margin-left: auto; margin-right: 10px; }
   .ovsort button { height: 20px; border: 0; background: transparent; color: var(--mut); padding: 0 6px; font-size: 12px; cursor: pointer; }
   .ovsort button.on { background: var(--acc-d); color: var(--acc); }
@@ -316,10 +317,11 @@
   .catsq[data-cat="luxury"] { background: oklch(var(--L) 0.11 330); }
   .restop { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
   .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
-  .supply th { background: transparent; font-size: 12px; padding: 2px 10px; cursor: default; }
+  .supply th { background: transparent; font-size: 12px; padding: 2px 10px; cursor: default; text-align: center; }
+  .supply th:first-child { text-align: left; }
   .supply td { padding: 0; background: transparent !important; }
   .supply td:first-child { padding: 0 12px 0 0; color: var(--mut); font-size: 12px; }
-  .supply button { width: 130px; height: 28px; border: 0; background: var(--panel); text-align: left; padding: 0 10px; font: 600 16px var(--cond); cursor: pointer; }
+  .supply button { width: 130px; height: 28px; border: 0; background: var(--panel); text-align: center; padding: 0 10px; font: 600 16px var(--cond); cursor: pointer; }
   .supply button:hover { background: var(--hover); }
   .supply button.on { background: var(--acc-d); outline: 1px solid var(--acc); outline-offset: -1px; }
   .ovsupply { width: 100%; padding: 6px 8px 10px; }
@@ -2260,7 +2262,7 @@ function buildRoleChips(list, attr) {
 }
 let ovBuildSort = 'progress';
 try { ovBuildSort = localStorage.getItem('overview.buildSort') || 'progress'; } catch (e) { }
-const OV_BUILD_LINES = 9;
+const OV_BUILD_LINES = 8;
 
 let ov = null, ovInfo = null, ovActions = [];
 
