@@ -75,6 +75,7 @@ internal static class Snapshot
     public static volatile string IndexJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string ShipsJson = "{\"loaded\":false,\"items\":[]}";
     private static double lastShipsRequest = double.NegativeInfinity;
+    private static string lastPendingSig = "";
     private static bool shipsLogged;
 
     /// <summary>The Ships tab asked: collect the ship list from the next tick on (it is skipped otherwise).</summary>
@@ -219,6 +220,17 @@ internal static class Snapshot
             ColoniesJson = Serialize(new { loaded = true, collectedAt, items = colonies });
             ResearchJson = Serialize(new { loaded = true, collectedAt, concurrent, items = research });
             MessagesJson = Serialize(new { loaded = true, collectedAt, items = messages });
+
+            // Advisor suggestions waiting for a decision: logged whenever the set changes, to learn their shape.
+            string pendingSig = string.Join(";", messages.Where(m => m.Pending).Select(m => m.Key));
+            if (pendingSig != lastPendingSig)
+            {
+                lastPendingSig = pendingSig;
+                foreach (var m in messages.Where(m => m.Pending))
+                {
+                    Log.Info($"Pending suggestion: [{m.Priority} {m.Type}/{m.SubType} advisor={m.Advisor}] {m.Title} | {m.Text?.Replace('\n', ' ')} -> {m.RelatedName} ({m.RelatedType} {m.RelatedId}) task={m.Task}");
+                }
+            }
 
             if (!dumped)
             {

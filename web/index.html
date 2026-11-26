@@ -267,7 +267,7 @@ const priorityRank = { Low: 0, Normal: 1, High: 2, Critical: 3 };
 /** Message text without the game's markup ([LOCATION]…[/LOCATION]) and with collapsed whitespace. */
 const plain = s => (s || '').replace(/\[\/?[A-Z]+\]/g, '').replace(/\s+/g, ' ').trim();
 columns.messages = [
-  { key: 'date', label: 'Date', sortKey: 'starDate' },
+  { key: 'date', label: 'Date', sortKey: 'starDate', f: (v, r) => r.pending ? `<span class="tag queued" title="Advisor suggestion waiting for your decision in the game">awaiting</span> ${esc(v)}` : esc(v), html: true },
   { key: 'priority', label: 'Priority', f: v => `<span class="tag prio-${esc(v)}">${esc(v)}</span>`, html: true, order: { Critical: 0, High: 1, Normal: 2, Low: 3 } },
   { key: 'type', label: 'Type', f: (v, r) => esc(human(v)) + (r.advisor ? ' <span class="none">(advisor)</span>' : '') + (mutedTypes.has(v) ? ' <span class="none">(muted)</span>' : ''), html: true, filter: 'All types' },
   { key: 'title', label: 'Title' },
@@ -334,6 +334,8 @@ function renderOther() {
   const sk = col?.sortKey || s.key;
   const rows = other.rows.filter(r => stateOk(r) && msgOk(r) && filtersOk(r) && (!q || cols.some(c => typeof r[c.key] === 'string' && r[c.key].toLowerCase().includes(q))))
     .sort((a, b) => {
+      // Advisor suggestions still waiting for a decision always come first.
+      if (tab === 'messages' && !!a.pending !== !!b.pending) return a.pending ? -1 : 1;
       let x = a[sk], y = b[sk];
       if (col?.order) { x = col.order[x] ?? 9; y = col.order[y] ?? 9; }
       if (x == null && y == null) return 0;

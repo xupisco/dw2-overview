@@ -59,6 +59,8 @@ internal sealed class MessageRow
     public string RelatedType { get; set; }
     public int? RelatedId { get; set; }
     public string Task { get; set; }
+    /// <summary>An advisor suggestion still waiting for a decision (from Empire.EvaluationQueue).</summary>
+    public bool Pending { get; set; }
 }
 
 /// <summary>One of the empire's own ships or bases, with what it is doing.</summary>
@@ -103,16 +105,23 @@ internal sealed class IndexRow
 
 internal static class Views
 {
+    /// <summary>
+    /// The message log plus the advisor's pending suggestions. Suggestions ("Advisor Suggestion: Build MS-1 at
+    /// Kintaris 4", with Assign Mission / Decline) are not in Empire.Messages but in Empire.EvaluationQueue,
+    /// and leave it once accepted, declined or expired; they come first, flagged Pending.
+    /// </summary>
     public static List<MessageRow> Messages(Empire empire, int limit)
     {
-        var all = Copy(Safe(() => empire.Messages));
+        var log = Copy(Safe(() => empire.Messages));
+        var pending = Copy(Safe(() => empire.EvaluationQueue));
         var rows = new List<MessageRow>();
-        foreach (var m in all.OrderByDescending(m => m.StarDate).Take(limit))
+        foreach (var (m, isPending) in pending.Select(m => (m, true)).Concat(log.OrderByDescending(m => m.StarDate).Take(limit).Select(m => (m, false))))
         {
             var (relatedType, relatedId) = Target(Safe(() => m.RelatedObject));
             rows.Add(new MessageRow
             {
-                Key = $"{m.StarDate}|{m.Type}|{m.SubType}|{m.Title}",
+                Pending = isPending,
+                Key = $"{(isPending ? "pending|" : "")}{m.StarDate}|{m.Type}|{m.SubType}|{m.Title}|{relatedId}",
                 StarDate = m.StarDate,
                 Date = Safe(() => m.StarDateDescription),
                 Type = m.Type.ToString(),
