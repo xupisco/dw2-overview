@@ -64,6 +64,12 @@
   /* In-page message toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; max-width: min(380px, calc(100% - 32px)); }
   .toast { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 12px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 2px; }
+  .toast .mute { align-self: flex-end; color: var(--dim); font-size: 11px; text-decoration: none; }
+  .toast .mute:hover { color: var(--text); text-decoration: underline; }
+  .mutewrap { position: relative; }
+  .mutelist { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 220px; max-height: 60vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .mutelist[hidden] { display: none; }
+  .mutelist label { white-space: nowrap; cursor: pointer; }
   .toast span { color: var(--dim); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .toast.prio-High { border-left-color: var(--warn); }
   .toast.prio-Critical { border-left-color: var(--bad); }
@@ -155,6 +161,10 @@
     <option value="1">Alerts: normal and up</option>
     <option value="0">Alerts: every message</option>
   </select>
+  <span class="mutewrap">
+    <button id="mutedBtn" type="button" title="Choose which message types raise alerts">Alert types</button>
+    <div id="mutedList" class="mutelist" hidden></div>
+  </span>
   <button id="pause" type="button">Pause</button>
   <span class="count" id="count"></span>
 </div>
@@ -259,7 +269,7 @@ const plain = s => (s || '').replace(/\[\/?[A-Z]+\]/g, '').replace(/\s+/g, ' ').
 columns.messages = [
   { key: 'date', label: 'Date', sortKey: 'starDate' },
   { key: 'priority', label: 'Priority', f: v => `<span class="tag prio-${esc(v)}">${esc(v)}</span>`, html: true, order: { Critical: 0, High: 1, Normal: 2, Low: 3 } },
-  { key: 'type', label: 'Type', f: (v, r) => r.advisor ? `${esc(v)} <span class="none">(advisor)</span>` : esc(v), html: true },
+  { key: 'type', label: 'Type', f: (v, r) => esc(human(v)) + (r.advisor ? ' <span class="none">(advisor)</span>' : '') + (mutedTypes.has(v) ? ' <span class="none">(muted)</span>' : ''), html: true, filter: 'All types' },
   { key: 'title', label: 'Title' },
   { key: 'text', label: 'Text', f: v => { const t = plain(v); return t.length > 90 ? esc(t.slice(0, 90)) + '…' : esc(t); }, html: true },
   { key: 'relatedName', label: 'About' },
@@ -418,6 +428,9 @@ async function refresh() {
 // page never saw it (the list can come empty while the game is still loading a save).
 let knownMessages = null, alertsSince = null;
 function checkNotify(messages, starDate) {
+  const before = seenTypes.size;
+  for (const m of messages) if (m.type) seenTypes.add(m.type);
+  if (seenTypes.size !== before) renderMuted();
   if (knownMessages === null) { knownMessages = new Set(messages.map(m => m.key)); alertsSince = starDate; return; }
   if (starDate != null && alertsSince != null && starDate < alertsSince) alertsSince = starDate;   // another save loaded
   const min = +$('notify').value;
@@ -426,6 +439,7 @@ function checkNotify(messages, starDate) {
     knownMessages.add(m.key);
     if (alertsSince != null && m.starDate < alertsSince) continue;
     if ((priorityRank[m.priority] ?? 0) < min) continue;
+    if (mutedTypes.has(m.type)) continue;
     const go = () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); };
     const looking = !document.hidden && document.hasFocus();
     if (!looking && 'Notification' in window && Notification.permission === 'granted') {
@@ -437,11 +451,30 @@ function checkNotify(messages, starDate) {
   }
 }
 
+// Message types the player does not want alerts for (e.g. "Story"), kept in this browser.
+let mutedTypes = new Set();
+try { mutedTypes = new Set(JSON.parse(localStorage.getItem('overview.mutedTypes') || '[]')); } catch (e) { }
+let seenTypes = new Set();
+function setMuted(type, muted) {
+  if (muted) mutedTypes.add(type); else mutedTypes.delete(type);
+  try { localStorage.setItem('overview.mutedTypes', JSON.stringify([...mutedTypes])); } catch (e) { }
+  renderMuted();
+}
+function renderMuted() {
+  const types = [...new Set([...seenTypes, ...mutedTypes])].sort();
+  $('mutedBtn').textContent = mutedTypes.size ? `Muted types: ${mutedTypes.size}` : 'Alert types';
+  $('mutedList').innerHTML = types.length
+    ? types.map(t => `<label><input type="checkbox" data-type="${esc(t)}"${mutedTypes.has(t) ? '' : ' checked'}> ${esc(human(t))}</label>`).join('')
+    : '<span class="none">No messages seen yet</span>';
+}
+
 function toast(m, onClick) {
   const el = document.createElement('div');
   el.className = 'toast prio-' + (m.priority || 'Normal');
-  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.text))}</span>`;
+  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.text))}</span>
+    <a class="mute" href="#" title="No more alerts for this type of message">mute "${esc(human(m.type))}"</a>`;
   el.title = 'Click to go to it · right-click to dismiss';
+  el.querySelector('.mute').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setMuted(m.type, true); el.remove(); });
   el.addEventListener('click', () => { onClick(); el.remove(); });
   el.addEventListener('contextmenu', e => { e.preventDefault(); el.remove(); });
   $('toasts').prepend(el);
@@ -617,6 +650,13 @@ $('notify').addEventListener('input', async () => {
   if (Notification.permission === 'default') await Notification.requestPermission();
   if (Notification.permission !== 'granted') $('status').textContent = 'notifications blocked by the browser';
 });
+$('mutedBtn').addEventListener('click', () => { renderMuted(); $('mutedList').hidden = !$('mutedList').hidden; });
+$('mutedList').addEventListener('change', e => {
+  const box = e.target.closest('input[data-type]');
+  if (box) { setMuted(box.dataset.type, !box.checked); if (tab === 'messages') renderOther(); }
+});
+document.addEventListener('mousedown', e => { if (!e.target.closest('.mutewrap')) $('mutedList').hidden = true; });
+renderMuted();
 $('view').addEventListener('input', () => {
   try { localStorage.setItem('overview.view', $('view').value); } catch (e) { }
   render();
