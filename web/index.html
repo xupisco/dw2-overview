@@ -56,7 +56,7 @@
   .brand i { width: 16px; height: 16px; border: 1px solid var(--acc); transform: rotate(45deg); display: grid; place-items: center; }
   .brand i::after { content: ''; width: 6px; height: 6px; background: var(--acc); }
   .brand b { font-family: var(--cond); font-weight: 700; font-size: 16px; letter-spacing: .06em; text-transform: uppercase; }
-  .tabs { display: flex; overflow-x: auto; flex: 1 1 360px; min-width: 0; order: 3; scrollbar-width: none; }
+  .tabs { display: flex; overflow-x: auto; flex: 1 1 100%; min-width: 0; order: 3; scrollbar-width: none; }
   .tabs button { flex: none; display: flex; align-items: center; gap: 6px; padding: 7px 10px 6px; border: 0; border-bottom: 2px solid transparent; background: transparent;
     color: var(--mut); font-family: var(--cond); font-weight: 600; font-size: 14px; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
   .tabs button:hover { color: var(--tx); }
@@ -75,7 +75,12 @@
   .statusline .up { color: var(--ok); } .statusline .down { color: var(--bad); } .statusline .paused { color: var(--warn); }
   .clockbtn { background: var(--panel); border: 0; color: var(--mut); padding: 1px 8px; cursor: pointer; font-size: 12px; }
   .clockbtn:hover { background: var(--hover); color: var(--tx); }
-  .gamectl { display: flex; align-items: center; gap: 6px; margin-right: 6px; }
+  .gamectl { display: flex; align-items: center; gap: 6px; margin-right: 12px; }
+  @media (min-width: 1480px) { .tabs { order: 1; flex: 0 1 auto; } }
+  .livebtn { display: inline-flex; align-items: center; border: 0; background: transparent; color: inherit; font: inherit; padding: 0; cursor: pointer; }
+  .livebtn:hover #status { color: var(--tx); }
+  .livebtn.frozen #status { color: var(--warn); }
+  .livebtn.frozen .dot { background: var(--warn); box-shadow: none; }
   .gamectl[hidden] { display: none; }
   .gamectl .clockbtn b { color: var(--tx); font-weight: 600; }
   .gamectl .clockbtn.paused { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); font-weight: 600; }
@@ -507,13 +512,10 @@
       <button type="button" class="tool" id="themeBtn" title="Theme">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>
       </button>
-      <button type="button" class="tool" id="pause" title="Pause updates of this page (the game keeps running)">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path id="pauseIcon" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
-      </button>
     </div>
   </div>
   <div class="statusline">
-    <span><span id="dot" class="dot"></span><span id="status">connecting…</span></span>
+    <button type="button" class="livebtn" id="liveBtn" title="Freeze this page (the game keeps running)"><span id="dot" class="dot"></span><span id="status">connecting…</span></button>
     <span id="empire"></span>
   </div>
 </header>
@@ -1636,13 +1638,13 @@ $('view').addEventListener('input', () => {
   try { localStorage.setItem('overview.view', $('view').value); } catch (e) { }
   render();
 });
-$('pause').addEventListener('click', () => {
+// Clicking "Live" freezes the page (nothing redraws under the mouse; the game keeps running); again resumes.
+$('liveBtn').addEventListener('click', () => {
   paused = !paused;
-  $('pauseIcon').setAttribute('d', paused ? 'M7 4l12 8-12 8z' : 'M6 4h4v16H6zM14 4h4v16h-4z');
-  $('pause').title = paused ? 'Resume updates of this page' : 'Pause updates of this page (the game keeps running)';
-  $('pause').classList.toggle('on', paused);
-  $('status').textContent = paused ? 'Updates paused' : $('status').textContent;
-  if (!paused) refresh();
+  $('liveBtn').title = paused ? 'Frozen: click to update again' : 'Freeze this page (the game keeps running)';
+  $('liveBtn').classList.toggle('frozen', paused);
+  if (paused) $('status').textContent = 'Frozen · click to resume';
+  else refresh();
 });
 
 document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
