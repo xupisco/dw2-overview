@@ -24,7 +24,7 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
    - [x] Item na fila de espera: aparece com nome, design e posição na fila (2026-11-26).
    - [ ] Ainda não vista no jogo: instalação em construção.
 3. [x] Repositório próprio (`xupisco/dw2-overview`).
-4. [ ] Colônias e pesquisa: novas abas com tabela (população, aprovação, corrupção, impostos; fila de pesquisa com %). Conferir as escalas contra a tela do jogo.
+4. [x] Colônias e pesquisa: novas abas com tabela (população, aprovação, corrupção, impostos; fila de pesquisa com %). Conferir as escalas contra a tela do jogo.
    - 2026-11-26: abas Colonies e Research feitas (`/api/colonies`, `/api/research`) e testadas no jogo (coleta total 0,14 ms). Research mostra só a fila por padrão. Falta conferir as escalas das colônias contra a tela do jogo e formatar (%).
 5. [ ] Mensagens e alertas (pedido do Leandro): `Empire.Messages` / `RecentMessages` (`EmpireMessage`: `Title`, `Text`, `Type`, `SubType`, `Priority`, `StarDate`, `RelatedObject`). Aba com a lista (clique vai até o `RelatedObject`) e notificações do navegador (`Notification` API, funciona em localhost) para as de prioridade alta, com filtro por tipo.
 6. [ ] Command palette v1: `/api/index` (sistemas, colônias, naves, bases, frotas) e Ctrl+K com busca fuzzy, setas e Enter indo pelo `/api/goto`.
