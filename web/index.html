@@ -1524,7 +1524,7 @@ function renderShips() {
         ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
       const next = s.queued ? ` <span class="chip">+${s.queued} next</span>` : '';
       const fuel = s.fuel == null ? '<span class="none">–</span>'
-        : `<span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
       const manual = s.automation === 'Manual' || s.manual;
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
@@ -1869,7 +1869,7 @@ function renderResources() {
       const bucket = shipBucket(s), color = SHIP_BUCKETS.find(b => b.key === bucket).color;
       const target = s.target ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
       const fuel = s.fuel == null ? '<span class="none">–</span>'
-        : `<span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
       return `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
         <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
