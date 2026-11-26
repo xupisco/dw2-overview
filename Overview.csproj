@@ -26,6 +26,7 @@
     <Reference Include="Stride.Engine" HintPath="$(GameDir)\Stride.Engine.dll" Private="false" />
     <Reference Include="Stride.Games" HintPath="$(GameDir)\Stride.Games.dll" Private="false" />
     <Reference Include="Stride.Graphics" HintPath="$(GameDir)\Stride.Graphics.dll" Private="false" />
+    <Reference Include="Stride.Input" HintPath="$(GameDir)\Stride.Input.dll" Private="false" />
   </ItemGroup>
 
   <ItemGroup>

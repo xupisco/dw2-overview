@@ -380,7 +380,8 @@ async function refresh() {
       $('status').textContent = 'connected · no game loaded';
       $('empire').textContent = '';
     } else {
-      $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)`;
+      const clock = info.paused ? 'PAUSED' : info.speed != null ? `speed ×${+info.speed.toFixed(2)}` : '';
+      $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)${clock ? ' · ' + clock : ''}`;
       const eco = info.economy || {};
       const money = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
       $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate} · cash ${money(eco.cash)} (${eco.cashflowActual >= 0 ? "+" : ""}${money(eco.cashflowActual)}/yr)`;
@@ -561,6 +562,21 @@ async function goTo(type, id) {
   }
 }
 
+/** Runs one of the game's key mappings, as if its key had been pressed (index from /api/commands). */
+async function pressKey(index) {
+  if (!token) return;
+  try {
+    const r = await fetch('/api/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token },
+      body: JSON.stringify({ id: index }),
+    });
+    if (!r.ok) $('status').textContent = `command failed (${r.status})`;
+  } catch (e) {
+    $('status').textContent = 'command failed (game not reachable)';
+  }
+}
+
 $('rows').addEventListener('click', e => {
   const tr = e.target.closest('tr');
   if (!tr) return;
@@ -645,7 +661,7 @@ setInterval(refresh, 2000);
 // in typing. Matching looks at the name, the kind (role, planet type) and the system.
 // Groups: every kind and every system is also an entry ("Exploration Ship · 6"). Tab or Enter on a group
 // scopes the palette to it (lists all its items, typing filters inside); Backspace on an empty search leaves it.
-const palette = { open: false, index: [], remote: [], rows: [], sel: 0, timer: null, seq: 0, scope: null };
+const palette = { open: false, index: [], remote: [], commands: [], rows: [], sel: 0, timer: null, seq: 0, scope: null };
 
 
 function fuzzy(text, q) {
@@ -684,10 +700,26 @@ function paletteItems() {
 const groupValue = (item, by) => by === 'kind' ? human(item.kind) : by === 'mission' ? (item.mission ? human(item.mission) : null) : item.system;
 const inScope = (item, scope) => !scope || groupValue(item, scope.by) === scope.value;
 
+/** A command's name: the game's own description of the key mapping, else its action made readable. */
+const commandLabel = c => (c.description || human((c.action || '').replace(/^UI_/, '').replace(/_/g, ' ')))
+  + (c.role ? ` (${human(c.role)})` : '');
+
 function paletteResults() {
-  const q = $('pinput').value.trim().toLowerCase();
+  const raw = $('pinput').value.trim().toLowerCase();
   const scope = palette.scope;
-  const items = paletteItems().filter(i => inScope(i, scope));
+  // ">" at the start (or the Commands group) shows only commands, as in VS Code.
+  const commandsOnly = raw.startsWith('>') || scope?.by === 'commands';
+  const q = raw.startsWith('>') ? raw.slice(1).trim() : raw;
+  const commands = [];
+  if (commandsOnly || q) {
+    for (const c of palette.commands) {
+      const label = commandLabel(c);
+      const m = q ? fuzzy(label, q) : { score: 0, hits: [] };
+      if (m) commands.push({ command: c, label, score: m.score, hits: m.hits });
+    }
+    commands.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+  }
+  const items = commandsOnly ? [] : paletteItems().filter(i => inScope(i, scope));
 
   // Items: best of name, kind and system (only name hits are highlighted).
   const found = [];
@@ -720,6 +752,10 @@ function paletteResults() {
       if (m) groups.push({ group: { by, value, count: n }, score: m.score, hits: m.hits });
     }
     groups.sort((a, b) => b.score - a.score || a.group.value.localeCompare(b.group.value));
+    if (!commandsOnly && palette.commands.length) {
+      const m = q ? fuzzy('commands', q) : { score: 1e6, hits: [] };   // first in the browser view
+      if (m) groups.unshift({ group: { by: 'commands', value: 'Commands', count: palette.commands.length }, score: m.score, hits: m.hits });
+    }
   }
 
   // Without a search, groups first (it is a browser); with one, the best items first and a few groups.
@@ -734,7 +770,12 @@ function paletteResults() {
       const n = palette.rows.length;
       palette.rows.push(r);
       const on = n === palette.sel ? ' on' : '';
-      if (r.group) {
+      if (r.command) {
+        html += `<div class="pitem${on}" data-n="${n}">
+          <span class="pname">${highlight(r.label, r.hits)}</span>
+          <span class="pmeta">command${r.command.key ? ' · key ' + esc(r.command.key) : ''}</span>
+          <span class="pkey">Enter</span></div>`;
+      } else if (r.group) {
         html += `<div class="pitem${on}" data-n="${n}">
           <span class="pname">${highlight(r.group.value, r.hits)}</span>
           <span class="pmeta">${r.group.by} · ${r.group.count}</span>
@@ -749,16 +790,20 @@ function paletteResults() {
     }
   };
   // A search that matches a kind or system as well as any name ("explor") puts the groups first.
-  const groupsFirst = !q || (g.length && (!f.length || g[0].score >= f[0].score));
-  if (groupsFirst) { section('Groups', g); section(!q ? (scope ? 'All' : 'Own') : 'Results', f); }
-  else { section('Results', f); section('Groups', g); }
+  if (commandsOnly) section('Commands', commands.slice(0, 80));
+  else {
+    const groupsFirst = !q || (g.length && (!f.length || g[0].score >= f[0].score));
+    if (groupsFirst) { section('Groups', g); section(!q ? (scope ? 'All' : 'Own') : 'Results', f); }
+    else { section('Results', f); section('Groups', g); }
+    section('Commands', commands.slice(0, 5));
+  }
   palette.sel = Math.min(palette.sel, Math.max(0, palette.rows.length - 1));
   $('plist').innerHTML = html || `<div class="pitem"><span class="pname none">${q ? 'Nothing found' : 'Type to search'}</span></div>`;
   $('pscope').hidden = !scope;
   $('pscope').textContent = scope ? `${scope.value} ›` : '';
   $('pfoot').textContent = scope
     ? '↑↓ choose · Enter go · Backspace (empty search) leave group · Esc close'
-    : '↑↓ choose · Enter go · Tab or Enter on a group lists it · Esc close';
+    : '↑↓ choose · Enter go · Tab or Enter on a group lists it · > for commands · Esc close';
   const on = $('plist').querySelector('.pitem.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
 }
@@ -772,6 +817,7 @@ async function openPalette() {
   $('pinput').value = '';
   $('pinput').focus();
   paletteResults();
+  getJson('/api/commands').then(r => { palette.commands = r.items || []; if (palette.open) paletteResults(); }).catch(() => { });
   try {
     palette.index = (await getJson('/api/index')).items || [];
     if (!palette.index.length) { await new Promise(r => setTimeout(r, 1200)); palette.index = (await getJson('/api/index')).items || []; }
@@ -797,6 +843,7 @@ function paletteChoose(n, viaTab) {
   const r = palette.rows[n];
   if (!r) return;
   if (r.group) { enterGroup(r.group); return; }
+  if (r.command) { if (!viaTab) { pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
   if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: human(r.item.kind) }); return; }
   goTo(r.item.type, r.item.id);

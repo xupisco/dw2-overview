@@ -111,9 +111,9 @@ internal static class Snapshot
             postfix: new HarmonyMethod(typeof(Snapshot), nameof(UpdatePostfix)));
     }
 
-    private static void UpdatePostfix(DWGame __instance)
+    private static void UpdatePostfix(DWGame __instance, Stride.Games.GameTime gameTime)
     {
-        Commands.Run(__instance);
+        Commands.Run(__instance, gameTime);
         double now = clock.Elapsed.TotalSeconds;
         if (now < nextCollect)
         {
@@ -200,6 +200,8 @@ internal static class Snapshot
                 starDateText = Safe(() => TextHelper.ResolveStarDateDescription(galaxy.StarDate)),
                 token = Commands.Token,
                 economy = Views.Economy(empire),
+                paused = Safe(() => __instance.GetGamePaused()),
+                speed = Safe(() => __instance.GetGameSpeed()),
                 collectedAt,
                 collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
                 timings = new

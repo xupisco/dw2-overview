@@ -42,11 +42,76 @@ internal static class Commands
         return done.Task.Wait(timeoutMs) ? done.Task.Result : default;
     }
 
-    public static void Run(DWGame game)
+    // ---- The game's own hotkeys as commands ----
+    // The palette lists the player's key mappings (DWSettings.KeyMappings, as remapped in the options) and
+    // runs one the same way a key press does: InputSystem.HandleKeyPress, on the game thread.
+
+    private static readonly ConcurrentQueue<int> keyPresses = new();
+
+    public static void PressKey(int index) => keyPresses.Enqueue(index);
+
+    /// <summary>One key mapping, for the palette. Runs on the game thread (through OnGameThread).</summary>
+    public static List<object> ListKeyMappings(DWGame game)
+    {
+        var rows = new List<object>();
+        var mappings = game.DWSettings?.KeyMappings;
+        if (mappings == null)
+        {
+            return rows;
+        }
+        for (int i = 0; i < mappings.Count; i++)
+        {
+            var m = mappings[i];
+            if (m == null || m.CockpitTaskType != CockpitTaskType.Undefined)
+            {
+                continue;   // cockpit-mode controls only make sense in that mode
+            }
+            string action = m.TaskType != GameTaskType.Undefined ? m.TaskType.ToString()
+                : m.UiSection != DrawDetailType.Undefined ? "Open" + m.UiSection : null;
+            if (action == null)
+            {
+                continue;
+            }
+            rows.Add(new
+            {
+                index = i,
+                action,
+                description = string.IsNullOrWhiteSpace(m.Description) ? null : m.Description,
+                key = (m.ShiftActive ? "Shift+" : "") + (string.IsNullOrEmpty(m.KeyName) ? m.Key.ToString() : m.KeyName),
+                role = m.QueueBaseRole.ToString() == "Undefined" ? null : m.QueueBaseRole.ToString(),
+            });
+        }
+        return rows;
+    }
+
+    public static void Run(DWGame game, Stride.Games.GameTime gameTime)
     {
         while (jobs.TryDequeue(out var job))
         {
             job(game);
+        }
+        while (keyPresses.TryDequeue(out int index))
+        {
+            try
+            {
+                var mappings = game.DWSettings?.KeyMappings;
+                if (game.Galaxy == null || game.InputSystem == null || mappings == null || index < 0 || index >= mappings.Count)
+                {
+                    Log.Warn($"Key {index}: no game loaded or no such mapping.");
+                    continue;
+                }
+                var m = mappings[index];
+                float dt = (float)gameTime.Elapsed.TotalSeconds;
+                game.InputSystem.HandleKeyPress(game.Galaxy, m, gameTime, dt, (float)gameTime.Total.TotalSeconds, dt);
+                if (logged++ < 50)
+                {
+                    Log.Info($"Key {index}: {m.TaskType}/{m.UiSection} ({m.KeyName}) {m.Description}");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error($"Key {index}: {e}");
+            }
         }
         while (pending.TryDequeue(out var command))
         {

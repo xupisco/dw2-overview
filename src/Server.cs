@@ -129,6 +129,14 @@ internal static class Server
                     Snapshot.TouchShips();
                     Send(response, 200, contentTypes[".json"], Snapshot.ShipsJson);
                     return;
+                case "/api/commands":
+                {
+                    Snapshot.Touch();
+                    var rows = Commands.OnGameThread(game => Commands.ListKeyMappings(game));
+                    Send(response, rows == null ? 503 : 200, contentTypes[".json"],
+                        JsonSerializer.Serialize(new { items = rows ?? new List<object>() }, apiJson));
+                    return;
+                }
                 case "/api/search":
                     HandleSearch(request, response);
                     return;
@@ -168,7 +176,7 @@ internal static class Server
             Send(response, 403, contentTypes[".json"], "{\"error\":\"forbidden\"}");
             return;
         }
-        if (path != "/api/goto")
+        if (path != "/api/goto" && path != "/api/key")
         {
             Send(response, 404, contentTypes[".json"], "{\"error\":\"unknown command\"}");
             return;
@@ -178,6 +186,18 @@ internal static class Server
         {
             string text = reader.ReadToEnd();
             body = text.Length <= 1024 ? JsonSerializer.Deserialize<GoToRequest>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) : null;
+        }
+        if (path == "/api/key")
+        {
+            // {"id": index into the key mappings listed by /api/commands}
+            if (body == null || body.Id < 0)
+            {
+                Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {id}\"}");
+                return;
+            }
+            Commands.PressKey(body.Id);
+            Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
+            return;
         }
         if (body == null || (body.Type != "ship" && body.Type != "orb" && body.Type != "fleet") || body.Id <= 0)
         {
