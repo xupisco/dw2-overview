@@ -282,6 +282,14 @@
   .heat td small { color: var(--mut); }
   .heat tbody tr:nth-child(even) td:not(.hc) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
 
+  /* Accept / Decline for advisor suggestions */
+  .answers { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+  .ovrow .answers { margin: 6px 0 0; }
+  .abtn { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--tx); font-size: 12px; cursor: pointer; }
+  .abtn:hover { background: var(--hover); }
+  .abtn.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+  .abtn.ok:hover { background: color-mix(in srgb, var(--ok) 35%, transparent); }
+
   /* Segmented control (group by) */
   .seg { display: inline-flex; background: var(--panel); }
   .filters .seg button { background: transparent; color: var(--mut); padding: 0 12px; }
@@ -610,7 +618,7 @@ columns.messages = [
   { key: 'title', label: 'Title' },
   { key: 'text', label: 'Text', f: v => { const t = plain(v); return t.length > 90 ? esc(t.slice(0, 90)) + '…' : esc(t); }, html: true },
   { key: 'relatedName', label: 'About' },
-  { key: 'task', label: 'Suggests' },
+  { key: 'task', label: 'Suggests', html: true, f: (v, r) => !v ? '' : esc(v) + (r.pending && r.advisor ? ' <span class="answers"><button type="button" class="abtn ok" data-answer="accept">Accept</button><button type="button" class="abtn" data-answer="decline">Decline</button></span>' : '') },
 ];
 otherSort.messages = { key: 'date', asc: false };
 
@@ -761,6 +769,10 @@ async function refresh() {
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
       if (tab === 'resources') refreshResourceShips();
+      if (info.lastAnswer && info.lastAnswer !== lastAnswerSeen) {
+        if (lastAnswerSeen !== undefined) notice('Suggestion · ' + info.lastAnswer);
+        lastAnswerSeen = info.lastAnswer;
+      } else if (lastAnswerSeen === undefined) lastAnswerSeen = info.lastAnswer || null;
       if (info.counts) {
         Object.assign(tabCounts, info.counts);
         if (tab === 'resources') tabCounts.resources = countFor('resources', rows);   // collected only while that tab is open
@@ -1042,6 +1054,35 @@ async function goTo(type, id) {
 }
 
 /** Runs one of the game's key mappings, as if its key had been pressed (index from /api/commands). */
+/**
+ * Accepts or declines an advisor suggestion: the mod opens it in the game's dialog and clicks the game's own
+ * button there. The outcome comes back in /api/info (lastAnswer) and shows up as a notice.
+ */
+async function answerSuggestion(key, accept) {
+  if (!token || !key) return;
+  try {
+    const r = await fetch('/api/suggestion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token },
+      body: JSON.stringify({ key, accept }),
+    });
+    if (!r.ok) notice(`Suggestion: the mod refused it (${r.status})`);
+  } catch (e) {
+    notice('Suggestion: game not reachable');
+  }
+}
+
+/** A short notice in the toast corner (not a game message: no mute, no go to). */
+function notice(text) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span>${esc(text)}</span>`;
+  el.addEventListener('click', () => el.remove());
+  $('toasts').prepend(el);
+  setTimeout(() => el.remove(), 6000);
+}
+let lastAnswerSeen;
+
 async function pressKey(index) {
   if (!token) return;
   try {
@@ -1148,6 +1189,8 @@ $('orows').addEventListener('click', e => {
   const row = tr && otherShown[+tr.dataset.n];
   if (!row) return;
   e.preventDefault();
+  const answer = e.target.closest('[data-answer]');
+  if (answer) { answerSuggestion(row.key, answer.dataset.answer === 'accept'); return; }
   const tgt = e.target.closest('[data-tt]');
   if (tab === 'colonies') goTo('orb', row.orbId);
   else if (tab === 'messages' && row.relatedId) goTo(row.relatedType, row.relatedId);
@@ -1378,7 +1421,7 @@ function attentionItems() {
   const items = [];
   const add = (level, title, body, cta, fn) => items.push({ level, title, body, cta, fn });
   for (const m of ov.messages.filter(m => m.pending && m.advisor)) {
-    add('warn', 'Advisor suggestion', plain(m.task || m.text), 'Messages', goTab('messages'));
+    items.push({ level: 'warn', title: 'Advisor suggestion', body: plain(m.task || m.text), cta: 'Messages', fn: goTab('messages'), key: m.key });
   }
   for (const c of ov.colonies) {
     if (c.rebelling) add('bad', `${c.name} is rebelling`, `Approval ${fmt.int(c.approval)} · unrest ${fmt.num(c.unrest)}`, 'Go to', () => goTo('orb', c.orbId));
@@ -1426,7 +1469,7 @@ function blockHtml(id) {
   if (id === 'attention') {
     const list = attentionItems();
     return panel('Needs attention', 'var(--warn)', `<span class="ovnote">${list.length} open</span>`,
-      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small></span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
+      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small>${a.key ? `<span class="answers"><span class="abtn ok" ${act(() => answerSuggestion(a.key, true))}>Accept</span><span class="abtn" ${act(() => answerSuggestion(a.key, false))}>Decline</span></span>` : ''}</span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
       || '<div class="ovempty">Nothing needs you right now.</div>');
   }
   if (id === 'construction') {

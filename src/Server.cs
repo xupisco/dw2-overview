@@ -182,7 +182,7 @@ internal static class Server
             Send(response, 403, contentTypes[".json"], "{\"error\":\"forbidden\"}");
             return;
         }
-        if (path != "/api/goto" && path != "/api/key")
+        if (path != "/api/goto" && path != "/api/key" && path != "/api/suggestion")
         {
             Send(response, 404, contentTypes[".json"], "{\"error\":\"unknown command\"}");
             return;
@@ -192,6 +192,18 @@ internal static class Server
         {
             string text = reader.ReadToEnd();
             body = text.Length <= 1024 ? JsonSerializer.Deserialize<GoToRequest>(text, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) : null;
+        }
+        if (path == "/api/suggestion")
+        {
+            // {"key": the pending message key from /api/messages, "accept": true | false}
+            if (body == null || string.IsNullOrEmpty(body.Key) || body.Accept == null)
+            {
+                Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {key, accept}\"}");
+                return;
+            }
+            Commands.AnswerSuggestion(body.Key, body.Accept.Value);
+            Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
+            return;
         }
         if (path == "/api/key")
         {
@@ -249,6 +261,8 @@ internal static class Server
     {
         public string Type { get; set; }
         public int Id { get; set; }
+        public string Key { get; set; }
+        public bool? Accept { get; set; }
     }
 
     private static void ServeFile(HttpListenerResponse response, string urlPath)

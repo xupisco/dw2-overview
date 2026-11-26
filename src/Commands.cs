@@ -84,8 +84,72 @@ internal static class Commands
         return rows;
     }
 
+    // ---- Advisor suggestions: Accept / Decline ----
+    // Done the way the player does it: the suggestion is opened in the game's message dialog and that dialog's
+    // own Yes ("Assign Mission") or No ("Decline") button is clicked, so the game's own checks and costs apply.
+    // If the dialog does not show that suggestion, or the button is disabled, nothing is clicked.
+
+    private static readonly ConcurrentQueue<(string key, bool accept)> answers = new();
+
+    /// <summary>What happened to the last suggestion answered from the page, for /api/info.</summary>
+    public static volatile string LastAnswer;
+
+    public static void AnswerSuggestion(string key, bool accept) => answers.Enqueue((key, accept));
+
+    private static void RunAnswers(DWGame game)
+    {
+        while (answers.TryDequeue(out var a))
+        {
+            string what = a.accept ? "Accept" : "Decline";
+            try
+            {
+                if (game.Renderer is not ScaledRenderer renderer || renderer.PlayerEmpire is not Empire empire)
+                {
+                    LastAnswer = $"{what}: no game loaded";
+                    continue;
+                }
+                var message = Snapshot.Copy(empire.EvaluationQueue).FirstOrDefault(m => m.IsAdvisorSuggestion && Views.MessageKey(m, true) == a.key);
+                if (message == null)
+                {
+                    LastAnswer = $"{what}: that suggestion is gone (answered or expired)";
+                    Log.Warn($"Suggestion {a.key}: not in the queue any more.");
+                    continue;
+                }
+                renderer.OpenMessage(message, true, false);
+                var dialog = DistantWorlds.UI.UserInterfaceController.EmpireMessageDialog;
+                var button = a.accept ? dialog?.YesButton : dialog?.NoButton;
+                bool shown = dialog != null && ReferenceEquals(dialog.Message, message);
+                Log.Info($"Suggestion '{message.Title}: {message.GameTask?.Text}' → {what}. Dialog shows it: {shown}; " +
+                    $"Yes='{dialog?.YesButton?.Text}' enabled={dialog?.YesButton?.Enabled}, No='{dialog?.NoButton?.Text}' enabled={dialog?.NoButton?.Enabled}, " +
+                    $"extra={button?.ExtraClickData?.GetType().Name ?? "null"}");
+                if (!shown || button == null)
+                {
+                    LastAnswer = $"{what}: the game did not open the suggestion; nothing done";
+                    continue;
+                }
+                if (!button.Enabled)
+                {
+                    LastAnswer = $"{what}: the game's button is disabled (cannot do it now)";
+                    continue;
+                }
+                var args = new DWEventArgs(button.ExtraClickData);
+                button.PreClickEvent?.Invoke(button, args);
+                button.ClickEvent?.Invoke(button, args);
+                bool stillQueued = Snapshot.Copy(empire.EvaluationQueue).Contains(message);
+                LastAnswer = $"{what}: {message.GameTask?.Text ?? message.Title}" + (stillQueued ? " (still in the queue)" : "");
+                Log.Info($"Suggestion answered ({what}); still in the queue: {stillQueued}");
+            }
+            catch (Exception e)
+            {
+                LastAnswer = $"{what}: failed ({e.Message})";
+                Log.Error($"Suggestion {a.key}: {e}");
+            }
+        }
+    }
+
     public static void Run(DWGame game, Stride.Games.GameTime gameTime)
     {
+        RunAnswers(game);
         while (jobs.TryDequeue(out var job))
         {
             job(game);

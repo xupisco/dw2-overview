@@ -253,6 +253,7 @@ internal static class Snapshot
                     messages = messages.Count(m => !m.Pending),
                     pending = messages.Count(m => m.Pending),
                 },
+                lastAnswer = Commands.LastAnswer,
                 paused = Safe(() => __instance.GetGamePaused()),
                 speed = Safe(() => __instance.GetGameSpeed()),
                 collectedAt,

@@ -124,7 +124,7 @@ internal static class Views
             rows.Add(new MessageRow
             {
                 Pending = isPending,
-                Key = $"{(isPending ? "pending|" : "")}{m.StarDate}|{m.Type}|{m.SubType}|{m.Title}|{relatedId}",
+                Key = MessageKey(m, isPending),
                 StarDate = m.StarDate,
                 Date = Safe(() => m.StarDateDescription),
                 Type = m.Type.ToString(),
@@ -302,6 +302,14 @@ internal static class Views
             }
         }
         return rows;
+    }
+
+    /// <summary>Tells messages apart between snapshots (the game gives them no id); also how the page names a
+    /// suggestion it wants answered.</summary>
+    public static string MessageKey(EmpireMessage m, bool pending)
+    {
+        var (_, relatedId) = Target(Safe(() => m.RelatedObject));
+        return $"{(pending ? "pending|" : "")}{m.StarDate}|{m.Type}|{m.SubType}|{m.Title}|{relatedId}";
     }
 
     /// <summary>How /api/goto finds an object again.</summary>
