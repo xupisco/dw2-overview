@@ -384,10 +384,10 @@
   .locrow .lname b { font-weight: 500; }
   .locrow .lname small { color: var(--mut); font-size: 12px; }
   .lres { display: flex; flex-wrap: wrap; gap: 4px; }
-  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px 1px 6px; white-space: nowrap; border-left: 3px solid var(--mut); }
-  .lchip[data-cat="construction"] { border-left-color: var(--acc); }
-  .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
-  .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
+  /* A resource chip: its type as a small square (as in the type filters), the game's production mark as the outline */
+  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px; white-space: nowrap; }
+  .lchip .catsq { width: 7px; height: 7px; margin-right: 5px; vertical-align: 1px; }
+  .lchip .catsq[data-cat=""] { background: var(--mut); }
   .lchip.unused { opacity: .45; }
   /* A message's place and its resources (a suggested mining station's site) */
   .mres { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
@@ -629,9 +629,9 @@
   .sname.one small { flex: none; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
   .cchip { background: var(--track); padding: 0 6px 0 5px; white-space: nowrap; border-left: 3px solid var(--mut); }
-  .cchip[data-cat="construction"], .lchip[data-cat="construction"] { border-left-color: var(--acc); }
-  .cchip[data-cat="fuel"], .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
-  .cchip[data-cat="luxury"], .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
+  .cchip[data-cat="construction"] { border-left-color: var(--acc); }
+  .cchip[data-cat="fuel"] { border-left-color: var(--warn); }
+  .cchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
   .cchip b { font-weight: 500; }
   .swarncol { font-size: 12px; }
   .swarncol .swarn { flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -1781,7 +1781,7 @@ function placeResources(m) {
     `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
       const st = resKnow.get(x.name) || 'adequate', mk = chipMark(resSurplus.get(x.name));
       const note = [mk.note, st !== 'adequate' ? 'supply ' + st : ''].filter(Boolean).join(' · ');
-      return `<span class="lchip ${mk.cls}" data-cat="${esc(resCat.get(x.name) || '')}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+      return `<span class="lchip ${mk.cls}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}"><i class="catsq" data-cat="${esc(resCat.get(x.name) || '')}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
     }).join('')}</span>`).join('');
 }
 async function refreshResKnow() {
@@ -2969,7 +2969,7 @@ function depChips(d, byId, asLinks) {
     const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
     const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
     const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
-    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}"${asLinks ? ` data-res="${x.id}"` : ''} title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}"${asLinks ? ` data-res="${x.id}"` : ''} title="${esc(x.name)} · ${esc(note)}"><i class="catsq" data-cat="${r ? esc(r.category) : ''}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
   }).join('');
 }
 /** Who is on a place: mining ships there (no station needed), a station being built, a ship on its way, an order. */
