@@ -393,6 +393,10 @@
   .mres { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
   .mres-at { color: var(--mut); font-size: 12px; margin-right: 2px; }
   .mresblock { margin-top: 10px; }
+  /* The place modal (palette, Shift+Enter) */
+  #resModalBody .pltags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #resModalBody .lres .lchip[data-res] { cursor: pointer; }
+  #resModalBody .plgo { margin-top: 16px; }
   .lchip b { font-weight: 500; }
   .lchip.st-short { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
   .lchip.st-over { box-shadow: inset 0 0 0 1px var(--warn); }
@@ -688,6 +692,9 @@
   .pitem .pname b { color: var(--acc); font-weight: 600; }
   .pitem .pmeta { color: var(--mut); font-size: 12px; white-space: nowrap; }
   .pitem .own { color: var(--ok); }
+  /* A place's resources and who is on it, on a second line of its result */
+  .pitem.hasplace { flex-wrap: wrap; row-gap: 5px; }
+  .pitem .pplace { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .pfoot { color: var(--mut); font-size: 12px; padding: 6px 16px; background: var(--panel-h); }
   .pscope { margin-left: 16px; padding: 2px 8px; background: var(--acc-d); color: var(--acc); white-space: nowrap; }
   .pscope[hidden] { display: none; }
@@ -2952,11 +2959,32 @@ async function refreshResBuilds() {
     if (sig !== JSON.stringify(resBuilds.map(i => [i.state, i.siteOrbId, i.where]))) { resBuilds = items; if (tab === 'resources') renderResources(); }
   } catch (e) { }
 }
+/**
+ * A place's resources as chips: the resource's type colour (as in the list), the game's production mark as an
+ * outline, faded when the empire does not use it. byId: resource rows by id. With asLinks, a chip opens that
+ * resource (data-res).
+ */
+function depChips(d, byId, asLinks) {
+  return [...d.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
+    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
+    const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
+    const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
+    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}"${asLinks ? ` data-res="${x.id}"` : ''} title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+  }).join('');
+}
+/** Who is on a place: mining ships there (no station needed), a station being built, a ship on its way, an order. */
+function depTags(d) {
+  const g = resBuilds.find(i => i.siteOrbId === d.orbId && i.state !== 'idle');
+  const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
+    : g && g.state === 'enroute' ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>`
+    : d.queued || (g && g.state === 'planned') ? '<span class="tag planned" title="Ordered; waiting for a construction ship">ordered</span>' : '';
+  const miners = (d.ships || []).length ? `<span class="tag shipmine" title="Mining ships mine here without a station: ${esc(d.ships.map(s => s.name).join(', '))}">${d.ships.length === 1 ? esc(d.ships[0].name) : d.ships.length + ' ships'} mining</span>` : '';
+  return miners + who;
+}
+
 function renderLocations(all, deps, q) {
   refreshResBuilds();
   const byId = new Map(all.map(r => [r.id, r]));
-  const going = new Map();
-  for (const i of resBuilds) if (i.siteOrbId != null && i.state !== 'idle') going.set(i.siteOrbId, i);
   // Most needed: a place with a critical resource first, then one with a low resource, then the rest; within
   // that, the most of what is short, then the most of anything.
   const stOf = x => byId.get(x.id) ? resStatus(byId.get(x.id)) : 'adequate';
@@ -2967,25 +2995,10 @@ function renderLocations(all, deps, q) {
       && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q))))
     .sort((a, b) => mined ? (a.minedBy === 'colony' ? -1 : 0) - (b.minedBy === 'colony' ? -1 : 0) || (a.name || '').localeCompare(b.name || '')
       : (a.priority ?? 1e9) - (b.priority ?? 1e9) || byNeed(a, b) || (a.name || '').localeCompare(b.name || ''));
-  // A chip carries the resource's type colour (as in the list), its shortage as an outline, and fades when the
-  // empire does not use that resource at all.
-  const chip = x => {
-    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
-    const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
-    const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
-    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}" title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
-  };
-  $('resLocations').innerHTML = list.map(d => {
-    const g = going.get(d.orbId);
-    const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
-      : g && g.state === 'enroute' ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>`
-      : d.queued || (g && g.state === 'planned') ? '<span class="tag planned" title="Ordered; waiting for a construction ship">ordered</span>' : '';
-    // Mining ships work places without a station too; on a new location that is worth saying.
-    const miners = (d.ships || []).length ? `<span class="tag shipmine" title="Mining ships mine here without a station: ${esc(d.ships.map(s => s.name).join(', '))}">${d.ships.length === 1 ? esc(d.ships[0].name) : d.ships.length + ' ships'} mining</span>` : '';
-    return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
-      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${miners || who ? `<span class="ltags">${miners}${who}</span>` : ''}</span>
-      <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span></div>`;
-  }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
+  $('resLocations').innerHTML = list.map(d => `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
+      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${depTags(d) ? `<span class="ltags">${depTags(d)}</span>` : ''}</span>
+      <span class="lres">${depChips(d, byId)}</span></div>`).join('')
+    || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
 }
 $('resSort').addEventListener('click', e => {
@@ -3046,7 +3059,12 @@ const closeResourceModal = () => { $('resModal').hidden = true; };
 $('resModalClose').addEventListener('click', closeResourceModal);
 $('resModal').addEventListener('mousedown', e => { if (e.target.id === 'resModal') closeResourceModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('resModal').hidden) closeResourceModal(); });
-$('resModalBody').addEventListener('click', e => { const pl = e.target.closest('[data-orb]'); if (pl) { e.preventDefault(); goTo('orb', +pl.dataset.orb); } });
+$('resModalBody').addEventListener('click', e => {
+  const rs = e.target.closest('[data-res]');
+  if (rs) { e.preventDefault(); openResourceModal(+rs.dataset.res); return; }
+  const pl = e.target.closest('[data-orb]');
+  if (pl) { e.preventDefault(); goTo('orb', +pl.dataset.orb); }
+});
 $('resCards').addEventListener('click', e => {
   const pl = e.target.closest('[data-orb]');
   if (pl) { e.preventDefault(); goTo('orb', +pl.dataset.orb); return; }
@@ -3104,10 +3122,12 @@ function renderResources() {
   $('resSort').hidden = resView !== 'resources';
 
   // Every resource that matters, most urgent first (critical, low, then the rest), soonest to run out first.
+  // The search matches a resource's name or a place's ("as693" lists what is found there).
+  const placeHits = q ? (resData.deposits || []).filter(d => (d.name || '').toLowerCase().includes(q)) : [];
   const rows = all.filter(r => (!resSupply || (inCat(r, resSupply.cat) && resStatus(r) === resSupply.status))
     && (!resTypeFilter.size || resTypeFilter.has(r.category))
     && (!resAvailFilter.size || resAvailFilter.has(resAvail(r)))
-    && (!q || (r.name || '').toLowerCase().includes(q)))
+    && (!q || (r.name || '').toLowerCase().includes(q) || placeHits.some(d => d.resources.some(x => x.id === r.id))))
     .sort((a, b) => resSort === 'name' ? (a.name || '').localeCompare(b.name || '')
       : RES_RANK[resStatus(a)] - RES_RANK[resStatus(b)] || (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
   if (resLayout === 'cards') {
@@ -3287,10 +3307,11 @@ function paletteResults() {
           <span class="pkey">Tab</span></div>`;
       } else {
         const it = r.item;
-        html += `<div class="pitem${on}" data-n="${n}">
+        const dep = it.type === 'orb' ? palette.deposits?.get(it.id) : null;
+        html += `<div class="pitem${on}${dep ? ' hasplace' : ''}" data-n="${n}">
           <span class="pname">${highlight(it.name, r.hits)}</span>
           <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(kindText(it) || it.type)}${it.type === 'resource' ? ` · ${esc(human(it.category))}${it.status !== 'adequate' ? ` · <span class="${it.status === 'critical' ? 'flag' : 'mk-warn'}">${esc(it.status)}</span>` : ''}${it.stock != null ? ' · stock ' + fmt.big(Math.round(it.stock)) : ''}` : ''}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
-          <span class="pkey">Enter</span></div>`;
+          <span class="pkey">Enter</span>${dep ? `<span class="pplace">${depTags(dep)}${depChips(dep, palette.resById || new Map())}</span>` : ''}</div>`;
       }
     }
   };
@@ -3306,9 +3327,10 @@ function paletteResults() {
   $('plist').innerHTML = html || `<div class="pitem"><span class="pname none">${q ? 'Nothing found' : 'Type to search'}</span></div>`;
   $('pscope').hidden = !scope;
   $('pscope').textContent = scope ? `${scope.value} ›` : '';
+  const placeOn = palette.rows[palette.sel]?.item?.type === 'orb' ? ' · Shift+Enter details' : '';
   $('pfoot').textContent = scope
-    ? '↑↓ choose · Enter go · Backspace (empty search) leave group · Esc close'
-    : '↑↓ choose · Enter go · Tab or Enter on a group lists it · > for commands · Esc close';
+    ? `↑↓ choose · Enter go${placeOn} · Backspace (empty search) leave group · Esc close`
+    : `↑↓ choose · Enter go${placeOn} · Tab or Enter on a group lists it · > for commands · Esc close`;
   const on = $('plist').querySelector('.pitem.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
 }
@@ -3324,6 +3346,7 @@ async function openPalette() {
   paletteResults();
   getJson('/api/commands').then(r => { palette.commands = r.items || []; if (palette.open) paletteResults(); }).catch(() => { });
   loadPaletteResources();
+  refreshResBuilds();   // who is on a place (a construction ship on its way, an order)
   try {
     palette.index = (await getJson('/api/index')).items || [];
     if (!palette.index.length) { await new Promise(r => setTimeout(r, 1200)); palette.index = (await getJson('/api/index')).items || []; }
@@ -3352,8 +3375,12 @@ function enterGroup(group) {
  */
 async function loadPaletteResources() {
   try {
-    let rows = (await getJson('/api/resources')).items || [];
-    if (!rows.length) { await new Promise(r => setTimeout(r, 1500)); rows = (await getJson('/api/resources')).items || []; }
+    let data = await getJson('/api/resources');
+    if (!(data.items || []).length) { await new Promise(r => setTimeout(r, 1500)); data = await getJson('/api/resources'); }
+    const rows = data.items || [];
+    // Places with known resources: a place's row shows them, and Shift+Enter opens it on the page.
+    palette.resById = new Map(rows.map(r => [r.id, r]));
+    palette.deposits = new Map((data.deposits || []).map(d => [d.orbId, d]));
     palette.resources = rows.filter(resRelevant).map(r => ({ type: 'resource', id: r.id, name: r.name, kind: 'Resource',
       category: r.category, status: resStatus(r), stock: stockOf(r) }));
     if (palette.open) paletteResults();
@@ -3363,15 +3390,34 @@ function openResource(id) {
   goTab('resources', () => { resView = 'resources'; resSupply = null; resPick = id; $('search').value = ''; renderResources(); })();
 }
 
-function paletteChoose(n, viaTab) {
+function paletteChoose(n, viaTab, details) {
   const r = palette.rows[n];
   if (!r) return;
   if (r.group) { enterGroup(r.group); return; }
   if (r.command) { if (!viaTab) { if (r.command.run) r.command.run(); else pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
   if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: kindText(r.item) }); return; }
-  if (r.item.type === 'resource') openResourceModal(r.item.id); else goTo(r.item.type, r.item.id);
+  // Enter goes there in the game; Shift+Enter on a place opens it here (its resources, who is on it).
+  if (r.item.type === 'resource') openResourceModal(r.item.id);
+  else if (details && r.item.type === 'orb') openPlaceModal(r.item.id, r.item);
+  else goTo(r.item.type, r.item.id);
   closePalette();
+}
+
+/** A place on the page: kind and system, who is on it, its known resources (each opens its resource), and Go to. */
+function openPlaceModal(orbId, item) {
+  const d = palette.deposits?.get(orbId) || (resData.deposits || []).find(x => x.orbId === orbId);
+  const byId = palette.resById?.size ? palette.resById : new Map((resData.items || []).map(r => [r.id, r]));
+  const name = d?.name || item?.name || 'Place';
+  const kind = human(d?.kind || item?.kind || ''), system = d?.system || item?.system;
+  $('resModalMeta').textContent = 'Place';
+  $('resModalBody').innerHTML = `<h3>${esc(name)}</h3>
+    <div class="rmnext">${[kind, system, d?.minedBy ? 'mined: ' + d.minedBy : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    ${d && depTags(d) ? `<div class="pltags">${depTags(d)}</div>` : ''}
+    <h4>Resources · ${d ? d.resources.length : 0}</h4>
+    ${d ? `<div class="lres">${depChips(d, byId, true)}</div>` : '<div class="none">No resources known here (not explored, or none).</div>'}
+    <div class="plgo"><button type="button" class="abtn" data-orb="${orbId}">Go to ${esc(name)} in the game ›</button></div>`;
+  $('resModal').hidden = false;
 }
 
 function searchRemote(q) {
@@ -3398,7 +3444,7 @@ $('pinput').addEventListener('input', () => {
 $('pinput').addEventListener('keydown', e => {
   if (e.key === 'ArrowDown') { palette.sel = Math.min(palette.sel + 1, palette.rows.length - 1); paletteResults(); e.preventDefault(); }
   else if (e.key === 'ArrowUp') { palette.sel = Math.max(palette.sel - 1, 0); paletteResults(); e.preventDefault(); }
-  else if (e.key === 'Enter') { paletteChoose(palette.sel, false); e.preventDefault(); }
+  else if (e.key === 'Enter') { paletteChoose(palette.sel, false, e.shiftKey); e.preventDefault(); }
   else if (e.key === 'Tab') { paletteChoose(palette.sel, true); e.preventDefault(); }
   else if (e.key === 'Backspace' && !$('pinput').value && palette.scope) { palette.scope = null; palette.sel = 0; paletteResults(); e.preventDefault(); }
   else if (e.key === 'Escape') { closePalette(); e.preventDefault(); }
@@ -3406,7 +3452,7 @@ $('pinput').addEventListener('keydown', e => {
 
 $('plist').addEventListener('click', e => {
   const it = e.target.closest('.pitem[data-n]');
-  if (it) paletteChoose(+it.dataset.n, false);
+  if (it) paletteChoose(+it.dataset.n, false, e.shiftKey);
 });
 $('palette').addEventListener('mousedown', e => { if (e.target.id === 'palette') closePalette(); });
 
