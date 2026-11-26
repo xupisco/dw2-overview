@@ -1579,7 +1579,7 @@ function whereCell(i, kind, key, more) {
 
 /** Role on one line: the group the filter chips use (Military, Logistics...), then the game's exact type in grey. */
 function roleCell(i) {
-  const group = buildRole(i), exact = human(i.role || '');
+  const group = buildRole(i), exact = i.roleName || human(i.role || '');
   if (!group) return '<span class="none">–</span>';
   return esc(group) + (exact && exact.toLowerCase() !== group.toLowerCase() ? ` <span class="mut">${esc(exact)}</span>` : '');
 }
@@ -2141,7 +2141,7 @@ function renderShips() {
   const rows = all.filter(s =>
     (!shipBucketFilter.size || shipBucketFilter.has(shipBucket(s))) &&
     (!shipRoleFilter.size || shipRoleFilter.has(shipCategory(s))) &&
-    (!q || [s.name, s.kind && human(s.kind), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet]
+    (!q || [s.name, s.kind && kindText(s), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet]
       .some(v => v && v.toLowerCase().includes(q))));
 
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
@@ -2198,7 +2198,7 @@ function renderShips() {
       if (shipView === 'cards') {
         html += `<div class="shipcard" data-n="${n}">
         <div class="schead"><span class="sicon">${icon(shipCategory(s), 15)}</span>
-          <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+          <span class="sname"><b>${esc(s.name)}</b><small>${esc(kindText(s))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="scmeta">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}${s.system ? ' · ' + esc(s.system) : ''}${s.fleet ? ' · ' + esc(s.fleet) : ''}</span>
@@ -2208,7 +2208,7 @@ function renderShips() {
       }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
-        <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+        <span class="sname"><b>${esc(s.name)}</b><small>${esc(kindText(s))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
         <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
@@ -2477,7 +2477,7 @@ function blockHtml(id) {
   if (id === 'idle') {
     const rows = ov.ships.filter(s => shipBucket(s) === 'idle');
     return panel('Idle ships', 'var(--acc)', linkTo('Ships', 'ships'),
-      rows.map(s => `<button type="button" class="ovrow att" ${act(() => goTo('ship', s.id))}><i class="warn"></i><span><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.system ? ' · ' + esc(s.system) : ''}</small></span></button>`).join('')
+      rows.map(s => `<button type="button" class="ovrow att" ${act(() => goTo('ship', s.id))}><i class="warn"></i><span><b>${esc(s.name)}</b><small>${esc(kindText(s))}${s.system ? ' · ' + esc(s.system) : ''}</small></span></button>`).join('')
       || '<div class="ovempty">Every ship has something to do.</div>');
   }
   return '';
@@ -2849,7 +2849,9 @@ function paletteItems() {
 }
 
 /** The value an item has for a group dimension: its kind, its system, or (own ships) its mission. */
-const groupValue = (item, by) => by === 'kind' ? human(item.kind) : by === 'mission' ? (item.mission ? human(item.mission) : null) : item.system;
+/** A role as the game writes it ("Small Freighter"), else the internal name made readable (older mod). */
+const kindText = x => x.roleName || human(x.kind || '');
+const groupValue = (item, by) => by === 'kind' ? kindText(item) : by === 'mission' ? (item.mission ? human(item.mission) : null) : item.system;
 const inScope = (item, scope) => !scope || groupValue(item, scope.by) === scope.value;
 
 /** A command's name: the game's own description of the key mapping, else its action made readable. */
@@ -2936,7 +2938,7 @@ function paletteResults() {
         const it = r.item;
         html += `<div class="pitem${on}" data-n="${n}">
           <span class="pname">${highlight(it.name, r.hits)}</span>
-          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.type === 'resource' ? ` · ${esc(human(it.category))}${it.status !== 'adequate' ? ` · <span class="${it.status === 'critical' ? 'flag' : 'mk-warn'}">${esc(it.status)}</span>` : ''}${it.stock != null ? ' · stock ' + fmt.big(Math.round(it.stock)) : ''}` : ''}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
+          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(kindText(it) || it.type)}${it.type === 'resource' ? ` · ${esc(human(it.category))}${it.status !== 'adequate' ? ` · <span class="${it.status === 'critical' ? 'flag' : 'mk-warn'}">${esc(it.status)}</span>` : ''}${it.stock != null ? ' · stock ' + fmt.big(Math.round(it.stock)) : ''}` : ''}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
           <span class="pkey">Enter</span></div>`;
       }
     }
@@ -3016,7 +3018,7 @@ function paletteChoose(n, viaTab) {
   if (r.group) { enterGroup(r.group); return; }
   if (r.command) { if (!viaTab) { if (r.command.run) r.command.run(); else pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
-  if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: human(r.item.kind) }); return; }
+  if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: kindText(r.item) }); return; }
   if (r.item.type === 'resource') openResource(r.item.id); else goTo(r.item.type, r.item.id);
   closePalette();
 }

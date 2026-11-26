@@ -113,6 +113,8 @@ internal sealed class ShipRow
     public int Id { get; set; }
     public string Name { get; set; }
     public string Kind { get; set; }
+    /// <summary>The role as the game writes it ("Small Freighter"); Kind keeps the internal name for grouping.</summary>
+    public string RoleName { get; set; }
     public bool IsBase { get; set; }
     public string Design { get; set; }
     public string System { get; set; }
@@ -145,6 +147,8 @@ internal sealed class IndexRow
     public string Name { get; set; }
     /// <summary>Planet, Moon, Star, Asteroid, a ship role, or a fleet role.</summary>
     public string Kind { get; set; }
+    /// <summary>The role as the game writes it ("Small Freighter"); Kind keeps the internal name for grouping.</summary>
+    public string RoleName { get; set; }
     public string System { get; set; }
     public bool Own { get; set; }
     /// <summary>Own ships only: the current mission, or "Idle".</summary>
@@ -264,6 +268,7 @@ internal static class Views
                 Id = id.Value,
                 Name = Safe(() => (obj as INamed)?.Name),
                 Kind = Safe(() => kind),
+                RoleName = obj is Ship rs ? Safe(() => TextHelper.ResolveDescription(rs.Role)) : null,
                 System = SystemName(galaxy, obj),
                 Own = obj is Ship ship ? ship.EmpireId == empire.EmpireId : kind == "Colony",
                 Mission = obj is Ship own && own.EmpireId == empire.EmpireId ? MissionName(own) : null,
@@ -304,6 +309,7 @@ internal static class Views
                 Id = ship.ShipId,
                 Name = Safe(() => ship.Name),
                 Kind = ship.IsBase ? "Base " + ship.Role : ship.Role.ToString(),
+                RoleName = Safe(() => TextHelper.ResolveDescription(ship.Role)),
                 IsBase = ship.IsBase,
                 Design = Safe(() => ship.Design?.Name),
                 System = SystemName(galaxy, ship),

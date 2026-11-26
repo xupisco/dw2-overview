@@ -25,6 +25,8 @@ internal sealed class BuildItem
     public string Name { get; set; }
     public string Design { get; set; }
     public string Role { get; set; }
+    /// <summary>The role as the game writes it (TextHelper.ResolveDescription): "Small Freighter", not FreighterSmall.</summary>
+    public string RoleName { get; set; }
     /// <summary>The game's own value (ConstructionLevel or ConstructionProgress); scale still to be confirmed.</summary>
     public double? Progress { get; set; }
     public string Where { get; set; }
@@ -385,6 +387,7 @@ internal static class Snapshot
                 Name = Safe(() => ship.Name),
                 Design = Safe(() => ship.Design?.Name),
                 Role = Safe(() => ship.Role.ToString()),
+                RoleName = Safe(() => TextHelper.ResolveDescription(ship.Role)),
                 Progress = Clean(Safe(() => ship.ConstructionLevel)),
                 System = SystemName(galaxy, ship),
                 ShipId = ship.ShipId,
@@ -446,6 +449,7 @@ internal static class Snapshot
             Name = ship != null ? Safe(() => ship.Name) : null,
             Design = Safe(() => design?.Name),
             Role = ship != null ? Safe(() => ship.Role.ToString()) : null,
+            RoleName = ship != null ? Safe(() => TextHelper.ResolveDescription(ship.Role)) : null,
             Progress = ship != null ? Clean(Safe(() => ship.ConstructionLevel)) : null,
             Queue = queue,
             ShipId = shipId > 0 ? shipId : null,
@@ -477,6 +481,7 @@ internal static class Snapshot
             Name = Safe(() => design?.Name),
             Design = Safe(() => design?.Name),
             Role = Safe(() => design?.GetRole(galaxy).ToString()),
+            RoleName = Safe(() => design == null ? null : TextHelper.ResolveDescription(design.GetRole(galaxy))),
         };
         // The mission has two targets (where the materials come from, where to build); the site is the one the
         // game's description names ("Build MS-3 (Large Mining Station) at Kintaris 2"), else the secondary, else the primary.
