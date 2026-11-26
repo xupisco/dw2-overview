@@ -212,6 +212,60 @@
   .switch input:checked + i { background: var(--acc-d); }
   .switch input:checked + i::after { left: 17px; background: var(--acc); }
 
+  /* Resources */
+  .restop { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
+  .supply th { background: transparent; font-size: 11px; padding: 2px 10px; cursor: default; }
+  .supply td { padding: 0; background: transparent !important; }
+  .supply td:first-child { padding: 0 12px 0 0; color: var(--mut); font-size: 12px; }
+  .supply button { width: 130px; height: 28px; border: 0; background: var(--panel); text-align: left; padding: 0 10px; font: 600 16px var(--cond); cursor: pointer; }
+  .supply button:hover { background: var(--hover); }
+  .supply button.on { background: var(--acc-d); outline: 1px solid var(--acc); outline-offset: -1px; }
+  .reswrap { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
+  .reswrap[hidden] { display: none; }
+  @media (max-width: 1000px) { .reswrap { grid-template-columns: 1fr; } }
+  .rlist { background: var(--panel); }
+  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 70px 80px 120px 70px 60px; gap: 10px; align-items: center; padding: 6px 10px; }
+  .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
+  .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .rrow:nth-child(even) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
+  .rrow:hover { background: var(--hover); }
+  .rrow.on { background: var(--acc-d); box-shadow: inset 2px 0 0 var(--acc); }
+  .rrow .num, .rhead .num { text-align: right; }
+  .rname { display: flex; flex-direction: column; min-width: 0; }
+  .rname b { font-weight: 500; }
+  .rname small { color: var(--mut); font-size: 11px; }
+  .rout { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+  .rout em { font-style: normal; }
+  .rout .pb { height: 3px; }
+  .rout .pb > i { box-shadow: none; }
+  .rstat { font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .06em; text-align: right; }
+  .rico { display: inline-grid; place-items: center; width: 26px; height: 26px; background: var(--track); font: 600 12px var(--cond); color: var(--acc); }
+  .rico[data-cat="fuel"] { color: var(--warn); } .rico[data-cat="luxury"] { color: oklch(var(--L) 0.11 330); }
+  .rico.big { width: 36px; height: 36px; font-size: 15px; }
+  .rdetail { background: var(--panel); padding: 12px; display: flex; flex-direction: column; gap: 8px; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%); }
+  .rdetail:empty { display: none; }
+  .rdhead { display: flex; align-items: center; gap: 10px; }
+  .rdhead > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+  .rdhead b { font: 600 20px var(--cond); }
+  .rdhead small { color: var(--mut); }
+  .rdnums { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rdnums span { display: flex; flex-direction: column; }
+  .rdnums small { font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
+  .rdnums b { font: 600 18px var(--cond); }
+  .rdetail h4 { margin: 6px 0 0; font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .dsite { display: grid; grid-template-columns: minmax(0, 1fr) 70px 36px auto; gap: 8px; align-items: center; width: 100%; border: 0; background: transparent; padding: 4px 0; text-align: left; cursor: pointer; }
+  .dsite:hover { background: var(--hover); }
+  .dsite span:first-child { display: flex; flex-direction: column; min-width: 0; }
+  .dsite small { color: var(--mut); font-size: 11px; }
+  .dsite em { font-style: normal; font-size: 12px; text-align: right; }
+  .dsite .pb > i { box-shadow: none; }
+  .heat th { text-align: center; padding: 6px 4px; }
+  .heat td { font-size: 12px; }
+  .heat td.hc { text-align: center; color: var(--tx); }
+  .heat td small { color: var(--mut); }
+  .heat tbody tr:nth-child(even) td:not(.hc) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
+
   /* Segmented control (group by) */
   .seg { display: inline-flex; background: var(--panel); }
   .filters .seg button { background: transparent; color: var(--mut); padding: 0 12px; }
@@ -304,6 +358,7 @@
       <button type="button" data-tab="construction">Construction <em></em></button>
       <button type="button" data-tab="ships">Ships <em></em></button>
       <button type="button" data-tab="colonies">Colonies <em></em></button>
+      <button type="button" data-tab="resources">Resources <em></em></button>
       <button type="button" data-tab="research">Research <em></em></button>
       <button type="button" data-tab="messages">Messages <em></em></button>
     </nav>
@@ -412,6 +467,20 @@
   <p>Turn blocks on or off, pick a width and change the order. S = one column, M = two, L = the whole row. Saved in this browser.</p>
   <div id="ovList"></div>
   <button type="button" id="ovReset" class="ovlink">Reset to default</button>
+</div>
+<div id="tab-resources" hidden>
+  <div class="restop">
+    <div id="resSupply"></div>
+    <span id="resViews" class="seg"><button type="button" data-view="resources">Resources</button><button type="button" data-view="deposits">Deposits</button></span>
+  </div>
+  <div id="resListWrap" class="reswrap">
+    <div class="rlist">
+      <div class="rhead"><span></span><span>Resource</span><span class="num">Stock</span><span class="num">Rate</span><span>Runs out</span><span class="num">Sources</span><span></span></div>
+      <div id="resList"></div>
+    </div>
+    <div id="resDetail" class="rdetail"></div>
+  </div>
+  <div id="resDeposits" class="wrap" hidden></div>
 </div>
 <div id="tab-ships" hidden>
   <div id="shipStatus" class="sstatus"></div>
@@ -564,6 +633,7 @@ function buildFilters() {
 
 const hints = {
   overview: 'What matters at a glance. Click anything to go to it; the tabs have the details.',
+  resources: 'Click a supply count to filter. Pick a resource to see where it is mined and where else it can be found. Rates and "runs out" are provisional: hover a row for the raw numbers.',
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
   colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
   messages: 'The game\'s message log, newest first. Click a message to go to what it is about. Notifications need the browser\'s permission once.',
@@ -573,6 +643,7 @@ const hints = {
 
 function renderOther() {
   if (tab === 'ships') { renderShips(); return; }
+  if (tab === 'resources') { renderResources(); return; }
   const cols = columns[tab], s = otherSort[tab];
   const q = $('search').value.trim().toLowerCase();
   const col = cols.find(c => c.key === s.key);
@@ -612,9 +683,10 @@ function setTab(name) {
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
-  $('tab-other').hidden = tab === 'construction' || tab === 'ships' || tab === 'overview';
+  $('tab-other').hidden = ['construction', 'ships', 'overview', 'resources'].includes(tab);
   $('tab-ships').hidden = tab !== 'ships';
   $('tab-overview').hidden = tab !== 'overview';
+  $('tab-resources').hidden = tab !== 'resources';
   $('search').hidden = tab === 'overview';
   if (tab !== 'overview') $('ovPanel').hidden = true;
   $('sfilters').hidden = tab !== 'ships';
@@ -698,6 +770,7 @@ async function refresh() {
       render();
     } else {
       other = { rows, concurrent: data.concurrent };
+      if (tab === 'resources') resData = { items: rows, deposits: data.deposits || [] };
       renderOther();
     }
   } catch (e) {
@@ -799,6 +872,7 @@ function progressCell(p) {
 const tabCounts = {};
 function countFor(name, rows) {
   if (name === 'overview') return undefined;
+  if (name === 'resources') return rows.filter(r => resStatus(r) !== 'adequate').length;
   if (name === 'construction') return rows.filter(r => r.state !== 'idle').length;
   if (name === 'research') return rows.filter(r => r.state === 'active' || r.state === 'queued').length;
   return rows.length;
@@ -1404,6 +1478,131 @@ $('ovList').addEventListener('change', e => {
   saveLayout(); renderCustomize(); renderOverview();
 });
 
+// ---- Resources (v3 layout) ----
+// Supply table (fuel / construction / luxury × adequate / low / critical) that filters the list; the list with
+// stock, rate, how long the stock lasts and sources; a detail panel with where each resource is mined and the
+// known deposits not mined yet; and a deposits view as a heat map (site × resource).
+// The meaning of the game's rate fields is still being checked against its Resources screen, so the status
+// and "runs out" rules below are provisional and the raw values are in each row's tooltip.
+
+let resView = 'resources', resPick = null, resSupply = null, resData = { items: [], deposits: [] };
+try { resView = localStorage.getItem('overview.resView') || 'resources'; } catch (e) { }
+
+const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury']];
+/** Net change per second: what comes in minus what is required (provisional). */
+const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
+function resStatus(r) {
+  if (r.critical) return 'critical';
+  if (r.rateMet === false) return 'low';
+  return 'adequate';
+}
+function resRunsOut(r) {
+  const net = resNet(r);
+  if (!(net < 0) || !r.stock) return null;
+  return r.stock / -net;   // seconds, at the current game speed
+}
+const dur = s => s == null ? '' : s < 120 ? `≈ ${Math.round(s)} s` : s < 7200 ? `≈ ${Math.round(s / 60)} min` : `≈ ${Math.round(s / 3600)} h`;
+const resAbbr = n => (n || '?').replace(/[^A-Za-z]/g, '').slice(0, 2);
+const STATUS_COLOR = { adequate: 'var(--tx)', low: 'var(--warn)', critical: 'var(--bad)' };
+
+function renderResources() {
+  const all = resData.items || [], deps = resData.deposits || [];
+  const q = $('search').value.trim().toLowerCase();
+
+  // Supply table
+  $('resSupply').innerHTML = `<table class="supply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${
+    RES_CATS.map(([key, label]) => `<tr><td>${label}</td>${['adequate', 'low', 'critical'].map(st => {
+      const n = all.filter(r => r.category === key && resStatus(r) === st).length;
+      const on = resSupply && resSupply.cat === key && resSupply.status === st;
+      return `<td><button type="button" class="${on ? 'on' : ''}" data-cat="${key}" data-st="${st}" style="color:${n && st !== 'adequate' ? STATUS_COLOR[st] : ''}">${n}</button></td>`;
+    }).join('')}</tr>`).join('')}</tbody></table>`;
+
+  document.querySelectorAll('#resViews button').forEach(b => b.classList.toggle('on', b.dataset.view === resView));
+  $('resListWrap').hidden = resView !== 'resources';
+  $('resDeposits').hidden = resView !== 'deposits';
+
+  if (resView === 'resources') {
+    const rows = all.filter(r => (!resSupply || (r.category === resSupply.cat && resStatus(r) === resSupply.status))
+      && (!q || (r.name || '').toLowerCase().includes(q)))
+      .sort((a, b) => (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
+    $('resList').innerHTML = rows.map(r => {
+      const st = resStatus(r), out = resRunsOut(r), net = resNet(r);
+      const raw = `stock ${r.stock} · current ${r.rateCurrent} · required ${r.rateRequired} · building ${r.rateBuilding} · known ${r.known} · sell ${r.priceSell} · buy ${r.priceBuy} · met ${r.rateMet}`;
+      return `<button type="button" class="rrow${resPick === r.id ? ' on' : ''}" data-res="${r.id}" title="${esc(raw)}">
+        <span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
+        <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}${r.priceSell != null ? ' · ' + fmt.num(r.priceSell) + ' cr' : ''}</small></span>
+        <span class="num">${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}</span>
+        <span class="num" style="color:${net < 0 ? 'var(--bad)' : net > 0 ? 'var(--ok)' : 'var(--mut)'}">${net ? (net > 0 ? '+' : '') + net.toFixed(2) + '/s' : '–'}</span>
+        <span class="rout">${out != null ? `<em style="color:${out < 1800 ? 'var(--bad)' : 'var(--warn)'}">${dur(out)}</em><i class="pb"><i style="width:${Math.max(3, Math.min(100, out / 36))}%;background:${out < 1800 ? 'var(--bad)' : 'var(--warn)'}"></i></i>` : ''}</span>
+        <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined} of ${r.deposits}</span>
+        <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span>
+      </button>`;
+    }).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet (needs the mod version with /api/resources).'}</div>`;
+    $('count').textContent = `${rows.length} of ${all.length}`;
+
+    // Detail of the picked resource
+    const pick = all.find(r => r.id === resPick) || rows[0];
+    if (!pick) { $('resDetail').innerHTML = ''; return; }
+    resPick = pick.id;
+    const sites = deps.filter(d => d.resources.some(x => x.id === pick.id))
+      .map(d => ({ d, ab: d.resources.find(x => x.id === pick.id).abundance }))
+      .sort((a, b) => b.ab - a.ab);
+    const mined = sites.filter(s => s.d.minedBy), notMined = sites.filter(s => !s.d.minedBy);
+    const site = s => `<button type="button" class="dsite" data-orb="${s.d.orbId}"><span><b>${esc(s.d.name)}</b><small>${esc(human(s.d.kind))}${s.d.system ? ' · ' + esc(s.d.system) : ''}${s.d.minedBy ? ' · ' + s.d.minedBy : ''}</small></span>
+      <i class="pb"><i style="width:${s.ab}%"></i></i><em>${s.ab}%</em><span class="go">Go to ›</span></button>`;
+    const st = resStatus(pick), out = resRunsOut(pick);
+    $('resDetail').innerHTML = `<div class="rdhead"><span class="rico big" data-cat="${pick.category}">${esc(resAbbr(pick.name))}</span>
+        <span><b>${esc(pick.name)}</b><small>${esc(human(pick.category))}</small></span>${st !== 'adequate' ? `<span class="tag ${st === 'critical' ? 'prio-Critical' : 'queued'}">${st}</span>` : ''}</div>
+      <div class="rdnums"><span><small>Stock</small><b>${pick.stock != null ? fmt.big(Math.round(pick.stock)) : '–'}</b></span>
+        <span><small>Rate</small><b style="color:${resNet(pick) < 0 ? 'var(--bad)' : 'inherit'}">${resNet(pick) ? resNet(pick).toFixed(2) + '/s' : '–'}</b></span>
+        <span><small>Runs out</small><b>${out != null ? dur(out) : '–'}</b></span>
+        <span><small>Price</small><b>${pick.priceSell != null ? fmt.num(pick.priceSell) : '–'}</b></span></div>
+      <h4>Mined at · ${mined.length}</h4>${mined.map(site).join('') || '<div class="none">Not mined anywhere.</div>'}
+      <h4>Known deposits, not mined · ${notMined.length}</h4>${notMined.map(site).join('') || '<div class="none">None known.</div>'}`;
+  } else {
+    // Deposits heat map: sites × resources (resources with a known deposit only)
+    const cols = all.filter(r => deps.some(d => d.resources.some(x => x.id === r.id)))
+      .sort((a, b) => (resStatus(b) === 'critical') - (resStatus(a) === 'critical') || a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    const rows = deps.filter(d => !q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q)))
+      .sort((a, b) => (!!b.minedBy - !!a.minedBy) || (a.name || '').localeCompare(b.name || ''));
+    $('resDeposits').innerHTML = `<table class="heat"><thead><tr><th>Site</th>${cols.map(r =>
+      `<th title="${esc(r.name)} (${r.category})"><span class="rico" data-cat="${r.category}" style="${resStatus(r) === 'critical' ? 'box-shadow: inset 0 -2px 0 var(--bad)' : ''}">${esc(resAbbr(r.name))}</span></th>`).join('')}</tr></thead><tbody>${
+      rows.map(d => `<tr data-orb="${d.orbId}"><td><b>${esc(d.name)}</b> <small>${esc(human(d.kind))}</small>${d.minedBy ? ' <span class="tag building">mining</span>' : ''}</td>${cols.map(r => {
+        const x = d.resources.find(v => v.id === r.id);
+        return x ? `<td class="hc" style="background:color-mix(in srgb, ${r.category === 'luxury' ? 'oklch(var(--L) 0.11 330)' : r.category === 'fuel' ? 'var(--warn)' : 'var(--acc)'} ${15 + x.abundance * 0.6}%, transparent)">${x.abundance}%</td>` : '<td></td>';
+      }).join('')}</tr>`).join('')}</tbody></table>`;
+    $('count').textContent = `${rows.length} sites`;
+  }
+}
+
+$('resSupply').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]');
+  if (!b) return;
+  const same = resSupply && resSupply.cat === b.dataset.cat && resSupply.status === b.dataset.st;
+  resSupply = same ? null : { cat: b.dataset.cat, status: b.dataset.st };
+  resView = 'resources';
+  renderResources();
+});
+$('resViews').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  resView = b.dataset.view;
+  try { localStorage.setItem('overview.resView', resView); } catch (er) { }
+  renderResources();
+});
+$('resList').addEventListener('click', e => {
+  const b = e.target.closest('[data-res]');
+  if (b) { resPick = +b.dataset.res; renderResources(); }
+});
+$('resDetail').addEventListener('click', e => {
+  const b = e.target.closest('[data-orb]');
+  if (b) goTo('orb', +b.dataset.orb);
+});
+$('resDeposits').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-orb]');
+  if (tr) goTo('orb', +tr.dataset.orb);
+});
+
 // ---- Command palette (Ctrl+K) ----
 // Own things come from /api/index (fetched when the palette opens) and are matched here, instantly.
 // Everything else the empire knows comes from the game's own search (/api/search), asked after a short pause
@@ -1645,7 +1844,7 @@ document.addEventListener('keydown', e => {
 // ---- Start (last, so every declaration above exists before the first render) ----
 let startTab = 'overview';
 try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
-setTab(['overview', 'construction', 'ships', 'colonies', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
+setTab(['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
 setInterval(refresh, 2000);
 </script>
 </body>

@@ -74,6 +74,23 @@ internal static class Snapshot
     public static volatile string MessagesJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string IndexJson = "{\"loaded\":false,\"items\":[]}";
     public static volatile string ShipsJson = "{\"loaded\":false,\"items\":[]}";
+    public static volatile string ResourcesJson = "{\"loaded\":false,\"items\":[],\"deposits\":[]}";
+    private const double ResourcesIntervalSeconds = 3.0;
+    private static double nextResources;
+    private static double lastResourcesRequest = double.NegativeInfinity;
+    private static bool resourcesLogged;
+
+    /// <summary>The Resources tab asked: collect resources and deposits now and while it keeps asking.</summary>
+    public static void TouchResources()
+    {
+        double now = clock.Elapsed.TotalSeconds;
+        if (now - Volatile.Read(ref lastResourcesRequest) >= KeepCollectingSeconds)
+        {
+            nextResources = 0;
+        }
+        Volatile.Write(ref lastResourcesRequest, now);
+        Touch();
+    }
     private static double lastShipsRequest = double.NegativeInfinity;
     private static string lastPendingSig = "";
     private static bool shipsLogged;
@@ -129,7 +146,7 @@ internal static class Snapshot
             if (!loaded)
             {
                 InfoJson = Serialize(new { api = 1, mod = Core.Version, loaded = false, token = Commands.Token });
-                ConstructionJson = ColoniesJson = ResearchJson = MessagesJson = IndexJson = ShipsJson = "{\"loaded\":false,\"items\":[]}";
+                ConstructionJson = ColoniesJson = ResearchJson = MessagesJson = IndexJson = ShipsJson = ResourcesJson = "{\"loaded\":false,\"items\":[]}";
                 indexLogged = false;
                 nextIndex = 0;
                 return;
@@ -152,6 +169,31 @@ internal static class Snapshot
             double mark = sw.Elapsed.TotalMilliseconds;
             var messages = Views.Messages(empire, MessageLimit);
             double messagesMs = sw.Elapsed.TotalMilliseconds - mark;
+
+            // Resources and deposits: only while the Resources tab asks, and at most every few seconds
+            // (it walks every orb the empire knows).
+            double resourcesMs = 0;
+            if (now >= nextResources && now - Volatile.Read(ref lastResourcesRequest) < KeepCollectingSeconds)
+            {
+                nextResources = now + ResourcesIntervalSeconds;
+                mark = sw.Elapsed.TotalMilliseconds;
+                var (resources, deposits) = ResourcesView.Collect(galaxy, empire);
+                resourcesMs = sw.Elapsed.TotalMilliseconds - mark;
+                ResourcesJson = Serialize(new { loaded = true, collectedAt = DateTime.Now.ToString("HH:mm:ss"), ms = Math.Round(resourcesMs, 2), items = resources, deposits });
+                if (!resourcesLogged)
+                {
+                    resourcesLogged = true;
+                    Log.Info($"First resources: {resources.Count} resources, {deposits.Count} deposits in {resourcesMs:0.00} ms");
+                    foreach (var r in resources)
+                    {
+                        Log.Info($"  {r.Name,-18} {r.Category,-12} stock={r.Stock} req={r.RateRequired} cur={r.RateCurrent} bld={r.RateBuilding} known={r.Known} sell={r.PriceSell} buy={r.PriceBuy} base={r.BaseCost} met={r.RateMet} critical={r.Critical} deposits={r.Mined}/{r.Deposits}");
+                    }
+                    foreach (var d in deposits.Take(15))
+                    {
+                        Log.Info($"  deposit {d.Name} ({d.Kind}, {d.System}) mined={d.MinedBy}: " + string.Join(", ", d.Resources.Select(x => $"{x.Name} {x.Abundance}")));
+                    }
+                }
+            }
 
             // Every own ship with its mission: only while the Ships tab asks for it.
             double shipsMs = 0;
@@ -222,6 +264,7 @@ internal static class Snapshot
                     research = Math.Round(researchMs, 2),
                     messages = Math.Round(messagesMs, 2),
                     ships = Math.Round(shipsMs, 2),
+                    resources = Math.Round(resourcesMs, 2),
                     index = Math.Round(indexMs, 2),
                 },
                 stats,
