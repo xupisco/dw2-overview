@@ -82,6 +82,23 @@ internal sealed class DepositResource
 internal static class ResourcesView
 {
 
+    /// <summary>The resources at an orb that the empire has discovered (its exploration level there).</summary>
+    public static List<DepositResource> KnownResources(Empire empire, Orb orb, ExplorationMap map = null)
+    {
+        map ??= Safe(() => empire.ExplorationMap);
+        byte level = Safe(() => map.CheckExplorationLevel(orb));
+        var found = new List<DepositResource>();
+        foreach (var r in Copy(Safe(() => orb.Resources)))
+        {
+            if (r.IsEmpty || r.DiscoveryLevel > level)
+            {
+                continue;
+            }
+            found.Add(new DepositResource { Id = r.ResourceId, Name = Safe(() => r.Name), Abundance = r.Abundance });
+        }
+        return found;
+    }
+
     public static (List<ResourceRow> resources, List<DepositRow> deposits) Collect(Galaxy galaxy, Empire empire)
     {
         // Deposits: every orb the empire has explored, with the resources it has discovered there.
@@ -146,16 +163,7 @@ internal static class ResourcesView
         var map = Safe(() => empire.ExplorationMap);
         foreach (var orb in Copy(Safe(() => map?.GetAllKnownOrbs(galaxy, empire, 1))))
         {
-            byte level = Safe(() => map.CheckExplorationLevel(orb));
-            var found = new List<DepositResource>();
-            foreach (var r in Copy(Safe(() => orb.Resources)))
-            {
-                if (r.IsEmpty || r.DiscoveryLevel > level)
-                {
-                    continue;
-                }
-                found.Add(new DepositResource { Id = r.ResourceId, Name = Safe(() => r.Name), Abundance = r.Abundance });
-            }
+            var found = KnownResources(empire, orb, map);
             if (found.Count == 0)
             {
                 continue;

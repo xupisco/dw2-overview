@@ -17,6 +17,8 @@ internal sealed class PlaceRow
     public string Name { get; set; }
     public string Type { get; set; }
     public int Id { get; set; }
+    /// <summary>For a message's place that is an orb: the resources the empire has found there.</summary>
+    public List<DepositResource> Resources { get; set; }
 }
 
 internal sealed class RaceRow
@@ -106,6 +108,11 @@ internal sealed class MessageRow
     /// <summary>The message the game shows in its dialog right now, with that dialog's buttons (game texts).</summary>
     public bool OnScreen { get; set; }
     public List<DialogButton> Buttons { get; set; }
+    /// <summary>
+    /// The places the message's task is about (GameTask.Entities), e.g. the site of a suggested mining station,
+    /// with the resources the empire knows there (as the game's suggestion dialog shows them).
+    /// </summary>
+    public List<PlaceRow> Places { get; set; }
 }
 
 /// <summary>A button of the game's message dialog: which one (yes, no, other, show) and its text.</summary>
@@ -185,7 +192,7 @@ internal static class Views
     /// (IsAdvisorSuggestion, the action in GameTask, no RelatedObject) and leave it once accepted, declined
     /// or expired; they come first, flagged Pending.
     /// </summary>
-    public static List<MessageRow> Messages(Empire empire, int limit)
+    public static List<MessageRow> Messages(Galaxy galaxy, Empire empire, int limit)
     {
         var log = Copy(Safe(() => empire.Messages));
         // Every message passes through EvaluationQueue for a few seconds on its way to the log (seen in game,
@@ -220,9 +227,40 @@ internal static class Views
                 RelatedType = relatedType,
                 RelatedId = relatedId,
                 Task = Safe(() => m.GameTask == null || m.GameTask.IsEmpty ? null : m.GameTask.Text ?? m.GameTask.Type.ToString()),
+                Places = TaskPlaces(galaxy, empire, m),
             });
         }
         return rows;
+    }
+
+    private static readonly HashSet<string> taskLogged = new();
+
+    /// <summary>The orbs and ships a message's task names (GameTask.Entities), orbs with their known resources.</summary>
+    private static List<PlaceRow> TaskPlaces(Galaxy galaxy, Empire empire, EmpireMessage m)
+    {
+        var task = Safe(() => m.GameTask);
+        var entities = Safe(() => task?.Entities);
+        if (entities == null || entities.Count == 0)
+        {
+            return null;
+        }
+        var places = new List<PlaceRow>();
+        foreach (var item in Copy(entities))
+        {
+            var obj = Safe(() => item.Resolve(galaxy)) as StellarObject;
+            var (type, id) = Target(obj);
+            string name = Safe(() => (obj as INamed)?.Name);
+            if (id == null || string.IsNullOrEmpty(name) || places.Any(p => p.Type == type && p.Id == id))
+            {
+                continue;
+            }
+            places.Add(new PlaceRow { Name = name, Type = type, Id = id.Value, Resources = obj is Orb orb ? ResourcesView.KnownResources(empire, orb) : null });
+        }
+        if (taskLogged.Add(MessageKey(m, false)))
+        {
+            Log.Info($"Task of '{m.Title}' ({Safe(() => task.Type)}): entities {string.Join(", ", Copy(entities).Select(e => $"{e.Type}:{e.Id}"))} -> {string.Join(", ", places.Select(p => $"{p.Type} {p.Name} ({p.Resources?.Count ?? 0} resources)"))}");
+        }
+        return places.Count > 0 ? places : null;
     }
 
     /// <summary>

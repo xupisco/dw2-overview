@@ -389,6 +389,10 @@
   .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
   .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
   .lchip.unused { opacity: .45; }
+  /* A message's place and its resources (a suggested mining station's site) */
+  .mres { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
+  .mres-at { color: var(--mut); font-size: 12px; margin-right: 2px; }
+  .mresblock { margin-top: 10px; }
   .lchip b { font-weight: 500; }
   .lchip.st-critical { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
   .lchip.st-low { box-shadow: inset 0 0 0 1px var(--warn); color: var(--warn); }
@@ -1490,7 +1494,7 @@ function toast(m, onClick) {
   const el = document.createElement('div');
   el.className = 'toast prio-' + (m.priority || 'Normal');
   const suggestion = m.pending && m.advisor;
-  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.task && suggestion ? m.task : m.text))}</span>
+  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.task && suggestion ? m.task : m.text))}</span>${placeResources(m)}
     <div class="tactions"><span class="gbtns">${gameButtons(m)}</span>${m.rule ? ''
       : `<button type="button" class="mute" data-t="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button>`}</div>`;
   el.title = 'Click to read it whole · right-click to dismiss';
@@ -1738,7 +1742,23 @@ function nameCell(i) {
 /** A base built in place: where it will stand and, for a mining base, what that place holds (best first). */
 // The supply state of each resource by name (what a build site holds comes as names), for the "why" of a build.
 let resKnow = new Map(), resKnowAt = 0;
-function learnResources(items) { resKnow = new Map((items || []).filter(resRelevant).map(r => [r.name, resStatus(r)])); resKnowAt = Date.now(); }
+function learnResources(items) {
+  resKnow = new Map((items || []).filter(resRelevant).map(r => [r.name, resStatus(r)]));
+  resCat = new Map((items || []).map(r => [r.name, r.category]));
+  resKnowAt = Date.now();
+}
+let resCat = new Map();
+/**
+ * The resources at the places a message's task names (the site of a suggested mining station...), as the game's
+ * suggestion dialog shows them: chips with the resource's type colour and how short the empire is of it.
+ */
+function placeResources(m) {
+  return (m.places || []).filter(p => p.type === 'orb' && (p.resources || []).length).map(p =>
+    `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
+      const st = resKnow.get(x.name) || 'adequate';
+      return `<span class="lchip st-${st}" data-cat="${esc(resCat.get(x.name) || '')}" title="${esc(x.name)}${st !== 'adequate' ? ' · ' + st : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    }).join('')}</span>`).join('');
+}
 async function refreshResKnow() {
   if (Date.now() - resKnowAt < 5000) return;
   resKnowAt = Date.now();
@@ -1886,7 +1906,8 @@ function openMessage(m) {
   msgOpen = m;
   $('msgMeta').innerHTML = `<span class="tag prio-${esc(m.priority)}">${esc(m.priority)}</span> ${esc(m.date || '')} · ${esc(human(m.type))}${m.advisor ? ' · advisor' : ''}${m.pending ? ' · <span class="mk-warn">awaiting your decision</span>' : ''}`;
   $('msgTitle').textContent = m.title || '';
-  $('msgText').innerHTML = richText(m.text) + (m.task && m.task !== m.text && m.task !== m.title ? `<p class="mtask">Suggests: ${esc(plain(m.task))}</p>` : '');
+  $('msgText').innerHTML = richText(m.text) + (m.task && m.task !== m.text && m.task !== m.title ? `<p class="mtask">Suggests: ${esc(plain(m.task))}</p>` : '')
+    + (placeResources(m) ? `<div class="mresblock">${placeResources(m)}</div>` : '');
   $('msgActions').innerHTML = `<span class="gbtns">${gameButtons(m)}</span>`
     + (m.relatedId ? `<button type="button" class="abtn" data-m="goto">Go to ${esc(m.relatedName || '')} ›</button>` : '');
   $('msgModal').hidden = false;
@@ -2608,7 +2629,7 @@ function blockHtml(id) {
   if (id === 'attention') {
     const list = attentionItems();
     return panel('Needs attention', 'var(--warn)', `<span class="ovnote">${list.length} open</span>`,
-      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small>${a.msg && hasGameButtons(a.msg) ? `<span class="answers">${(a.msg.buttons && a.msg.buttons.length ? a.msg.buttons : [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }]).map((b, i) => `<span class="abtn${i === 0 ? ' ok' : ''}" ${act(() => pressDialog(a.msg.key, b.id))}>${esc(b.text)}</span>`).join('')}</span>` : ''}</span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
+      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small>${a.msg ? placeResources(a.msg) : ''}${a.msg && hasGameButtons(a.msg) ? `<span class="answers">${(a.msg.buttons && a.msg.buttons.length ? a.msg.buttons : [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }]).map((b, i) => `<span class="abtn${i === 0 ? ' ok' : ''}" ${act(() => pressDialog(a.msg.key, b.id))}>${esc(b.text)}</span>`).join('')}</span>` : ''}</span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
       || '<div class="ovempty">Nothing needs you right now.</div>');
   }
   if (id === 'construction') {

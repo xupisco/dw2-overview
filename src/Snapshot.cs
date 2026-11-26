@@ -182,7 +182,7 @@ internal static class Snapshot
             var (research, concurrent) = Views.Research(empire);
             double researchMs = sw.Elapsed.TotalMilliseconds - constructionMs - coloniesMs;
             double mark = sw.Elapsed.TotalMilliseconds;
-            var messages = Views.Messages(empire, MessageLimit);
+            var messages = Views.Messages(galaxy, empire, MessageLimit);
             double messagesMs = sw.Elapsed.TotalMilliseconds - mark;
 
             // Resources and deposits: only while the Resources tab asks, and at most every few seconds
