@@ -370,9 +370,17 @@
   .fbar.energy.low > i { background: var(--bad); }
   .sflags { color: var(--mut); display: flex; gap: 6px; justify-content: flex-end; }
   @media (max-width: 900px) {
-    .srow { grid-template-columns: 30px 1fr 1fr; }
+    /* Two lines: icon, name and mission; then fuel and energy side by side under the name. */
+    .srow, #resMining .srow { grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr); row-gap: 4px; padding: 6px 10px; }
     .sorders, .ssys, .sflags { display: none; }
-    .sfuel { grid-column: 2 / -1; }
+    .sfuel { grid-column: 2 / -1; flex-direction: row; flex-wrap: wrap; column-gap: 20px; row-gap: 3px; }
+    .sfuel .mline small { width: auto; }
+  }
+  @media (max-width: 520px) {
+    /* Phone width: the mission goes under the name too. */
+    .srow, #resMining .srow { grid-template-columns: 30px minmax(0, 1fr); }
+    .smission, .sfuel { grid-column: 2; }
+    .srow .sicon { grid-row: 1 / span 3; align-self: start; }
   }
 
   .group { display: contents; }
