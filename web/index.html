@@ -278,8 +278,17 @@
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
-  .ovbuild { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
-  @media (max-width: 760px) { .ovbuild { grid-template-columns: minmax(0, 1fr); } }
+  /* Construction in the dashboard: the tab's table, four columns */
+  .ovtable { width: 100%; border-collapse: collapse; }
+  .ovtable th { font: 600 12px var(--cond); letter-spacing: .08em; text-transform: uppercase; color: var(--mut); text-align: left; padding: 6px 10px; background: none; }
+  .ovtable td { padding: 6px 10px; vertical-align: middle; border-top: 1px solid var(--line); }
+  .ovtable tbody tr { cursor: pointer; }
+  .ovtable tbody tr:hover td { background: var(--hover); }
+  .ovtable .ovname b { display: block; font-weight: 500; }
+  .ovtable .ovname small { color: var(--mut); font-size: 12px; }
+  .ovtable .ovrole { color: var(--mut); white-space: nowrap; }
+  .ovtable .ovprog { width: 32%; min-width: 140px; }
+  @media (max-width: 760px) { .ovtable .ovrole, .ovtable th:nth-child(3) { display: none; } .ovtable .ovprog { min-width: 90px; } }
   .ovsort { margin-left: auto; margin-right: 10px; }
   .ovsort button { height: 20px; border: 0; background: transparent; color: var(--mut); padding: 0 6px; font-size: 12px; cursor: pointer; }
   .ovsort button.on { background: var(--acc-d); color: var(--acc); }
@@ -2262,7 +2271,7 @@ function buildRoleChips(list, attr) {
 }
 let ovBuildSort = 'progress';
 try { ovBuildSort = localStorage.getItem('overview.buildSort') || 'progress'; } catch (e) { }
-const OV_BUILD_LINES = 8;
+const OV_BUILD_LINES = 10;
 
 let ov = null, ovInfo = null, ovActions = [];
 
@@ -2359,10 +2368,11 @@ function blockHtml(id) {
     const rows = all.slice(0, OV_BUILD_LINES), more = all.length - rows.length;
     const sorter = `<span class="seg ovsort">${['progress', 'yard', 'name'].map(k => `<button type="button" class="${ovBuildSort === k ? 'on' : ''}" ${act(() => { ovBuildSort = k; try { localStorage.setItem('overview.buildSort', k); } catch (e) { } renderOverview(); })}>${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
-      `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><div class="ovbuild">${rows.map(i => `<button type="button" class="ovrow prog" ${act(() => goTo(i.whereType, i.whereId))}>
-        <span class="pt"><b>${esc(i.name || i.design || 'Not started')}</b><em class="${i.state === 'queued' ? 'warn' : ''}">${i.progress != null ? Math.round(i.progress * 100) + '%' : i.state}</em></span>
-        <span class="pb"><i style="width:${Math.round((i.progress || 0) * 100)}%"></i></span>
-        <small>${esc([i.design, i.role && human(i.role), i.where && 'by ' + i.where].filter(Boolean).join(' · '))}${i.site ? ' · at ' + esc(i.site) : ''}${i.queue ? ' · queue #' + i.queue : ''}</small></button>`).join('')}</div>`
+      `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
+        <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
+        <td class="ovname"><b>${esc(i.name || i.design || 'Not started')}</b><small>${esc([i.design, i.where && 'by ' + i.where].filter(Boolean).join(' · '))}${i.site ? ' · at ' + esc(i.site) : ''}${i.queue ? ' · queue #' + i.queue : ''}</small></td>
+        <td class="ovrole">${esc(human(i.role || i.category || ''))}</td>
+        <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`
       || '<div class="ovempty">No yard is building anything.</div>');
   }
   if (id === 'research') {
