@@ -195,13 +195,14 @@ internal static class Server
         }
         if (path == "/api/suggestion")
         {
-            // {"key": the pending message key from /api/messages, "accept": true | false}
-            if (body == null || string.IsNullOrEmpty(body.Key) || body.Accept == null)
+            // {"key": a message key from /api/messages, then "accept": true | false (suggestions) or "button": yes | no | other | show}
+            if (body == null || string.IsNullOrEmpty(body.Key) || (body.Accept == null && body.Button is not ("yes" or "no" or "other" or "show")))
             {
                 Send(response, 400, contentTypes[".json"], "{\"error\":\"expected {key, accept}\"}");
                 return;
             }
-            Commands.AnswerSuggestion(body.Key, body.Accept.Value);
+            if (body.Button != null) Commands.PressDialogButton(body.Key, body.Button);
+            else Commands.AnswerSuggestion(body.Key, body.Accept.Value);
             Send(response, 202, contentTypes[".json"], "{\"queued\":true}");
             return;
         }
@@ -263,6 +264,7 @@ internal static class Server
         public int Id { get; set; }
         public string Key { get; set; }
         public bool? Accept { get; set; }
+        public string Button { get; set; }
     }
 
     private static void ServeFile(HttpListenerResponse response, string urlPath)

@@ -61,6 +61,16 @@ internal sealed class MessageRow
     public string Task { get; set; }
     /// <summary>An advisor suggestion still waiting for a decision (from Empire.EvaluationQueue).</summary>
     public bool Pending { get; set; }
+    /// <summary>The message the game shows in its dialog right now, with that dialog's buttons (game texts).</summary>
+    public bool OnScreen { get; set; }
+    public List<DialogButton> Buttons { get; set; }
+}
+
+/// <summary>A button of the game's message dialog: which one (yes, no, other, show) and its text.</summary>
+internal sealed class DialogButton
+{
+    public string Id { get; set; }
+    public string Text { get; set; }
 }
 
 /// <summary>One of the empire's own ships or bases, with what it is doing.</summary>
@@ -131,6 +141,8 @@ internal static class Views
             rows.Add(new MessageRow
             {
                 Pending = isPending,
+                OnScreen = shown != null && ReferenceEquals(m, shown),
+                Buttons = shown != null && ReferenceEquals(m, shown) ? DialogButtons() : null,
                 Key = MessageKey(m, isPending),
                 StarDate = m.StarDate,
                 Date = Safe(() => m.StarDateDescription),
@@ -309,6 +321,33 @@ internal static class Views
             }
         }
         return rows;
+    }
+
+    /// <summary>The visible, enabled buttons of the game's message dialog, with the game's own texts.</summary>
+    public static List<DialogButton> DialogButtons()
+    {
+        var dialog = DistantWorlds.UI.UserInterfaceController.EmpireMessageDialog;
+        var list = new List<DialogButton>();
+        if (dialog == null)
+        {
+            return list;
+        }
+        foreach (var (id, button) in DialogButtonsById(dialog))
+        {
+            if (button != null && button.Visible && button.Enabled && !string.IsNullOrWhiteSpace(Safe(() => button.Text)))
+            {
+                list.Add(new DialogButton { Id = id, Text = button.Text });
+            }
+        }
+        return list;
+    }
+
+    public static IEnumerable<(string id, DistantWorlds.UI.DWButton button)> DialogButtonsById(DistantWorlds.UI.EmpireMessageDialog dialog)
+    {
+        yield return ("yes", dialog.YesButton);
+        yield return ("no", dialog.NoButton);
+        yield return ("other", dialog.OtherButton);
+        yield return ("show", dialog.ShowButton);
     }
 
     /// <summary>Tells messages apart between snapshots (the game gives them no id); also how the page names a

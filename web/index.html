@@ -761,7 +761,8 @@ function renderOther() {
 }
 let otherShown = [];
 
-function setTab(name) {
+function setTab(name, fromHistory) {
+  if (!fromHistory && name !== tab) history.pushState({ tab: name }, '', '#' + name);
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
@@ -950,15 +951,20 @@ function toast(m, onClick) {
   el.className = 'toast prio-' + (m.priority || 'Normal');
   const suggestion = m.pending && m.advisor;
   el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.task && suggestion ? m.task : m.text))}</span>
-    <div class="tactions">${suggestion ? '<button type="button" class="abtn ok" data-t="accept">Accept</button><button type="button" class="abtn" data-t="decline">Decline</button>' : ''}
-      <button type="button" class="mute" data-t="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button></div>`;
+    <div class="tactions">${gameButtons(m)}${m.rule ? ''
+      : `<button type="button" class="mute" data-t="mute" title="No more alerts for this type of message">Mute ${esc(human(m.type))}</button>`}</div>`;
   el.title = 'Click to read it whole · right-click to dismiss';
   el.addEventListener('click', e => {
+    const gb = e.target.closest('[data-gb]');
     const b = e.target.closest('[data-t]');
-    if (b) {
+    if (gb) {
       e.stopPropagation();
-      if (b.dataset.t === 'mute') setMuted(m.type, true);
-      else answerSuggestion(m.key, b.dataset.t === 'accept');
+      pressDialog(m.key, gb.dataset.gb);
+    } else if (b) {
+      e.stopPropagation();
+      setMuted(m.type, true);
+    } else if (m.rule) {
+      onClick();
     } else {
       openMessage(m);
     }
@@ -1190,11 +1196,11 @@ function renderLog(messages) {
   const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
   logShown = messages.filter(m => (m.pending && m.advisor) || (priorityRank[m.priority] ?? 0) >= logPrio).slice(0, 80);
   $('logList').innerHTML = logShown.map((m, n) => {
-    const suggestion = m.pending && m.advisor;
+    const suggestion = (m.pending && m.advisor) || m.onScreen;
     return `<div class="lrow${suggestion ? ' pend' : ''}" data-n="${n}">
-      <div class="lmeta"><i style="background:${color(m.priority)}"></i>${esc(m.date || '')} · ${esc(human(m.type))}${suggestion ? ' · <span class="mk-warn">awaiting</span>' : ''}</div>
+      <div class="lmeta"><i style="background:${color(m.priority)}"></i>${esc(m.date || '')} · ${esc(human(m.type))}${m.pending && m.advisor ? ' · <span class="mk-warn">awaiting</span>' : m.onScreen ? ' · <span class="mk-warn">open in the game</span>' : ''}</div>
       <b>${esc(m.title || '')}</b><span>${esc(plain(suggestion && m.task ? m.task : m.text))}</span>
-      ${suggestion ? '<div class="tactions"><button type="button" class="abtn ok" data-l="accept">Accept</button><button type="button" class="abtn" data-l="decline">Decline</button></div>' : ''}
+      ${hasGameButtons(m) ? `<div class="tactions">${gameButtons(m)}</div>` : ''}
     </div>`;
   }).join('') || '<div class="ovempty">No messages (or no game loaded).</div>';
 }
@@ -1212,8 +1218,8 @@ $('logList').addEventListener('click', e => {
   const row = e.target.closest('.lrow');
   if (!row) return;
   const m = logShown[+row.dataset.n];
-  const b = e.target.closest('[data-l]');
-  if (b) answerSuggestion(m.key, b.dataset.l === 'accept');
+  const gb = e.target.closest('[data-gb]');
+  if (gb) pressDialog(m.key, gb.dataset.gb);
   else openMessage(m);
 });
 
@@ -1224,7 +1230,7 @@ function openMessage(m) {
   $('msgMeta').innerHTML = `<span class="tag prio-${esc(m.priority)}">${esc(m.priority)}</span> ${esc(m.date || '')} · ${esc(human(m.type))}${m.advisor ? ' · advisor' : ''}${m.pending ? ' · <span class="mk-warn">awaiting your decision</span>' : ''}`;
   $('msgTitle').textContent = m.title || '';
   $('msgText').innerHTML = richText(m.text) + (m.task && m.task !== m.text && m.task !== m.title ? `<p class="mtask">Suggests: ${esc(plain(m.task))}</p>` : '');
-  $('msgActions').innerHTML = (m.pending && m.advisor ? `<button type="button" class="abtn ok" data-m="accept">Accept</button><button type="button" class="abtn" data-m="decline">Decline</button>` : '')
+  $('msgActions').innerHTML = gameButtons(m)
     + (m.relatedId ? `<button type="button" class="abtn" data-m="goto">Go to ${esc(m.relatedName || '')} ›</button>` : '');
   $('msgModal').hidden = false;
 }
@@ -1233,12 +1239,40 @@ $('msgClose').addEventListener('click', closeMessage);
 $('msgModal').addEventListener('mousedown', e => { if (e.target.id === 'msgModal') closeMessage(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('msgModal').hidden) closeMessage(); });
 $('msgActions').addEventListener('click', e => {
+  const gb = e.target.closest('[data-gb]');
+  if (gb && msgOpen) { pressDialog(msgOpen.key, gb.dataset.gb); closeMessage(); return; }
   const b = e.target.closest('[data-m]');
   if (!b || !msgOpen) return;
   if (b.dataset.m === 'goto') goTo(msgOpen.relatedType, msgOpen.relatedId);
-  else answerSuggestion(msgOpen.key, b.dataset.m === 'accept');
   closeMessage();
 });
+
+/**
+ * The buttons a message offers: the game dialog's own (with its texts: Dismiss, Take me to..., Assign Mission)
+ * while it is on screen in the game, else Accept / Decline for a pending advisor suggestion. data-gb names
+ * the dialog button (yes, no, other, show); the first one is the green one.
+ */
+function gameButtons(m) {
+  const list = m.buttons && m.buttons.length ? m.buttons
+    : m.pending && m.advisor ? [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }] : [];
+  return list.map((b, i) => `<button type="button" class="abtn${i === 0 ? ' ok' : ''}" data-gb="${esc(b.id)}">${esc(b.text)}</button>`).join('');
+}
+const hasGameButtons = m => (m.buttons && m.buttons.length) || (m.pending && m.advisor);
+
+/** Presses a button of the game's message dialog for that message (the mod opens it there first if needed). */
+async function pressDialog(key, button) {
+  if (!token || !key) return;
+  try {
+    const r = await fetch('/api/suggestion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token },
+      body: JSON.stringify({ key, button }),
+    });
+    if (!r.ok) notice(`The mod refused it (${r.status})`);
+  } catch (e) {
+    notice('Game not reachable');
+  }
+}
 
 /** A short notice in the toast corner (not a game message: no mute, no go to). */
 function notice(text) {
@@ -1587,8 +1621,9 @@ const goTab = (name, then) => () => { setTab(name); if (then) setTimeout(then, 0
 function attentionItems() {
   const items = [];
   const add = (level, title, body, cta, fn) => items.push({ level, title, body, cta, fn });
-  for (const m of ov.messages.filter(m => m.pending && m.advisor)) {
-    items.push({ level: 'warn', title: 'Advisor suggestion', body: plain(m.task || m.text), cta: 'Messages', fn: goTab('messages'), key: m.key });
+  // Advisor suggestions waiting, and whatever message the game has open in its dialog (e.g. a contract done).
+  for (const m of ov.messages.filter(m => (m.pending && m.advisor) || m.onScreen)) {
+    items.push({ level: 'warn', title: m.pending && m.advisor ? 'Advisor suggestion' : 'Open in the game: ' + m.title, body: plain(m.pending && m.advisor ? (m.task || m.text) : m.text), cta: 'Read', fn: () => openMessage(m), msg: m });
   }
   for (const c of ov.colonies) {
     if (c.rebelling) add('bad', `${c.name} is rebelling`, `Approval ${fmt.int(c.approval)} · unrest ${fmt.num(c.unrest)}`, 'Go to', () => goTo('orb', c.orbId));
@@ -1636,7 +1671,7 @@ function blockHtml(id) {
   if (id === 'attention') {
     const list = attentionItems();
     return panel('Needs attention', 'var(--warn)', `<span class="ovnote">${list.length} open</span>`,
-      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small>${a.key ? `<span class="answers"><span class="abtn ok" ${act(() => answerSuggestion(a.key, true))}>Accept</span><span class="abtn" ${act(() => answerSuggestion(a.key, false))}>Decline</span></span>` : ''}</span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
+      list.map(a => `<button type="button" class="ovrow att" ${a.fn ? act(a.fn) : ''}><i class="${a.level}"></i><span><b>${esc(a.title)}</b><small>${esc(a.body || '')}</small>${a.msg && hasGameButtons(a.msg) ? `<span class="answers">${(a.msg.buttons && a.msg.buttons.length ? a.msg.buttons : [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }]).map((b, i) => `<span class="abtn${i === 0 ? ' ok' : ''}" ${act(() => pressDialog(a.msg.key, b.id))}>${esc(b.text)}</span>`).join('')}</span>` : ''}</span>${a.cta ? `<em>${esc(a.cta)} ›</em>` : ''}</button>`).join('')
       || '<div class="ovempty">Nothing needs you right now.</div>');
   }
   if (id === 'construction') {
@@ -2191,9 +2226,14 @@ document.addEventListener('keydown', e => {
 
 // ---- Start (last, so every declaration above exists before the first render) ----
 setFavicon(false, 0);
-let startTab = 'overview';
-try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
-setTab(['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'].includes(startTab) ? startTab : 'overview');
+// The tab is in the address (#ships…): Back and Forward move between tabs; a link to a tab opens it.
+const TABS = ['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'];
+let startTab = location.hash.slice(1);
+if (!TABS.includes(startTab)) { try { startTab = localStorage.getItem('overview.tab') || 'overview'; } catch (e) { startTab = 'overview'; } }
+if (!TABS.includes(startTab)) startTab = 'overview';
+history.replaceState({ tab: startTab }, '', '#' + startTab);
+setTab(startTab, true);
+window.addEventListener('popstate', () => { const t = location.hash.slice(1); if (TABS.includes(t) && t !== tab) setTab(t, true); });
 if (logOpen) setLog(true);
 setInterval(refresh, 2000);
 </script>

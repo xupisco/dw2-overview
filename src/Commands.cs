@@ -84,69 +84,74 @@ internal static class Commands
         return rows;
     }
 
-    // ---- Advisor suggestions: Accept / Decline ----
-    // Done the way the player does it: the suggestion is opened in the game's message dialog and that dialog's
-    // own Yes ("Assign Mission") or No ("Decline") button is clicked, so the game's own checks and costs apply.
-    // If the dialog does not show that suggestion, or the button is disabled, nothing is clicked.
+    // ---- The game's message dialog: Accept / Decline, Dismiss, Take me there... ----
+    // Done the way the player does it: the message is opened in the game's message dialog (if it is not on
+    // screen already) and that dialog's own button is clicked, so the game's own checks and costs apply.
+    // Advisor suggestions: Yes = "Assign Mission" / "Accept Contract...", No = "Decline". Other messages: Yes is
+    // often "Dismiss", Show "Take me to...". If the dialog does not show that message, or the button is hidden
+    // or disabled, nothing is clicked.
 
-    private static readonly ConcurrentQueue<(string key, bool accept)> answers = new();
+    private static readonly ConcurrentQueue<(string key, string button)> answers = new();
 
-    /// <summary>What happened to the last suggestion answered from the page, for /api/info.</summary>
+    /// <summary>What happened to the last dialog button pressed from the page, for /api/info.</summary>
     public static volatile string LastAnswer;
 
-    public static void AnswerSuggestion(string key, bool accept) => answers.Enqueue((key, accept));
+    public static void AnswerSuggestion(string key, bool accept) => answers.Enqueue((key, accept ? "yes" : "no"));
+
+    public static void PressDialogButton(string key, string button) => answers.Enqueue((key, button));
 
     private static void RunAnswers(DWGame game)
     {
         while (answers.TryDequeue(out var a))
         {
-            string what = a.accept ? "Accept" : "Decline";
+            string what = a.button;
             try
             {
                 if (game.Renderer is not ScaledRenderer renderer || renderer.PlayerEmpire is not Empire empire)
                 {
-                    LastAnswer = $"{what}: no game loaded";
+                    LastAnswer = "no game loaded";
                     continue;
                 }
-                // The suggestion is in the queue, or already on screen in the game's dialog (it leaves the queue then).
+                // The message is a suggestion in the queue, or the one on screen in the game's dialog.
                 var onScreen = DistantWorlds.UI.UserInterfaceController.EmpireMessageDialogGetActiveMessage();
                 var message = Snapshot.Copy(empire.EvaluationQueue).Append(onScreen)
-                    .FirstOrDefault(m => m != null && m.IsAdvisorSuggestion && Views.MessageKey(m, true) == a.key);
+                    .FirstOrDefault(m => m != null && (Views.MessageKey(m, true) == a.key || Views.MessageKey(m, false) == a.key));
                 if (message == null)
                 {
-                    LastAnswer = $"{what}: that suggestion is gone (answered or expired)";
-                    Log.Warn($"Suggestion {a.key}: not in the queue any more.");
+                    LastAnswer = "that message is no longer waiting (answered, closed or expired)";
+                    Log.Warn($"Dialog {a.key}: not on screen nor in the queue.");
                     continue;
                 }
-                renderer.OpenMessage(message, true, false);
+                if (!ReferenceEquals(onScreen, message))
+                {
+                    renderer.OpenMessage(message, true, false);
+                }
                 var dialog = DistantWorlds.UI.UserInterfaceController.EmpireMessageDialog;
-                var button = a.accept ? dialog?.YesButton : dialog?.NoButton;
+                var button = dialog == null ? null : Views.DialogButtonsById(dialog).FirstOrDefault(b => b.id == a.button).button;
                 bool shown = dialog != null && ReferenceEquals(dialog.Message, message);
-                Log.Info($"Suggestion '{message.Title}: {message.GameTask?.Text}' → {what}. Dialog shows it: {shown}; " +
-                    $"Yes='{dialog?.YesButton?.Text}' enabled={dialog?.YesButton?.Enabled}, No='{dialog?.NoButton?.Text}' enabled={dialog?.NoButton?.Enabled}, " +
-                    $"extra={button?.ExtraClickData?.GetType().Name ?? "null"}");
+                what = button?.Text ?? a.button;
+                Log.Info($"Dialog '{message.Title}' → {a.button} ('{button?.Text}'). Dialog shows it: {shown}; buttons: " +
+                    (dialog == null ? "none" : string.Join(", ", Views.DialogButtonsById(dialog).Select(b => $"{b.id}='{b.button?.Text}' visible={b.button?.Visible} enabled={b.button?.Enabled}"))));
                 if (!shown || button == null)
                 {
-                    LastAnswer = $"{what}: the game did not open the suggestion; nothing done";
+                    LastAnswer = $"{what}: the game did not open that message; nothing done";
                     continue;
                 }
-                if (!button.Enabled)
+                if (!button.Visible || !button.Enabled)
                 {
-                    LastAnswer = $"{what}: the game's button is disabled (cannot do it now)";
+                    LastAnswer = $"{what}: the game's button is not available now";
                     continue;
                 }
                 var args = new DWEventArgs(button.ExtraClickData);
                 button.PreClickEvent?.Invoke(button, args);
                 button.ClickEvent?.Invoke(button, args);
-                bool stillQueued = Snapshot.Copy(empire.EvaluationQueue).Contains(message)
-                    || ReferenceEquals(DistantWorlds.UI.UserInterfaceController.EmpireMessageDialogGetActiveMessage(), message);
-                LastAnswer = $"{what}: {message.GameTask?.Text ?? message.Title}" + (stillQueued ? " (still in the queue)" : "");
-                Log.Info($"Suggestion answered ({what}); still in the queue: {stillQueued}");
+                LastAnswer = $"{what}: {message.GameTask?.Text ?? message.Title}";
+                Log.Info($"Dialog button pressed: {a.button} ('{what}').");
             }
             catch (Exception e)
             {
                 LastAnswer = $"{what}: failed ({e.Message})";
-                Log.Error($"Suggestion {a.key}: {e}");
+                Log.Error($"Dialog {a.key}: {e}");
             }
         }
     }

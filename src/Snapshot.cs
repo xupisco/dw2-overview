@@ -255,6 +255,8 @@ internal static class Snapshot
                 },
                 lastAnswer = Commands.LastAnswer,
                 paused = Safe(() => __instance.GetGamePaused()),
+                // Paused by the game itself (an event or a decision waiting), not by the player.
+                autoPaused = Safe(() => __instance.AutoPaused),
                 speed = Safe(() => __instance.GetGameSpeed()),
                 collectedAt,
                 collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
