@@ -355,9 +355,10 @@
   .rnext { font-size: 12px; color: var(--mut); min-width: 0; }
   .rnext a.go { font-size: 12px; }
   /* The opened row: numbers, then where it is mined and the known deposits */
-  .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; align-items: start; }
+  /* Masonry: columns of cards, each as tall as its resources; read down each column */
+  .locs { column-width: 300px; column-gap: 6px; }
   .locs[hidden] { display: none; }
-  .locrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .locrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; break-inside: avoid; margin-bottom: 6px; }
   .locrow .lhead { display: flex; align-items: flex-start; gap: 8px; }
   .locrow .lhead .lname { flex: 1; }
   .locrow .lhead .tag { flex: none; }
@@ -2565,7 +2566,8 @@ const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
 // "more than one years supply", "less than one years supply", "less than X months supply"). A game year is
 // 600 seconds of game time (600,000 star date units; rates are per second), so a month is 50 s. Checked on
 // 2026-11-26 against the game: Fuel 1/0/0, Luxury 27/8/1 (8 luxuries at ~375 s are low, Caslon at 1,023 s is
-// adequate). X is not known yet: under 7 months; 3 is a guess (the game shows it on the Critical tooltip).
+// adequate). X = 3 months (the game's Critical tooltip). Still off: the game had Carbonite critical (1,014 in stock,
+// 0.49/s used: years by this count); the mod now sends ResourceRatesRequiredComplete and the game's surplus to check.
 const GAME_YEAR_S = 600, CRITICAL_MONTHS = 3;
 /** How long the stock lasts, in seconds of game time; null when nothing is used up (production covers it). */
 function resLasts(r) {

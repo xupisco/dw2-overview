@@ -17,6 +17,12 @@ internal sealed class ResourceRow
     /// <summary>The stock level to maintain (the game's "Maintain" column); below it the game shows the stock in red.</summary>
     public double? Maintain { get; set; }
     public double? RateRequired { get; set; }
+    /// <summary>Empire.ResourceRatesRequiredComplete: a fuller demand; a candidate for the game's supply table
+    /// (Carbonite was critical there while the plain demand gave it years, 2026-11-26).</summary>
+    public double? RateRequiredComplete { get; set; }
+    /// <summary>Empire.CalculateResourceRateSurplus(id, false / true): the game's own production surplus.</summary>
+    public double? Surplus { get; set; }
+    public double? SurplusWithBuilding { get; set; }
     public double? RateCurrent { get; set; }
     public double? RateBuilding { get; set; }
     public double? Known { get; set; }
@@ -113,6 +119,7 @@ internal static class ResourcesView
         var stock = Amounts(Safe(() => empire.CalculateTotalCargoLevels(empire.EmpireId)));
         var maintain = Amounts(Safe(() => empire.CalculateTotalStockLevels(false)));
         var required = Amounts(Safe(() => empire.ResourceRatesRequired));
+        var requiredComplete = Amounts(Safe(() => empire.ResourceRatesRequiredComplete));
         var current = Amounts(Safe(() => empire.ResourceRatesCurrent));
         var building = Amounts(Safe(() => empire.ResourceRatesUnderConstruction));
         var known = Amounts(Safe(() => empire.ResourcesKnown));
@@ -155,6 +162,9 @@ internal static class ResourcesView
                 Stock = Get(stock, id),
                 Maintain = Get(maintain, id),
                 RateRequired = Get(required, id),
+                RateRequiredComplete = Get(requiredComplete, id),
+                Surplus = Num(Safe(() => empire.CalculateResourceRateSurplus(id, false))),
+                SurplusWithBuilding = Num(Safe(() => empire.CalculateResourceRateSurplus(id, true))),
                 RateCurrent = Get(current, id),
                 RateBuilding = Get(building, id),
                 Known = Get(known, id),
