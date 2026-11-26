@@ -321,16 +321,15 @@
 
   /* Message log drawer: pushes the page aside on wide screens, over it on narrow ones */
   .logdrawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 7; width: 380px; max-width: 100%; background: var(--panel);
-    box-shadow: -10px 0 30px rgba(0,0,0,.35); display: flex; flex-direction: column; }
+    box-shadow: -14px 0 36px rgba(0,0,0,.5); display: flex; flex-direction: column; }
   .logdrawer[hidden] { display: none; }
-  @media (min-width: 1100px) { body.log-open header, body.log-open main { margin-right: 380px; } body.log-open .toasts { right: 396px; } }
+  @media (min-width: 1100px) { body.log-open .toasts { right: 396px; } }
   .ldhead { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--panel-h); }
   .ldhead b { font: 600 14px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--acc); margin-right: auto; }
   .ldhead .seg button { height: 24px; border: 0; background: transparent; color: var(--mut); padding: 0 8px; font-size: 12px; cursor: pointer; }
   .ldhead .seg button.on { background: var(--acc-d); color: var(--acc); }
-  .loglist { flex: 1; overflow-y: auto; }
-  .lrow { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; cursor: pointer; }
-  .lrow:nth-child(even) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
+  .loglist { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+  .lrow { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; cursor: pointer; background: var(--panel-h); flex: none; }
   .lrow:hover { background: var(--hover); }
   .lrow.pend { box-shadow: inset 2px 0 0 var(--warn); }
   .lmeta { display: flex; align-items: center; gap: 6px; color: var(--mut); font-size: 12px; }
@@ -873,8 +872,8 @@ async function refresh() {
       const flow = eco.cashflowActual;
       // The game's clock, with play / pause (the game's own pause shortcut, as from the palette).
       const clock = info.paused
-        ? `<button type="button" class="tool clockbtn paused" data-clock title="Resume the game">▶ Paused${info.autoPaused ? ' by the game' : ''}</button>`
-        : `<button type="button" class="tool clockbtn" data-clock title="Pause the game">❚❚ ${info.speed != null ? `<b>×${+info.speed.toFixed(2)}</b>` : 'Running'}</button>`;
+        ? `<button type="button" class="tool clockbtn paused" data-clock title="Resume the game · Space">▶ Paused${info.autoPaused ? ' by the game' : ''}</button>`
+        : `<button type="button" class="tool clockbtn" data-clock title="Pause the game · Space">❚❚ ${info.speed != null ? `<b>×${+info.speed.toFixed(2)}</b>` : 'Running'}</button>`;
       if ($('clock').innerHTML !== clock) $('clock').innerHTML = clock;
       $('empire').innerHTML = [
         `<b>${esc(info.empire)}</b>`,
@@ -1342,14 +1341,21 @@ function setLog(open) {
   logSig = '';
   if (open) refresh();
 }
-// Q opens and closes the message log (left hand, while the mouse stays on the page); not while typing.
+// Page shortcuts (left hand, while the mouse stays on the page), not while typing or with the palette or a
+// message open: Q opens and closes the message log; Space plays / pauses the game (as in the game itself;
+// it also wins over a focused button, which Enter still presses).
+const SHORTCUTS = {
+  q: () => setLog(!logOpen),
+  ' ': () => { if (!$('gamectl').hidden) toggleGamePause(); },
+};
 document.addEventListener('keydown', e => {
-  if (e.key.toLowerCase() !== 'q' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const run = SHORTCUTS[e.key.toLowerCase()];
+  if (!run || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   const t = e.target;
   if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
   if (palette.open || !$('msgModal').hidden) return;
   e.preventDefault();
-  setLog(!logOpen);
+  run();
 });
 function renderLog(messages) {
   const sig = logPrio + JSON.stringify(messages.slice(0, 80).map(m => m.key));
