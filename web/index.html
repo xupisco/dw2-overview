@@ -1058,7 +1058,7 @@ async function refresh() {
       $('empire').title = `private cash ${money(eco.privateCash)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
       if (info.lastAnswer && info.lastAnswer !== lastAnswerSeen) {
-        if (lastAnswerSeen !== undefined) notice('Suggestion · ' + info.lastAnswer);
+        if (lastAnswerSeen !== undefined) { const t = plain(info.lastAnswer); notice('Done · ' + (t.length > 90 ? t.slice(0, 88) + '…' : t)); }
         lastAnswerSeen = info.lastAnswer;
       } else if (lastAnswerSeen === undefined) lastAnswerSeen = info.lastAnswer || null;
       if (info.counts) {
@@ -1532,7 +1532,9 @@ document.addEventListener('keydown', e => {
   e.preventDefault();
   run();
 });
+let logMessages = null;
 function renderLog(messages) {
+  logMessages = messages;
   const sig = logPrio + JSON.stringify(messages.slice(0, 80).map(m => m.key));
   if (sig === logSig) return;
   logSig = sig;
@@ -1540,9 +1542,10 @@ function renderLog(messages) {
   const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
   logShown = messages.filter(m => (m.pending && m.advisor) || (priorityRank[m.priority] ?? 0) >= logPrio).slice(0, 80);
   $('logList').innerHTML = logShown.map((m, n) => {
-    const suggestion = (m.pending && m.advisor) || m.onScreen;
+    const waiting = !isAnswered(m);
+    const suggestion = ((m.pending && m.advisor) || m.onScreen) && waiting;
     return `<div class="lrow${suggestion ? ' pend' : ''}" data-n="${n}">
-      <div class="lmeta"><i style="background:${color(m.priority)}"></i>${esc(m.date || '')} · ${esc(human(m.type))}${m.pending && m.advisor ? ' · <span class="mk-warn">awaiting</span>' : m.onScreen ? ' · <span class="mk-warn">open in the game</span>' : ''}</div>
+      <div class="lmeta"><i style="background:${color(m.priority)}"></i>${esc(m.date || '')} · ${esc(human(m.type))}${!waiting ? ' · <span class="mut">answered</span>' : m.pending && m.advisor ? ' · <span class="mk-warn">awaiting</span>' : m.onScreen ? ' · <span class="mk-warn">open in the game</span>' : ''}</div>
       <b>${esc(m.title || '')}</b><span>${esc(plain(suggestion && m.task ? m.task : m.text))}</span>
       ${hasGameButtons(m) ? `<div class="tactions">${gameButtons(m)}</div>` : ''}
     </div>`;
@@ -1639,6 +1642,7 @@ async function pressDialog(key, button) {
   answered.set(bare(key), Date.now());
   lastSnapshot = ''; logSig = '';
   if (tab === 'overview' && ov) renderOverview();
+  if (logOpen && logMessages) renderLog(logMessages);
   document.querySelectorAll('#toasts .toast').forEach(el => { if (el.msg && bare(el.msg.key) === bare(key)) el.remove(); });
   if (msgOpen && bare(msgOpen.key) === bare(key)) closeMessage();
   try {

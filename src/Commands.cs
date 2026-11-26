@@ -145,7 +145,10 @@ internal static class Commands
                 var args = new DWEventArgs(button.ExtraClickData);
                 button.PreClickEvent?.Invoke(button, args);
                 button.ClickEvent?.Invoke(button, args);
-                LastAnswer = $"{what}: {message.GameTask?.Text ?? message.Title}";
+                // Short: the button, and the message's title when it says more (the task text carries markup).
+                string title = message.Title;
+                LastAnswer = string.IsNullOrEmpty(title) || what.Contains(title, StringComparison.OrdinalIgnoreCase) || title.Contains(what, StringComparison.OrdinalIgnoreCase)
+                    ? (title != null && title.Length > what.Length ? title : what) : $"{what} · {title}";
                 Log.Info($"Dialog button pressed: {a.button} ('{what}').");
             }
             catch (Exception e)
