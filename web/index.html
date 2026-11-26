@@ -198,6 +198,7 @@
   .tag { display: inline-block; padding: 0 6px; font: 600 12px var(--cond); letter-spacing: .06em; text-transform: uppercase; color: var(--mut); background: var(--track); }
   .tag.building, .tag.active { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
   .tag.queued { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .tag.enroute { color: var(--acc); background: var(--acc-d); }
   .tag.outsideYard, .tag.latest { color: var(--acc); background: var(--acc-d); }
   .tag.facility { color: oklch(var(--L) 0.11 300); background: color-mix(in srgb, oklch(var(--L) 0.11 300) 14%, transparent); }
   .tag.idle, .tag.prio-Low { color: var(--mut); background: transparent; outline: 1px dashed var(--line-2); outline-offset: -1px; }
@@ -673,6 +674,7 @@
     <option value="building">Building</option>
     <option value="queued">Queued</option>
     <option value="outsideYard">Outside a yard</option>
+    <option value="enroute">En route to build</option>
     <option value="facility">Facilities</option>
     <option value="idle">Idle yards</option>
   </select>
@@ -810,7 +812,7 @@ const expanded = new Set();
 let lastSnapshot = null;
 const yardKey = i => `${i.whereType}:${i.whereId}`;
 try { $('view').value = localStorage.getItem('overview.view') || 'yard'; } catch (e) { }
-const stateOrder = { building: 0, outsideYard: 1, queued: 2, facility: 3, idle: 4 };
+const stateOrder = { building: 0, outsideYard: 1, enroute: 2, queued: 3, facility: 4, idle: 5 };   // enroute: a construction ship on its way to build a base
 
 // Colonies and research share one generic table. Values are shown raw (2 decimals) until each scale is
 // checked against the game's own screens.
@@ -1522,7 +1524,7 @@ function render() {
   rowItems = rows.map(r => r.item);
 
   $('rows').innerHTML = rows.map(({ item: i, kind, key, more }, n) => `<tr data-n="${n}" class="${kind}" title="Go to ${esc(i.where)}">
-      <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
+      <td class="k-state" data-label="State"><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
       <td class="k-name" data-label="Name">${nameCell(i)}</td>
       <td data-label="Design">${cell(i.design)}</td>
       <td data-label="Role">${roleCell(i)}</td>
@@ -2348,7 +2350,7 @@ function blockHtml(id) {
   if (id === 'summary') {
     const pop = ov.colonies.reduce((s, c) => s + (c.population || 0), 0);
     const yards = ov.construction.length, idleY = ov.construction.filter(i => i.state === 'idle').length;
-    const busyY = ov.construction.filter(i => i.state === 'building').length;
+    const busyY = ov.construction.filter(i => i.state === 'building' || i.state === 'enroute').length;
     const active = ov.research.find(r => r.state === 'active');
     const queued = ov.research.filter(r => r.state === 'queued').length;
     const idle = ovIdleShips(), idleAll = ovIdleAll();
@@ -2384,7 +2386,7 @@ function blockHtml(id) {
     const sorter = `<span class="seg ovsort">${['progress', 'yard', 'name'].map(k => `<button type="button" class="${ovBuildSort === k ? 'on' : ''}" ${act(() => { ovBuildSort = k; try { localStorage.setItem('overview.buildSort', k); } catch (e) { } renderOverview(); })}>${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
       `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><table class="ovtable"><thead><tr><th>State</th><th>Name</th><th>Role</th><th>Progress</th></tr></thead><tbody>${rows.map(i => `<tr ${act(() => goTo(i.whereType, i.whereId))} title="Go to ${esc(i.where || '')}">
-        <td><span class="tag ${esc(i.state)}">${esc(i.state)}</span></td>
+        <td><span class="tag ${esc(i.state)}">${esc(i.state === 'enroute' ? 'en route' : i.state)}</span></td>
         <td class="ovname">${esc(i.name || i.design || 'Not started')}</td>
         <td class="ovrole">${roleCell(i)}</td>
         <td class="ovprog">${progressCell(i.progress)}</td></tr>`).join('')}</tbody></table>`

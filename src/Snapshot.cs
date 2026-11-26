@@ -404,6 +404,15 @@ internal static class Snapshot
             // IsEmpty said false for idle yards in the first test (2026-11-26), so judge by the content instead.
             if (yard.ShipUnderConstructionId <= 0 && yard.ConstructionType == ConstructionType.Undefined)
             {
+                // A construction ship on its way to build a base has an empty yard but is not idle (seen 2026-11-26:
+                // Lone Rebel, "Build MS-3 (Large Mining Station) at Kintaris 2", counted as an idle yard).
+                var enRoute = EnRoute(galaxy, empire, where);
+                if (enRoute != null)
+                {
+                    Count(stats, "yardsEnRoute");
+                    items.Add(enRoute.At(where));
+                    continue;
+                }
                 Count(stats, "yardsIdle");
                 items.Add(new BuildItem { Category = "yard", State = "idle" }.At(where));
                 continue;
@@ -444,6 +453,39 @@ internal static class Snapshot
     }
 
     /// <summary>
+    /// The base a construction ship is on its way to build (ShipMissionType.Build: BuildDesignId, PrimaryTarget),
+    /// or null when the yard's owner is not a ship on such a mission.
+    /// </summary>
+    private static BuildItem EnRoute(Galaxy galaxy, Empire empire, Where where)
+    {
+        if (where.Type != "ship")
+        {
+            return null;
+        }
+        var owner = Safe(() => galaxy.Ships.GetById(where.Id));
+        var mission = Safe(() => owner?.Mission);
+        if (mission == null || mission.Type != ShipMissionType.Build)
+        {
+            return null;
+        }
+        var design = Safe(() => empire.Designs.GetById(mission.BuildDesignId)) ?? Safe(() => galaxy.Designs.GetById(mission.BuildDesignId));
+        var item = new BuildItem
+        {
+            Category = "base",
+            State = "enroute",
+            Work = "Build",
+            Name = Safe(() => design?.Name),
+            Design = Safe(() => design?.Name),
+            Role = Safe(() => design?.GetRole(galaxy).ToString()),
+        };
+        if (Safe(() => mission.PrimaryTarget.Resolve(galaxy)) is Orb orb)
+        {
+            OrbSite(empire, orb, item);
+        }
+        return item;
+    }
+
+    /// <summary>
     /// Where a base being built in place will stand (a construction ship builds it on a planet, moon or
     /// asteroid: the base already exists with Ship.Parent there), and for a mining base what that site holds.
     /// </summary>
@@ -459,6 +501,13 @@ internal static class Snapshot
         {
             return item;
         }
+        OrbSite(empire, orb, item);
+        return item;
+    }
+
+    /// <summary>The planet, moon or asteroid a base stands on, and for a mining base what it holds.</summary>
+    private static void OrbSite(Empire empire, Orb orb, BuildItem item)
+    {
         item.Site = Safe(() => orb.Name);
         item.SiteOrbId = orb.OrbId;
         if ((item.Role ?? "").Contains("Mining"))
@@ -470,7 +519,6 @@ internal static class Snapshot
                 .Select(r => new SiteResource { Name = Safe(() => r.Name), Abundance = r.Abundance })
                 .ToList();
         }
-        return item;
     }
 
     internal static string SystemName(Galaxy galaxy, StellarObject obj)
