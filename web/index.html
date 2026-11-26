@@ -170,6 +170,7 @@
   .filters .clearf { color: var(--acc); background: var(--acc-d); }
   .filters .clearf:hover { background: color-mix(in srgb, var(--acc) 25%, transparent); }
   .filters .clearf[hidden] { display: none; }
+  .seg[hidden] { display: none !important; }
   .hint { color: var(--mut); font-size: 12px; margin-top: -4px; }
   .check { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); cursor: pointer; white-space: nowrap; }
 
@@ -469,6 +470,25 @@
   .mtext p { margin: 0 0 8px; line-height: 1.5; }
   .mtask { color: var(--mut); }
   .mactions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mbox.wide { width: min(760px, calc(100% - 32px)); }
+  #resModalMeta { display: flex; align-items: center; gap: 8px; }
+  #resModalBody h3 { margin: 6px 0 2px; }
+  #resModalBody .rmrate, #resModalBody .rmnext { font-size: 12px; color: var(--mut); margin-bottom: 6px; }
+  #resModalBody .rexp { --pl: 0px; background: none; box-shadow: none; padding: 6px 0 0; }
+  .rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
+  .rcards[hidden] { display: none; }
+  .rcard { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .rcard:hover { background: var(--hover); }
+  .rcard.st-critical { box-shadow: inset 3px 0 0 var(--bad); }
+  .rcard.st-low { box-shadow: inset 3px 0 0 var(--warn); }
+  .rchead { display: flex; align-items: center; gap: 10px; }
+  .rchead .rname { flex: 1; }
+  .rcnums { display: flex; gap: 24px; font-size: 12px; }
+  .rcnums span { display: flex; flex-direction: column; }
+  .rcnums small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
+  .rcnums b { font-weight: 500; font-size: 14px; }
+  .rcnums em { font-style: normal; color: var(--mut); }
+  .rcnext { font-size: 12px; color: var(--mut); }
   .mactions .abtn { height: 30px; padding: 0 14px; font-size: 13px; }
   .mk-loc, .mk-res { color: var(--acc); } .mk-hl { color: oklch(var(--L) 0.11 60); } .mk-warn { color: var(--warn); } .mk-fac { color: var(--bad); }
 
@@ -748,6 +768,7 @@
   </span>
   <span id="gfilters" class="group"></span>
   <span id="resfilters" class="group" hidden>
+    <span id="resLayout" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span>
     <span id="resViews" class="seg" title="What to list"><button type="button" data-view="resources">Resources</button><button type="button" data-view="mined">Mined locations <em></em></button><button type="button" data-view="new">New locations <em></em></button></span>
   </span>
   <span id="colfilters" class="group" hidden>
@@ -792,6 +813,7 @@
       <div id="resList"></div>
     </div>
   </div>
+  <div id="resCards" class="rcards" hidden></div>
   <div id="resLocations" class="locs" hidden></div>
 </div>
 <div id="tab-ships" hidden>
@@ -840,6 +862,12 @@
     <h3 id="msgTitle"></h3>
     <div id="msgText" class="mtext"></div>
     <div id="msgActions" class="mactions"></div>
+  </div>
+</div>
+<div id="resModal" class="modal" hidden>
+  <div class="mbox wide" role="dialog" aria-label="Resource">
+    <div class="mhead"><span id="resModalMeta"></span><button type="button" class="ovlink" id="resModalClose">Close ✕</button></div>
+    <div id="resModalBody"></div>
   </div>
 </div>
 <div id="palette" hidden>
@@ -1722,7 +1750,7 @@ document.addEventListener('keydown', e => {
   if (!run || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   const t = e.target;
   if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
-  if (palette.open || !$('msgModal').hidden) return;
+  if (palette.open || !$('msgModal').hidden || !$('resModal').hidden) return;
   e.preventDefault();
   run();
 });
@@ -2750,7 +2778,9 @@ function resExpand(r) {
 // Like the game's Mining Locations / New Mining Locations. New locations follow the game's own priority (Empire.MiningTargets,
 // the mod's "priority"), then most needed: a critical resource there, then a low one, by how much of it.
 let resView = 'resources';
-const resTypeFilter = new Set();   // fuel, construction, luxury, other; empty = all
+const resTypeFilter = new Set();
+let resLayout = 'rows';
+try { resLayout = localStorage.getItem('overview.resLayout') || (innerWidth <= 760 ? 'cards' : 'rows'); } catch (e) { }   // fuel, construction, luxury, other; empty = all
 try { resView = localStorage.getItem('overview.resView2') || 'resources'; } catch (e) { }
 let resBuilds = [], resBuildsAt = 0;
 /** Construction items, to know which new location already has a station being built or a ship on its way. */
@@ -2818,6 +2848,49 @@ $('resLocations').addEventListener('click', e => {
   setTimeout(() => row.classList.remove('flash'), 400);
 });
 
+/** A resource as a card: type, state, stock and pace, the next step; a click opens the details in a modal. */
+function resCard(r) {
+  const st = resStatus(r);
+  return `<div class="rcard st-${st}" data-res="${r.id}" title="Open: prices, where it is mined, known deposits">
+    <div class="rchead"><span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
+      <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
+      <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span></div>
+    <div class="rcnums"><span><small>Stock</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span>
+      <span><small>Rate</small>${resRateCell(r)}</span></div>
+    <div class="rcnext">${resNext(r)}</div>
+  </div>`;
+}
+/** The details of one resource in a modal, from anywhere (cards, the palette); reads the data if this tab has none. */
+async function openResourceModal(id) {
+  if (!(resData.items || []).some(r => r.id === id)) {
+    try { const d = await getJson('/api/resources'); resData = { items: d.items || [], deposits: d.deposits || [] }; learnResources(resData.items); } catch (e) { return; }
+  }
+  const r = resData.items.find(x => x.id === id);
+  if (!r) return;
+  const st = resStatus(r);
+  $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resExpand(r)}`;
+  $('resModal').hidden = false;
+}
+const closeResourceModal = () => { $('resModal').hidden = true; };
+$('resModalClose').addEventListener('click', closeResourceModal);
+$('resModal').addEventListener('mousedown', e => { if (e.target.id === 'resModal') closeResourceModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('resModal').hidden) closeResourceModal(); });
+$('resModalBody').addEventListener('click', e => { const pl = e.target.closest('[data-orb]'); if (pl) { e.preventDefault(); goTo('orb', +pl.dataset.orb); } });
+$('resCards').addEventListener('click', e => {
+  const pl = e.target.closest('[data-orb]');
+  if (pl) { e.preventDefault(); goTo('orb', +pl.dataset.orb); return; }
+  const card = e.target.closest('[data-res]');
+  if (card) openResourceModal(+card.dataset.res);
+});
+$('resLayout').addEventListener('click', e => {
+  const b = e.target.closest('[data-layout]');
+  if (!b) return;
+  resLayout = b.dataset.layout;
+  try { localStorage.setItem('overview.resLayout', resLayout); } catch (er) { }
+  renderResources();
+});
+
 function renderResources() {
   setTimeout(syncFilters, 0);
   refreshResBuilds();
@@ -2843,7 +2916,10 @@ function renderResources() {
     const em = b.querySelector('em');
     if (em) em.textContent = deps.filter(d => b.dataset.view === 'mined' ? d.minedBy : !d.minedBy).length || '';
   });
-  $('resListWrap').hidden = resView !== 'resources';
+  $('resLayout').hidden = resView !== 'resources';
+  document.querySelectorAll('#resLayout button').forEach(b => b.classList.toggle('on', b.dataset.layout === resLayout));
+  $('resListWrap').hidden = resView !== 'resources' || resLayout === 'cards';
+  $('resCards').hidden = resView !== 'resources' || resLayout !== 'cards';
   $('resLocations').hidden = resView === 'resources';
   $('resTypes').hidden = resView !== 'resources';
   if (resView !== 'resources') { renderLocations(all, deps, q); return; }
@@ -2856,6 +2932,12 @@ function renderResources() {
     && (!q || (r.name || '').toLowerCase().includes(q)))
     .sort((a, b) => RES_RANK[resStatus(a)] - RES_RANK[resStatus(b)]
       || (resRunsOut(a) ?? Infinity) - (resRunsOut(b) ?? Infinity) || (a.name || '').localeCompare(b.name || ''));
+  if (resLayout === 'cards') {
+    $('resCards').innerHTML = rows.map(resCard).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet.'}</div>`;
+    $('count').textContent = `${rows.length} of ${all.length}`;
+    if (resPick != null) { openResourceModal(resPick); resPick = null; }
+    return;
+  }
   if (resPick != null) resOpen.add(resPick);
   $('resList').innerHTML = rows.map(r => {
     const st = resStatus(r), open = resOpen.has(r.id);
@@ -3110,7 +3192,7 @@ function paletteChoose(n, viaTab) {
   if (r.command) { if (!viaTab) { if (r.command.run) r.command.run(); else pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
   if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: kindText(r.item) }); return; }
-  if (r.item.type === 'resource') openResource(r.item.id); else goTo(r.item.type, r.item.id);
+  if (r.item.type === 'resource') openResourceModal(r.item.id); else goTo(r.item.type, r.item.id);
   closePalette();
 }
 
