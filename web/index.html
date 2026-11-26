@@ -274,7 +274,10 @@
   .kpi.kres b { font-size: 17px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kpi.kres .pb { height: 3px; margin: 3px 0 2px; }
   .kpi.kres .pb > i { box-shadow: none; }
-  .kpi .kchip { color: var(--acc); text-decoration: underline dotted; cursor: pointer; }
+  .kpi.kidle { position: relative; }
+  .kpi .ktoggle { position: absolute; top: 6px; right: 8px; font: 500 12px Barlow, sans-serif; font-style: normal; color: var(--mut); background: var(--track); padding: 1px 7px; cursor: pointer; }
+  .kpi .ktoggle:hover { color: var(--tx); }
+  .kpi .ktoggle.on { color: var(--acc); background: var(--acc-d); }
   .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
   .buildroles[hidden] { display: none; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
@@ -557,14 +560,16 @@
   .group[hidden] { display: none; }
 
   /* In-page message toasts */
-  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; max-width: min(380px, calc(100% - 32px)); }
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; width: min(440px, calc(100% - 32px)); }
   .toast { position: relative; overflow: hidden; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 10px 12px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
   /* time left: a thin bar that empties; it stops while the mouse is over the toast */
   .toast .ttimer { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--acc); opacity: .9; transform-origin: left; animation: toast-time linear forwards; }
   .toast.prio-High .ttimer { background: var(--warn); } .toast.prio-Critical .ttimer { background: var(--bad); }
   .toast:hover .ttimer { animation-play-state: paused; }
   @keyframes toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-  .tactions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+  .tactions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+  /* A long game button (Take me to the location of ...) keeps one line: cut with an ellipsis, never squeezing the others */
+  .tactions .abtn, .tactions .mute { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 24px; flex: none; }
   .gbtns { display: contents; }
   .toast > span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .toast .mute { height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
@@ -1720,7 +1725,7 @@ function gameButtons(m) {
   if (isAnswered(m)) return '';
   const list = m.buttons && m.buttons.length ? m.buttons
     : m.pending && m.advisor ? [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }] : [];
-  return list.map((b, i) => `<button type="button" class="abtn${i === 0 ? ' ok' : ''}" data-gb="${esc(b.id)}">${esc(b.text)}</button>`).join('');
+  return list.map((b, i) => `<button type="button" class="abtn${i === 0 ? ' ok' : ''}" data-gb="${esc(b.id)}" title="${esc(b.text)}">${esc(b.text)}</button>`).join('');
 }
 /**
  * A message reaches the log a moment before the game opens its dialog, so a toast or the modal made on arrival
@@ -2356,10 +2361,9 @@ function blockHtml(id) {
         <b title="${esc(active ? active.name : '')}">${active ? esc(active.name) : '–'}</b>
         ${active ? `<i class="pb"><i style="width:${Math.round((active.progress || 0) * 100)}%"></i></i>` : ''}
         <small style="color:${active && queued ? 'var(--mut)' : 'var(--warn)'}">${active ? `${Math.round(active.progress * 100)}% · ${queued ? `${queued} in queue` : 'queue empty after this'}` : 'nothing active'}</small></button>
-      <button type="button" class="kpi" ${act(goTab('ships', () => { shipBucketFilter.clear(); shipBucketFilter.add('idle'); renderShips(); }))}><span>Idle ships</span>
+      <button type="button" class="kpi kidle" ${act(goTab('ships', () => { shipBucketFilter.clear(); shipBucketFilter.add('idle'); renderShips(); }))}><span>Idle ships</span>${idleAll.some(s => shipCategory(s) === 'Logistics') ? `<i class="ktoggle${ovHideFreighters ? ' on' : ''}" ${act(toggleFreighters)} title="Freighters wait for cargo on their own; hide them here and in Needs attention">${ovHideFreighters ? 'freighters hidden' : 'hide freighters'}</i>` : ''}
         <b style="color:${idle.length ? 'var(--warn)' : ''}">${idle.length}</b>
-        <small>${idle.length ? esc([...new Set(idle.map(shipCategory))].map(c => `${idle.filter(s => shipCategory(s) === c).length} ${c.toLowerCase()}`).join(', ')) : 'all busy'}
-          ${idleAll.some(s => shipCategory(s) === 'Logistics') ? `· <span class="kchip" ${act(toggleFreighters)} title="Freighters wait for cargo on their own; hide them here and in Needs attention">${ovHideFreighters ? 'freighters hidden' : 'hide freighters'}</span>` : ''}</small></button>
+        <small>${idle.length ? esc([...new Set(idle.map(shipCategory))].map(c => `${idle.filter(s => shipCategory(s) === c).length} ${c.toLowerCase()}`).join(', ')) : 'all busy'}</small></button>
     </div>`;
   }
   if (id === 'attention') {
