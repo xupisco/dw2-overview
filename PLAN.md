@@ -10,6 +10,11 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 - **2026-11-26:** visão padrão "One row per yard": o primeiro item do estaleiro (na ordenação atual) representa a linha, e os outros se expandem embaixo (▸ +N). Os filtros agem sobre os itens. "Every item" mostra a lista plana. A página só redesenha quando os dados mudam, para não engolir cliques.
 - Nome exibido provisório: "Empire Overview".
 
+## Wishlist (sem ordem, depois da sequência)
+
+- **Detalhe da pesquisa:** ao abrir um projeto, mostrar o que ele libera, como o tooltip do jogo: componentes (`ResearchProjectDefinition.Components`), instalações (`PlanetaryFacilityIds`), cascos (`ShipHulls`), bônus (`EmpireBonuses`), e também os dias que faltam e o custo do crash program. O tooltip do jogo mostra "211 days to research", "55% Complete" (bate com o nosso `ProgressRatio`) e "Crash Program for 3,384 credits from Cash on Hand of 9,320 credits".
+- **Dinheiro em caixa** no cabeçalho (o campo do império ainda não foi achado).
+
 ## Sequência
 
 1. [x] Construção: estaleiros, filas, instalações, estaleiros parados. Testado no jogo em 2026-11-26.
