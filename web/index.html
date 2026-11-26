@@ -61,6 +61,12 @@
   .group[hidden] { display: none; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .flag { color: var(--bad); }
+  /* In-page message toasts */
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 9; max-width: min(380px, calc(100% - 32px)); }
+  .toast { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 12px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 2px; }
+  .toast span { color: var(--dim); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .toast.prio-High { border-left-color: var(--warn); }
+  .toast.prio-Critical { border-left-color: var(--bad); }
   /* Command palette (Ctrl+K) */
   #palette { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 10; }
   #palette[hidden] { display: none; }
@@ -143,11 +149,11 @@
     <option value="2">High and up</option>
   </select>
   </span>
-  <select id="notify" title="Browser notifications for new game messages">
-    <option value="off">Notifications off</option>
-    <option value="2">Notify: high and critical</option>
-    <option value="1">Notify: normal and up</option>
-    <option value="0">Notify: every message</option>
+  <select id="notify" title="Alerts for new game messages: a toast in this page while you are looking at it, a system notification when the page is not focused">
+    <option value="off">Alerts off</option>
+    <option value="2">Alerts: high and critical</option>
+    <option value="1">Alerts: normal and up</option>
+    <option value="0">Alerts: every message</option>
   </select>
   <button id="pause" type="button">Pause</button>
   <span class="count" id="count"></span>
@@ -179,6 +185,7 @@
   <div id="empty" class="empty" hidden></div>
 </div>
 
+<div id="toasts" class="toasts"></div>
 <div id="palette" hidden>
   <div class="pbox" role="dialog" aria-label="Go to">
     <div class="pin"><span id="pscope" class="pscope" hidden></span><input id="pinput" type="text" placeholder="Go to… name, kind or system" autocomplete="off"></div>
@@ -401,21 +408,40 @@ async function refresh() {
   }
 }
 
-// Browser notifications: the first list we see only marks messages as known, so turning this on (or
-// reloading the page) does not replay the whole log. After that, each new message at or above the chosen
-// priority pops up; clicking it brings this page forward and goes to what the message is about.
+// New-message alerts: the first list we see only marks messages as known, so turning this on (or reloading
+// the page) does not replay the whole log. After that, each new message at or above the chosen priority
+// shows up: as a toast in the page while you are looking at it, or as a system notification when the page
+// is hidden or not focused (the game has the focus, another tab is in front). Clicking either goes to what
+// the message is about.
 let knownMessages = null;
 function checkNotify(messages) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (knownMessages === null) { knownMessages = new Set(messages.map(m => m.key)); return; }
   const min = +$('notify').value;
   for (const m of [...messages].reverse()) {
     if (knownMessages.has(m.key)) continue;
     knownMessages.add(m.key);
     if ((priorityRank[m.priority] ?? 0) < min) continue;
-    const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
-    n.onclick = () => { window.focus(); if (m.relatedId) goTo(m.relatedType, m.relatedId); n.close(); };
+    const go = () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); };
+    const looking = !document.hidden && document.hasFocus();
+    if (!looking && 'Notification' in window && Notification.permission === 'granted') {
+      const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
+      n.onclick = () => { window.focus(); go(); n.close(); };
+    } else {
+      toast(m, go);
+    }
   }
+}
+
+function toast(m, onClick) {
+  const el = document.createElement('div');
+  el.className = 'toast prio-' + (m.priority || 'Normal');
+  el.innerHTML = `<b>${esc(m.title || 'Message')}</b><span>${esc(plain(m.text))}</span>`;
+  el.title = 'Click to go to it · right-click to dismiss';
+  el.addEventListener('click', () => { onClick(); el.remove(); });
+  el.addEventListener('contextmenu', e => { e.preventDefault(); el.remove(); });
+  $('toasts').prepend(el);
+  setTimeout(() => el.remove(), (priorityRank[m.priority] ?? 1) >= 2 ? 15000 : 8000);
+  while ($('toasts').children.length > 5) $('toasts').lastChild.remove();
 }
 
 function fillWorkOptions() {
