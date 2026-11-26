@@ -108,7 +108,10 @@ internal static class Commands
                     LastAnswer = $"{what}: no game loaded";
                     continue;
                 }
-                var message = Snapshot.Copy(empire.EvaluationQueue).FirstOrDefault(m => m.IsAdvisorSuggestion && Views.MessageKey(m, true) == a.key);
+                // The suggestion is in the queue, or already on screen in the game's dialog (it leaves the queue then).
+                var onScreen = DistantWorlds.UI.UserInterfaceController.EmpireMessageDialogGetActiveMessage();
+                var message = Snapshot.Copy(empire.EvaluationQueue).Append(onScreen)
+                    .FirstOrDefault(m => m != null && m.IsAdvisorSuggestion && Views.MessageKey(m, true) == a.key);
                 if (message == null)
                 {
                     LastAnswer = $"{what}: that suggestion is gone (answered or expired)";
@@ -135,7 +138,8 @@ internal static class Commands
                 var args = new DWEventArgs(button.ExtraClickData);
                 button.PreClickEvent?.Invoke(button, args);
                 button.ClickEvent?.Invoke(button, args);
-                bool stillQueued = Snapshot.Copy(empire.EvaluationQueue).Contains(message);
+                bool stillQueued = Snapshot.Copy(empire.EvaluationQueue).Contains(message)
+                    || ReferenceEquals(DistantWorlds.UI.UserInterfaceController.EmpireMessageDialogGetActiveMessage(), message);
                 LastAnswer = $"{what}: {message.GameTask?.Text ?? message.Title}" + (stillQueued ? " (still in the queue)" : "");
                 Log.Info($"Suggestion answered ({what}); still in the queue: {stillQueued}");
             }

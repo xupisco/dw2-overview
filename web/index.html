@@ -282,6 +282,19 @@
   .heat td small { color: var(--mut); }
   .heat tbody tr:nth-child(even) td:not(.hc) { background: color-mix(in srgb, var(--panel-h) 45%, transparent); }
 
+  /* Message modal */
+  .modal { position: fixed; inset: 0; z-index: 11; background: rgba(0,0,0,.55); display: flex; justify-content: center; align-items: flex-start; padding-top: 10vh; }
+  .modal[hidden] { display: none; }
+  .mbox { width: min(560px, calc(100% - 32px)); max-height: 80vh; overflow-y: auto; background: var(--panel); padding: 14px 16px 16px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); display: flex; flex-direction: column; gap: 10px; }
+  .mhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--mut); font-size: 12px; }
+  .mbox h3 { margin: 0; font: 600 20px var(--cond); letter-spacing: .03em; }
+  .mtext p { margin: 0 0 8px; line-height: 1.5; }
+  .mtask { color: var(--mut); }
+  .mactions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mactions .abtn { height: 30px; padding: 0 14px; font-size: 13px; }
+  .mk-loc, .mk-res { color: var(--acc); } .mk-hl { color: oklch(var(--L) 0.11 60); } .mk-warn { color: var(--warn); } .mk-fac { color: var(--bad); }
+
   /* Accept / Decline for advisor suggestions */
   .answers { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
   .ovrow .answers { margin: 6px 0 0; }
@@ -541,6 +554,14 @@
 </main>
 
 <div id="toasts" class="toasts"></div>
+<div id="msgModal" class="modal" hidden>
+  <div class="mbox" role="dialog" aria-label="Message">
+    <div class="mhead"><span id="msgMeta"></span><button type="button" class="ovlink" id="msgClose">Close ✕</button></div>
+    <h3 id="msgTitle"></h3>
+    <div id="msgText" class="mtext"></div>
+    <div id="msgActions" class="mactions"></div>
+  </div>
+</div>
 <div id="palette" hidden>
   <div class="pbox" role="dialog" aria-label="Go to">
     <div class="pin"><span id="pscope" class="pscope" hidden></span><input id="pinput" type="text" placeholder="Go to… name, kind or system" autocomplete="off"></div>
@@ -663,7 +684,7 @@ const hints = {
   resources: 'Click a supply count to filter. Pick a resource to see where it is mined and where else it can be found. Rates and "runs out" are provisional: hover a row for the raw numbers.',
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
   colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
-  messages: 'The game\'s message log, newest first. Click a message to go to what it is about. Notifications need the browser\'s permission once.',
+  messages: 'The game\'s message log, newest first. Click a message to read it whole (and answer a suggestion, or go to what it is about). Notifications need the browser\'s permission once.',
   ships: 'Your ships and bases and what each is doing. Mission "Idle" = nothing to do. Click a ship to go to it, or its target to go there.',
   research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
 };
@@ -1072,6 +1093,40 @@ async function answerSuggestion(key, accept) {
   }
 }
 
+/**
+ * The game's message markup, as highlights: [LOCATION]Goma[/LOCATION], [HL]…[/HL], [WARN]…[/WARN],
+ * [FACTION]…[/FACTION], [RESEARCH]…[/RESEARCH]. Any other tag keeps its text. Blank lines become paragraphs.
+ */
+function richText(s) {
+  const tagClass = { LOCATION: 'mk-loc', HL: 'mk-hl', WARN: 'mk-warn', FACTION: 'mk-fac', RESEARCH: 'mk-res' };
+  let html = esc(s || '').replace(/\[([A-Z]+)\]([\s\S]*?)\[\/\1\]/g, (_, tag, text) => `<span class="${tagClass[tag] || 'mk-hl'}">${text}</span>`);
+  html = html.replace(/\[\/?[A-Z]+\]/g, '');
+  return html.split(/\n\s*\n/).map(p => `<p>${p.trim().replace(/\s*\n\s*/g, ' ')}</p>`).join('');
+}
+
+/** Opens a message with its whole text; Accept / Decline for a pending advisor suggestion; Go to. */
+let msgOpen = null;
+function openMessage(m) {
+  msgOpen = m;
+  $('msgMeta').innerHTML = `<span class="tag prio-${esc(m.priority)}">${esc(m.priority)}</span> ${esc(m.date || '')} · ${esc(human(m.type))}${m.advisor ? ' · advisor' : ''}${m.pending ? ' · <span class="mk-warn">awaiting your decision</span>' : ''}`;
+  $('msgTitle').textContent = m.title || '';
+  $('msgText').innerHTML = richText(m.text) + (m.task && m.task !== m.text && m.task !== m.title ? `<p class="mtask">Suggests: ${esc(plain(m.task))}</p>` : '');
+  $('msgActions').innerHTML = (m.pending && m.advisor ? `<button type="button" class="abtn ok" data-m="accept">Accept</button><button type="button" class="abtn" data-m="decline">Decline</button>` : '')
+    + (m.relatedId ? `<button type="button" class="abtn" data-m="goto">Go to ${esc(m.relatedName || '')} ›</button>` : '');
+  $('msgModal').hidden = false;
+}
+function closeMessage() { $('msgModal').hidden = true; msgOpen = null; }
+$('msgClose').addEventListener('click', closeMessage);
+$('msgModal').addEventListener('mousedown', e => { if (e.target.id === 'msgModal') closeMessage(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('msgModal').hidden) closeMessage(); });
+$('msgActions').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]');
+  if (!b || !msgOpen) return;
+  if (b.dataset.m === 'goto') goTo(msgOpen.relatedType, msgOpen.relatedId);
+  else answerSuggestion(msgOpen.key, b.dataset.m === 'accept');
+  closeMessage();
+});
+
 /** A short notice in the toast corner (not a game message: no mute, no go to). */
 function notice(text) {
   const el = document.createElement('div');
@@ -1193,7 +1248,7 @@ $('orows').addEventListener('click', e => {
   if (answer) { answerSuggestion(row.key, answer.dataset.answer === 'accept'); return; }
   const tgt = e.target.closest('[data-tt]');
   if (tab === 'colonies') goTo('orb', row.orbId);
-  else if (tab === 'messages' && row.relatedId) goTo(row.relatedType, row.relatedId);
+  else if (tab === 'messages') openMessage(row);
   else if (tab === 'ships' && tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
   else if (tab === 'ships') goTo('ship', row.id);
   else return;
@@ -1505,7 +1560,7 @@ function blockHtml(id) {
     const rows = ov.messages.filter(m => !m.pending).slice(0, 5);
     const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
     return panel('Latest messages', 'var(--acc)', linkTo('Message log', 'messages'),
-      rows.map(m => `<button type="button" class="ovrow msg" ${m.relatedId ? act(() => goTo(m.relatedType, m.relatedId)) : ''}>
+      rows.map(m => `<button type="button" class="ovrow msg" ${act(() => openMessage(m))}>
         <small>${esc(m.date || '')}</small><span><i style="color:${color(m.priority)}">◆</i> ${esc(m.title)}</span><em>${esc(m.relatedName || '')}</em></button>`).join('')
       || '<div class="ovempty">No messages yet.</div>');
   }

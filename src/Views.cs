@@ -117,6 +117,13 @@ internal static class Views
         // Every message passes through EvaluationQueue for a few seconds on its way to the log (seen in game,
         // 2026-11-26), so only the advisor's suggestions count as pending; the rest would show up twice.
         var pending = Copy(Safe(() => empire.EvaluationQueue)).Where(m => m.IsAdvisorSuggestion).ToList();
+        // When the game shows a suggestion in its dialog it leaves the queue (seen 2026-11-26 with a contract
+        // offer), yet it still waits for an answer: the one on screen counts as pending too.
+        var shown = Safe(() => DistantWorlds.UI.UserInterfaceController.EmpireMessageDialogGetActiveMessage());
+        if (shown != null && shown.IsAdvisorSuggestion && !pending.Contains(shown))
+        {
+            pending.Insert(0, shown);
+        }
         var rows = new List<MessageRow>();
         foreach (var (m, isPending) in pending.Select(m => (m, true)).Concat(log.OrderByDescending(m => m.StarDate).Take(limit).Select(m => (m, false))))
         {
