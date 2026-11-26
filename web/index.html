@@ -448,7 +448,7 @@
           <span class="badge" id="bellBadge" hidden></span>
         </button>
         <div class="alertpanel" id="alertPanel" hidden>
-          <h4>Alerts</h4>
+          <h4 title="Alerts for new game messages, by priority; the Watch rules below work on their own">Game messages</h4>
           <select id="notify" title="Which new game messages raise an alert">
             <option value="off">Off</option>
             <option value="2">High and critical</option>
@@ -458,6 +458,8 @@
           <label class="check" title="When this page is not focused, show alerts as system (Windows) notifications instead of toasts here. Off: always toasts in this page, nothing over the game.">
             <input type="checkbox" id="sysnotify"> System notifications when unfocused
           </label>
+          <h4 title="Alerts from what changed in the game, not from its messages: each fires when the thing starts (and has lasted a little), not while it stays">Watch</h4>
+          <div id="ruleList" class="mutelist"></div>
           <h4 id="mutedTitle">Alert types</h4>
           <div id="mutedList" class="mutelist"></div>
         </div>
@@ -866,6 +868,7 @@ async function refresh() {
       renderLog([]);
     }
     if (messages) syncGameButtons(messages);
+    runWatch(info).catch(() => { });
     if (tab === 'overview') {
       const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
       if (snap === lastSnapshot) return;
@@ -916,16 +919,95 @@ function checkNotify(messages, starDate) {
     if (alertsSince != null && m.starDate < alertsSince) continue;
     if ((priorityRank[m.priority] ?? 0) < min) continue;
     if (mutedTypes.has(m.type)) continue;
-    const go = () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); };
-    const looking = !document.hidden && document.hasFocus();
-    // System notifications only when the player turned them on: while playing, a Windows notification pops
-    // up over the game; with them off, an unfocused page still shows the toast on its own screen.
-    if (!looking && $('sysnotify').checked && 'Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
-      n.onclick = () => { window.focus(); go(); n.close(); };
-    } else {
-      toast(m, go);
-    }
+    deliver(m, () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); });
+  }
+}
+
+/**
+ * Shows an alert: a toast in the page, or a system notification when the page is not in front and the
+ * player turned those on (while playing, a Windows notification pops up over the game; with them off, an
+ * unfocused page still shows the toast on its own screen).
+ */
+function deliver(m, go) {
+  const looking = !document.hidden && document.hasFocus();
+  if (!looking && $('sysnotify').checked && 'Notification' in window && Notification.permission === 'granted') {
+    const n = new Notification(m.title || 'Distant Worlds 2', { body: plain(m.text), tag: m.key });
+    n.onclick = () => { window.focus(); if (go) go(); n.close(); };
+  } else {
+    toast(m, go || (() => { }));
+  }
+}
+
+// ---- Watch: alerts from what changed in the game (for playing with the game on another screen) ----
+// Each rule lists the things in a state that wants the player (an idle yard, a critical resource...). A thing
+// raises an alert when it enters that state and stays there for the rule's "hold" (a ship between two
+// missions is idle for a moment; that is not news), and again only after it left the state. What is already
+// in that state when the page starts, a rule is turned on or another save is loaded is the baseline: no alert.
+const RULES = [
+  { id: 'paused', label: 'Game paused, waiting for you', hold: 0, priority: 'High',
+    check: d => d.info.autoPaused ? [{ key: 'paused' }] : [],
+    alert: () => ({ title: 'Game paused, waiting for you', text: 'The game paused itself: an event or a decision wants you.' }) },
+  { id: 'research', label: 'Nothing being researched', hold: 10, priority: 'High', needs: 'research',
+    check: d => d.research.some(r => r.state === 'active') ? [] : [{ key: 'research' }],
+    alert: () => ({ title: 'Nothing being researched', text: 'The research queue is empty.', go: goTab('research') }) },
+  { id: 'yards', label: 'A yard ran out of work', hold: 30, priority: 'Normal', needs: 'construction',
+    check: d => d.construction.filter(i => i.state === 'idle').map(i => ({ key: 'yard:' + (i.whereId ?? i.where) + ':' + (i.name || ''), name: i.where })),
+    alert: l => ({ title: `${l.length > 1 ? l.length + ' yards' : 'A yard'} with nothing to build`, text: [...new Set(l.map(x => x.name))].join(', '),
+      go: goTab('construction', () => { $('state').value = 'idle'; render(); }) }) },
+  { id: 'ships', label: 'A ship became idle', hold: 30, priority: 'Normal', needs: 'ships',
+    check: d => d.ships.filter(s => !s.isBase && shipBucket(s) === 'idle').map(s => ({ key: 'ship:' + s.id, name: s.name })),
+    alert: l => ({ title: `${l.length > 1 ? l.length + ' ships' : 'A ship'} idle`, text: l.map(x => x.name).join(', '),
+      go: goTab('ships', () => { shipBucketFilter.clear(); shipBucketFilter.add('idle'); renderShips(); }) }) },
+  { id: 'colonies', label: 'A colony unhappy or rebelling', hold: 10, priority: 'High', needs: 'colonies',
+    check: d => d.colonies.filter(c => c.rebelling || (c.approval != null && c.approval < 0))
+      .map(c => ({ key: (c.rebelling ? 'rebel:' : 'unhappy:') + c.orbId, name: c.name + (c.rebelling ? ' (rebelling)' : ''), orbId: c.orbId })),
+    alert: l => ({ title: l.some(x => x.key.startsWith('rebel')) ? 'Colony rebelling' : 'Colony unhappy', text: l.map(x => x.name).join(', '),
+      go: l.length === 1 ? () => goTo('orb', l[0].orbId) : goTab('colonies') }) },
+  { id: 'resources', label: 'A resource became critical', hold: 30, priority: 'High', needs: 'resources',
+    check: d => d.resources.filter(r => resRelevant(r) && resStatus(r) === 'critical').map(r => ({ key: 'res:' + r.id, name: r.name })),
+    alert: l => ({ title: `Critical: ${l.map(x => x.name).join(', ')}`, text: 'Out of it, or well below what the empire wants to keep.', go: goTab('resources') }) },
+  { id: 'cashflow', label: 'Cashflow turned negative', hold: 60, priority: 'High',
+    check: d => { const c = d.info.economy?.cashflowActual; return c != null && Math.abs(c) < 1e30 && c < 0 ? [{ key: 'cash' }] : []; },
+    alert: () => ({ title: 'Cashflow turned negative', text: 'The empire is spending more than it earns.' }) },
+];
+const WATCH_EVERY = 10000;   // the lists behind the rules (yards, ships...) are read this often; info every tick
+let rulesOff = new Set();
+try { rulesOff = new Set(JSON.parse(localStorage.getItem('overview.rulesOff') || '[]')); } catch (e) { }
+// Per rule: keys already announced (or in the baseline), and since when each new key has been seen.
+let watch = {}, watchData = null, watchAt = 0, watchSave = '';
+
+function renderRules() {
+  $('ruleList').innerHTML = RULES.map(r => `<label><input type="checkbox" data-rule="${r.id}"${rulesOff.has(r.id) ? '' : ' checked'}> ${esc(r.label)}</label>`).join('');
+}
+
+async function runWatch(info) {
+  const save = info.loaded ? info.empire + '' : '';
+  if (save !== watchSave) { watch = {}; watchData = null; watchAt = 0; watchSave = save; }
+  if (!info.loaded) return;
+  const on = RULES.filter(r => !rulesOff.has(r.id));
+  const needs = [...new Set(on.map(r => r.needs).filter(Boolean))];
+  if (needs.length && Date.now() - watchAt >= WATCH_EVERY) {
+    watchAt = Date.now();
+    const got = await Promise.all(needs.map(n => getJson('/api/' + n).catch(() => null)));
+    watchData = {};
+    needs.forEach((n, i) => { if (got[i]) watchData[n] = got[i].items || []; });
+  }
+  const d = { info, ...(watchData || {}) };
+  const now = Date.now();
+  for (const r of on) {
+    if (r.needs && !d[r.needs]) continue;
+    let list;
+    try { list = r.check(d); } catch (e) { continue; }
+    const w = watch[r.id];
+    if (!w) { watch[r.id] = { known: new Set(list.map(x => x.key)), since: {} }; continue; }   // baseline
+    const keys = new Set(list.map(x => x.key));
+    for (const k of [...w.known]) if (!keys.has(k)) w.known.delete(k);
+    for (const k of Object.keys(w.since)) if (!keys.has(k)) delete w.since[k];
+    const ready = list.filter(x => !w.known.has(x.key) && now - (w.since[x.key] ??= now) >= r.hold * 1000);
+    if (!ready.length) continue;
+    for (const x of ready) { w.known.add(x.key); delete w.since[x.key]; }
+    const a = r.alert(ready);
+    deliver({ key: 'rule:' + r.id + ':' + now, title: a.title, text: a.text, priority: r.priority, rule: true }, a.go);
   }
 }
 
@@ -1390,8 +1472,16 @@ $('sysnotify').addEventListener('change', async () => {
 });
 $('bellBtn').addEventListener('click', () => {
   renderMuted();
+  renderRules();
   $('alertPanel').hidden = !$('alertPanel').hidden;
   $('bellBtn').classList.toggle('on', !$('alertPanel').hidden);
+});
+$('ruleList').addEventListener('change', e => {
+  const box = e.target.closest('input[data-rule]');
+  if (!box) return;
+  if (box.checked) rulesOff.delete(box.dataset.rule); else rulesOff.add(box.dataset.rule);
+  delete watch[box.dataset.rule];   // turning a rule on starts from what is true now
+  try { localStorage.setItem('overview.rulesOff', JSON.stringify([...rulesOff])); } catch (e) { }
 });
 $('mutedList').addEventListener('change', e => {
   const box = e.target.closest('input[data-type]');
