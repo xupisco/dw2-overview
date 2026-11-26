@@ -374,7 +374,10 @@
   .locrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; break-inside: avoid; margin-bottom: 6px; }
   .locrow .lhead { display: flex; align-items: flex-start; gap: 8px; }
   .locrow .lhead .lname { flex: 1; }
-  .locrow .lhead .tag { flex: none; }
+  /* Badges stay top-right, one under the other, and give way (ellipsis) before the place's name does */
+  .locrow .ltags { flex: 0 1 auto; max-width: 62%; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 0; }
+  .locrow .ltags .tag { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .locrow .lhead .lname { min-width: 90px; }
   .locrow:hover { background: var(--hover); }
   .locrow.flash { background: var(--acc-d); }
   .locrow .lname { display: flex; flex-direction: column; min-width: 0; }
@@ -2941,7 +2944,7 @@ function renderLocations(all, deps, q) {
     // Mining ships work places without a station too; on a new location that is worth saying.
     const miners = (d.ships || []).length ? `<span class="tag shipmine" title="Mining ships mine here without a station: ${esc(d.ships.map(s => s.name).join(', '))}">${d.ships.length === 1 ? esc(d.ships[0].name) : d.ships.length + ' ships'} mining</span>` : '';
     return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
-      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${miners}${who}</span>
+      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${miners || who ? `<span class="ltags">${miners}${who}</span>` : ''}</span>
       <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span></div>`;
   }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
