@@ -140,6 +140,55 @@
   .bar > i > span { position: absolute; inset: 0 auto 0 0; background: var(--acc); box-shadow: 0 0 6px var(--acc); }
   .bar > em { font-style: normal; font-size: 12px; min-width: 34px; text-align: right; color: var(--acc); }
 
+  /* Segmented control (group by) */
+  .seg { display: inline-flex; background: var(--panel); }
+  .filters .seg button { background: transparent; color: var(--mut); padding: 0 12px; }
+  .filters .seg button.on { background: var(--acc-d); color: var(--acc); }
+
+  /* Ships: status bar, groups, rows */
+  .sstatus { background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .sbar { display: flex; gap: 2px; height: 4px; }
+  .sbar > i { display: block; height: 100%; }
+  .sbar.mini { width: 150px; height: 3px; margin-left: auto; }
+  .slegend { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .slegend button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 2px 4px; cursor: pointer; color: var(--tx); font-size: 12px; }
+  .slegend button i { width: 8px; height: 8px; display: inline-block; }
+  .slegend button em { font-style: normal; color: var(--mut); }
+  .slegend button.on { background: var(--acc-d); }
+  .slegend button.zero { opacity: .45; }
+  .slist { display: flex; flex-direction: column; gap: 2px; }
+  .sgroup { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--panel-h); cursor: pointer; margin-top: 8px; }
+  .sgroup:first-child { margin-top: 0; }
+  .sgroup b { font: 600 13px var(--cond); letter-spacing: .1em; text-transform: uppercase; }
+  .sgroup em { font-style: normal; color: var(--mut); font-size: 12px; }
+  .sgroup .sicon { color: var(--acc); }
+  .caret2 { color: var(--mut); width: 10px; }
+  .srow { display: grid; grid-template-columns: 30px minmax(150px, 1.1fr) minmax(220px, 1.7fr) 130px 120px 130px 40px; gap: 10px; align-items: center;
+    padding: 5px 10px; background: var(--panel); cursor: pointer; }
+  .srow:hover { background: var(--hover); }
+  .srow.flash { background: var(--acc-d); }
+  .sicon { display: inline-grid; place-items: center; width: 26px; height: 26px; background: var(--acc-d); color: var(--acc); }
+  .sgroup .sicon { background: transparent; width: auto; height: auto; }
+  .sname, .ssys { display: flex; flex-direction: column; min-width: 0; }
+  .sname b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sname small, .ssys small { color: var(--mut); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .smission { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .smission > i { width: 7px; height: 7px; flex: none; }
+  .smission .warn { color: var(--warn); }
+  .smission .arrow { color: var(--mut); }
+  .chip { font-size: 11px; color: var(--mut); background: var(--track); padding: 0 5px; }
+  .sorders { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sfuel { display: flex; align-items: center; gap: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
+  .fbar > i { position: absolute; inset: 0 auto 0 0; background: var(--acc); }
+  .fbar.low > i { background: var(--bad); }
+  .sflags { color: var(--mut); display: flex; gap: 6px; justify-content: flex-end; }
+  @media (max-width: 900px) {
+    .srow { grid-template-columns: 30px 1fr 1fr; }
+    .sorders, .ssys, .sflags { display: none; }
+    .sfuel { grid-column: 2 / -1; }
+  }
+
   .group { display: contents; }
   .group[hidden] { display: none; }
 
@@ -265,6 +314,11 @@
   </select>
   </span>
   <span id="gfilters" class="group"></span>
+  <span id="sfilters" class="group" hidden>
+    <span id="sgroupby" class="seg" title="Group the ships by">
+      <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
+    </span>
+  </span>
   <span id="mfilters" class="group" hidden>
   <select id="mprio">
     <option value="0">All priorities</option>
@@ -276,6 +330,10 @@
 </div>
 
 <div class="hint" id="hint"></div>
+<div id="tab-ships" hidden>
+  <div id="shipStatus" class="sstatus"></div>
+  <div id="shipList" class="slist"></div>
+</div>
 <div class="wrap" id="tab-other" hidden>
   <table>
     <thead><tr id="ohead"></tr></thead>
@@ -430,6 +488,7 @@ const hints = {
 };
 
 function renderOther() {
+  if (tab === 'ships') { renderShips(); return; }
   const cols = columns[tab], s = otherSort[tab];
   const q = $('search').value.trim().toLowerCase();
   const col = cols.find(c => c.key === s.key);
@@ -469,7 +528,9 @@ function setTab(name) {
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
-  $('tab-other').hidden = tab === 'construction';
+  $('tab-other').hidden = tab === 'construction' || tab === 'ships';
+  $('tab-ships').hidden = tab !== 'ships';
+  $('sfilters').hidden = tab !== 'ships';
   $('cfilters').hidden = tab !== 'construction';
   $('rfilters').hidden = tab !== 'research';
   $('mfilters').hidden = tab !== 'messages';
@@ -880,10 +941,178 @@ $('orows').addEventListener('click', e => {
   setTimeout(() => tr.classList.remove('flash'), 400);
 });
 
-let startTab = 'construction';
-try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
-setTab(columns[startTab] || startTab === 'construction' ? startTab : 'construction');
-setInterval(refresh, 2000);
+
+// ---- Ships, in the v3 layout ----
+// A status bar (working / in transit / in yard / idle / bases) that also filters, ships grouped by category,
+// mission or system (or a flat list), and each mission written as a phrase: "Exploring → Kintaris 3".
+
+const MISSION_PHRASE = {
+  Move: 'Moving', Attack: 'Attacking', Mine: 'Mining', MineLoad: 'Mining', Build: 'Building base', Transport: 'Hauling cargo',
+  Guard: 'Guarding', Refuel: 'Refueling', Repair: 'Going for repair', Escape: 'Escaping', Pickup: 'Picking up',
+  PickupLocation: 'Picking up', Retrofit: 'Retrofitting', Retire: 'Retiring', Scrap: 'Scrapping', Colonize: 'Colonizing',
+  LoadTroops: 'Loading troops', UnloadTroops: 'Unloading troops', Capture: 'Capturing', Raid: 'Raiding',
+  Explore: 'Exploring', ExploreSurvey: 'Exploring', ExploreSystem: 'Exploring system', ExploreLocation: 'Exploring',
+  Scout: 'Scouting', Blockade: 'Blockading', Bombard: 'Bombarding', Escort: 'Escorting', Patrol: 'Patrolling',
+  ExitConstructionYard: 'Leaving yard', LoadPopulation: 'Loading passengers', UnloadPassengers: 'Unloading passengers',
+  TransferFuel: 'Transferring fuel', LoadCargo: 'Loading cargo', UnloadCargo: 'Unloading cargo', EstablishOutpost: 'Establishing outpost',
+  Invade: 'Invading', Dock: 'Docking', Undock: 'Undocking', UnderConstruction: 'Under construction', InRepair: 'In repair', Idle: 'Idle',
+};
+const missionPhrase = m => m ? (MISSION_PHRASE[m] || human(m.replace(/Prepare(Refuel)?$/, ' (preparing)'))) : '';
+
+/** What the ship is doing, in five buckets: the status bar, its filter and the "Mission" grouping. */
+const SHIP_BUCKETS = [
+  { key: 'working', label: 'Working', color: 'var(--acc)' },
+  { key: 'transit', label: 'In transit', color: 'var(--ok)' },
+  { key: 'yard', label: 'In yard', color: 'var(--mut)' },
+  { key: 'idle', label: 'Idle', color: 'var(--warn)' },
+  { key: 'base', label: 'Bases', color: 'var(--line-2)' },
+];
+function shipBucket(s) {
+  const m = s.mission;
+  if (!m) return s.isBase ? 'base' : 'idle';
+  if (m === 'Idle') return 'idle';
+  if (['UnderConstruction', 'InRepair', 'Retrofit', 'ExitConstructionYard'].includes(m)) return 'yard';
+  if (['Move', 'Refuel', 'Repair', 'Dock', 'Undock', 'Escape'].includes(m)) return 'transit';
+  return 'working';
+}
+
+/** Roles folded into a few categories (the "Role" grouping). */
+function shipCategory(s) {
+  const k = s.kind || '';
+  if (s.isBase) return 'Bases';
+  if (/Explor/.test(k)) return 'Exploration';
+  if (/Construct/.test(k)) return 'Construction';
+  if (/Colony/.test(k)) return 'Colonization';
+  if (/Freight|Mining|Miner|Passenger|Tanker|Cargo/.test(k)) return 'Logistics';
+  if (/Escort|Frigate|Destroyer|Cruiser|Battle|Carrier|Capital|Troop|Military|Patrol|Fighter|Bomber|Gunboat/.test(k)) return 'Military';
+  return 'Other';
+}
+const CATEGORY_ORDER = ['Exploration', 'Construction', 'Colonization', 'Logistics', 'Military', 'Other', 'Bases'];
+const CATEGORY_ICON = {
+  Exploration: '<circle cx="12" cy="12" r="8"/><path d="m15 9-2 4-4 2 2-4z"/>',
+  Construction: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 8v8M8 12h8"/>',
+  Colonization: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c3 3 3 13 0 16M12 4c-3 3-3 13 0 16"/>',
+  Logistics: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',
+  Military: '<path d="M12 3 19 6v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/>',
+  Bases: '<rect x="7" y="7" width="10" height="10"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>',
+  Other: '<circle cx="12" cy="12" r="3"/>',
+};
+const icon = (cat, size = 14) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${CATEGORY_ICON[cat] || CATEGORY_ICON.Other}</svg>`;
+
+let shipGroupBy = 'role';
+try { shipGroupBy = localStorage.getItem('overview.shipGroupBy') || 'role'; } catch (e) { }
+const shipBucketFilter = new Set();     // empty = all buckets
+const shipCollapsed = new Set();
+
+function miniBar(rows) {
+  const n = rows.length || 1;
+  return SHIP_BUCKETS.map(b => {
+    const c = rows.filter(s => shipBucket(s) === b.key).length;
+    return c ? `<i style="flex:${c / n};background:${b.color}"></i>` : '';
+  }).join('');
+}
+
+function renderShips() {
+  const all = other.rows;
+  const q = $('search').value.trim().toLowerCase();
+  const rows = all.filter(s =>
+    (!shipBucketFilter.size || shipBucketFilter.has(shipBucket(s))) &&
+    (!q || [s.name, s.kind && human(s.kind), s.design, missionPhrase(s.mission), s.target, s.system, s.fleet]
+      .some(v => v && v.toLowerCase().includes(q))));
+
+  // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
+  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend">${SHIP_BUCKETS.map(b => {
+    const c = all.filter(s => shipBucket(s) === b.key).length;
+    const on = shipBucketFilter.has(b.key);
+    return `<button type="button" data-bucket="${b.key}" class="${on ? 'on' : ''}${!c ? ' zero' : ''}" title="Show only these (click again to clear)">
+      <i style="background:${b.color}"></i>${b.label} <em>${c}</em></button>`;
+  }).join('')}</div>`;
+
+  // Groups
+  const keyOf = s => shipGroupBy === 'role' ? shipCategory(s) : shipGroupBy === 'mission' ? shipBucket(s) : shipGroupBy === 'system' ? (s.system || '—') : 'all';
+  const labelOf = k => shipGroupBy === 'mission' ? (SHIP_BUCKETS.find(b => b.key === k)?.label || k) : k;
+  const order = k => shipGroupBy === 'role' ? CATEGORY_ORDER.indexOf(k) : shipGroupBy === 'mission' ? SHIP_BUCKETS.findIndex(b => b.key === k) : 0;
+  const groups = new Map();
+  for (const s of [...rows].sort((a, b) => (a.name || '').localeCompare(b.name || ''))) {
+    const k = keyOf(s);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(s);
+  }
+  const keys = [...groups.keys()].sort((a, b) => order(a) - order(b) || String(a).localeCompare(String(b)));
+
+  shipRowsShown = [];
+  let html = '';
+  for (const k of keys) {
+    const list = groups.get(k);
+    const collapsed = shipCollapsed.has(shipGroupBy + ':' + k);
+    if (shipGroupBy !== 'flat') {
+      html += `<div class="sgroup" data-group="${esc(shipGroupBy + ':' + k)}">
+        <span class="caret2">${collapsed ? '▸' : '▾'}</span>
+        ${shipGroupBy === 'role' ? `<span class="sicon">${icon(k)}</span>` : ''}
+        <b>${esc(labelOf(k))}</b><em>${list.length}</em>
+        <span class="sbar mini">${miniBar(list)}</span></div>`;
+    }
+    if (collapsed) continue;
+    for (const s of list) {
+      const n = shipRowsShown.length;
+      shipRowsShown.push(s);
+      const bucket = shipBucket(s);
+      const color = SHIP_BUCKETS.find(b => b.key === bucket).color;
+      const phrase = missionPhrase(s.mission) || (s.isBase ? 'Base' : '');
+      const target = s.target
+        ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
+      const next = s.queued ? ` <span class="chip">+${s.queued} next</span>` : '';
+      const fuel = s.fuel == null ? '<span class="none">–</span>'
+        : `<span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+      const manual = s.automation === 'Manual' || s.manual;
+      html += `<div class="srow" data-n="${n}">
+        <span class="sicon">${icon(shipCategory(s), 15)}</span>
+        <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+        <span class="smission"><i style="background:${color}"></i><span class="${bucket === 'idle' ? 'warn' : ''}">${esc(phrase)}</span>${target}${next}</span>
+        <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
+        <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
+        <span class="sfuel">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>
+        <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
+      </div>`;
+    }
+  }
+  $('shipList').innerHTML = html || `<div class="empty">${all.length ? 'Nothing matches the filters.' : 'No ships (or no game loaded).'}</div>`;
+  $('count').textContent = `${rows.length} of ${all.length}`;
+  document.querySelectorAll('#sgroupby button').forEach(b => b.classList.toggle('on', b.dataset.by === shipGroupBy));
+}
+let shipRowsShown = [];
+
+$('shipStatus').addEventListener('click', e => {
+  const b = e.target.closest('[data-bucket]');
+  if (!b) return;
+  const k = b.dataset.bucket;
+  if (shipBucketFilter.has(k)) shipBucketFilter.delete(k); else shipBucketFilter.add(k);
+  renderShips();
+});
+$('sgroupby').addEventListener('click', e => {
+  const b = e.target.closest('[data-by]');
+  if (!b) return;
+  shipGroupBy = b.dataset.by;
+  try { localStorage.setItem('overview.shipGroupBy', shipGroupBy); } catch (er) { }
+  renderShips();
+});
+$('shipList').addEventListener('click', e => {
+  const g = e.target.closest('.sgroup');
+  if (g) {
+    const k = g.dataset.group;
+    if (shipCollapsed.has(k)) shipCollapsed.delete(k); else shipCollapsed.add(k);
+    renderShips();
+    return;
+  }
+  const row = e.target.closest('.srow');
+  if (!row) return;
+  e.preventDefault();
+  const tgt = e.target.closest('[data-tt]');
+  if (tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
+  else goTo('ship', shipRowsShown[+row.dataset.n].id);
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 400);
+});
 
 // ---- Command palette (Ctrl+K) ----
 // Own things come from /api/index (fetched when the palette opens) and are matched here, instantly.
@@ -1122,6 +1351,12 @@ document.addEventListener('keydown', e => {
     palette.open ? closePalette() : openPalette();
   }
 });
+
+// ---- Start (last, so every declaration above exists before the first render) ----
+let startTab = 'construction';
+try { startTab = localStorage.getItem('overview.tab') || startTab; } catch (e) { }
+setTab(columns[startTab] || startTab === 'construction' ? startTab : 'construction');
+setInterval(refresh, 2000);
 </script>
 </body>
 </html>
