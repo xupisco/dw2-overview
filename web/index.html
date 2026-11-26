@@ -2371,9 +2371,12 @@ function resStatus(r) {
   if (r.critical) return 'critical';
   const stock = r.stock ?? 0, req = r.rateRequired ?? 0;
   if (stock <= 0 && (req > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
-  if (r.maintain != null) {
-    if (r.maintain <= 0) return 'adequate';
-    return stock < r.maintain / 2 ? 'critical' : stock < r.maintain ? 'low' : 'adequate';
+  // No level to maintain (the game sets none for most luxuries: 31 of them read critical, 2026-11-26) means
+  // nothing to fall below: with stock it is adequate. Only an older mod without maintain data uses the rates.
+  if (r.maintain != null || stock > 0) {
+    const m = r.maintain ?? 0;
+    if (m <= 0) return 'adequate';
+    return stock < m / 2 ? 'critical' : stock < m ? 'low' : 'adequate';
   }
   if (r.stock == null && r.rateRequired == null && r.rateCurrent == null) return 'adequate';
   const cur = r.rateCurrent ?? 0;
