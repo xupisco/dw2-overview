@@ -541,7 +541,7 @@
   .sgroup em { font-style: normal; color: var(--mut); font-size: 12px; }
   .sgroup .sicon { color: var(--acc); }
   .caret2 { color: var(--mut); width: 10px; }
-  .srow { display: grid; grid-template-columns: 30px minmax(150px, 1.1fr) minmax(220px, 1.7fr) 130px 120px 130px 40px; gap: 10px; align-items: center;
+  .srow { display: grid; grid-template-columns: 30px minmax(150px, 1.1fr) minmax(220px, 1.7fr) 130px 120px 200px 40px; gap: 10px; align-items: center;
     padding: 5px 10px; background: var(--panel); cursor: pointer; }
   .srow:hover { background: var(--hover); }
   .srow.flash { background: var(--acc-d); }
@@ -558,6 +558,11 @@
   .chip { font-size: 12px; color: var(--mut); background: var(--track); padding: 0 5px; }
   .sorders { color: var(--mut); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sfuel { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .sname.one { flex-direction: row; align-items: baseline; gap: 8px; }
+  .sname.one small { flex: none; }
+  .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .cchip { background: var(--track); padding: 0 6px; white-space: nowrap; }
+  .cchip b { font-weight: 500; }
   .sfuel .mline { display: flex; align-items: center; gap: 6px; }
   .sfuel .mline small { width: 40px; }
   .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
@@ -2111,6 +2116,20 @@ function miniBar(rows) {
 }
 
 /**
+ * What a ship carries (its largest loads), then only what needs the player: fuel or energy under half, hull
+ * damage. A full, healthy, empty ship shows nothing here.
+ */
+function shipState(s) {
+  const cargo = (s.cargo || []).slice(0, 2).map(c => `<span class="cchip" title="Cargo">${esc(c.name)} <b>${fmt.big(c.amount)}</b></span>`).join('')
+    + ((s.cargo || []).length > 2 ? `<span class="mut" title="${esc(s.cargo.slice(2).map(c => c.name + ' ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 2}</span>` : '');
+  const warn = [];
+  if (s.fuel != null && s.fuel < 0.5) warn.push(`<span class="${s.fuel < 0.25 ? 'flag' : 'mk-warn'}" title="Fuel: how much of the ship's full range is left">Fuel ${fuelPct(s)}%</span>`);
+  if (s.energy != null && s.energy < 0.5) warn.push(`<span class="${s.energy < 0.25 ? 'flag' : 'mk-warn'}" title="Energy: the reactor's storage">Energy ${Math.round(s.energy * 100)}%</span>`);
+  if (s.damage) warn.push(`<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>`);
+  return `${cargo ? `<span class="scargo">${cargo}</span>` : ''}${warn.length ? `<span class="swarn">${warn.join('')}</span>` : ''}`;
+}
+
+/**
  * A ship's mission as the game words it ("Build MS-3 (Large Mining Station) at Kintaris 2"), and where it is
  * heading right now when that place is not in the text (a construction ship fetches its materials first:
  * "· now → Goma"). An older mod without the game's text: the mission's name and target.
@@ -2121,7 +2140,11 @@ function missionHtml(s, bucket, phrase, target) {
     ? ` <span class="arrow">· now →</span> ${s.headingId != null ? `<a class="go" href="#" data-tt="${esc(s.headingType)}" data-tid="${s.headingId}">${esc(s.heading)}</a>` : esc(s.heading)}` : '';
   // The game sometimes glues its time estimate on: "(Alurthas system)(93 secs)".
   const text = s.missionText.split(')(').join(') (');
-  return `<span class="smtext" title="${esc(text)}">${esc(text)}</span>${now}`;
+  let html = esc(text);
+  const places = [...(s.places || [])].sort((a, b) => b.name.length - a.name.length);
+  places.forEach((pl, i) => { html = html.split(esc(pl.name)).join(`\u0001${i}\u0001`); });
+  places.forEach((pl, i) => { html = html.split(`\u0001${i}\u0001`).join(`<a class="go" href="#" data-tt="${esc(pl.type)}" data-tid="${pl.id}">${esc(pl.name)}</a>`); });
+  return `<span class="smtext" title="${esc(text)}">${html}</span>${now}`;
 }
 
 /** Fuel as the game draws it: a ship can carry more than its range needs (251 of 100), shown as full. */
@@ -2198,21 +2221,21 @@ function renderShips() {
       if (shipView === 'cards') {
         html += `<div class="shipcard" data-n="${n}">
         <div class="schead"><span class="sicon">${icon(shipCategory(s), 15)}</span>
-          <span class="sname"><b>${esc(s.name)}</b><small>${esc(kindText(s))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+          <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small></span>
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="scmeta">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}${s.system ? ' · ' + esc(s.system) : ''}${s.fleet ? ' · ' + esc(s.fleet) : ''}</span>
-        <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
+        <span class="sfuel">${shipState(s)}</span>
       </div>`;
         continue;
       }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
-        <span class="sname"><b>${esc(s.name)}</b><small>${esc(kindText(s))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
+        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small></span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="sorders" title="${esc(human(s.automation))}">${manual ? '✋ Manual' : '⟳ ' + (s.automation === 'FullyAutomate' ? 'Automatic' : esc(human((s.automation || '').replace(/^Auto/, 'Auto '))))}</span>
         <span class="ssys">${esc(s.system || '')}${s.fleet ? `<small>${esc(s.fleet)}</small>` : ''}</span>
-        <span class="sfuel"><span class="mline">${fuel}${s.damage ? `<span class="flag" title="Hull damage">✚ ${Math.round(s.damage * 100)}%</span>` : ''}</span>${energyLine(s)}</span>
+        <span class="sfuel">${shipState(s)}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
       </div>`;
     }

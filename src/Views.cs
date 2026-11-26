@@ -3,6 +3,20 @@ using static DW2Overview.Snapshot;
 
 namespace DW2Overview;
 
+internal sealed class CargoRow
+{
+    public string Name { get; set; }
+    public double Amount { get; set; }
+}
+
+/// <summary>A place a mission names (its primary and secondary targets), for a link in the mission's text.</summary>
+internal sealed class PlaceRow
+{
+    public string Name { get; set; }
+    public string Type { get; set; }
+    public int Id { get; set; }
+}
+
 internal sealed class RaceRow
 {
     public string Name { get; set; }
@@ -115,6 +129,10 @@ internal sealed class ShipRow
     public string Kind { get; set; }
     /// <summary>The role as the game writes it ("Small Freighter"); Kind keeps the internal name for grouping.</summary>
     public string RoleName { get; set; }
+    /// <summary>What a ship (not a base) carries, by resource, largest first.</summary>
+    public List<CargoRow> Cargo { get; set; }
+    /// <summary>The mission's places ("from Kintaris 10 Mining Station to Goma Spaceport"), to make them links.</summary>
+    public List<PlaceRow> Places { get; set; }
     public bool IsBase { get; set; }
     public string Design { get; set; }
     public string System { get; set; }
@@ -330,6 +348,30 @@ internal static class Views
                 Shields = Ratio(Safe(() => (float)ship.Shields), Safe(() => ship.Summary.ShieldCapacity)),
             });
             var row = rows[^1];
+            if (!ship.IsBase)
+            {
+                var cargo = Copy(Safe(() => ship.Cargo)).Where(c => (float)c.Amount >= 1f)
+                    .GroupBy(c => c.ResourceId)
+                    .Select(g => new CargoRow { Name = Safe(() => galaxy.Resources.GetById(g.Key)?.Name), Amount = Math.Round(g.Sum(c => (double)(float)c.Amount)) })
+                    .OrderByDescending(c => c.Amount)
+                    .ToList();
+                row.Cargo = cargo.Count > 0 ? cargo : null;
+            }
+            if (!idle)
+            {
+                var places = new List<PlaceRow>();
+                foreach (var item in new[] { mission.PrimaryTarget, mission.SecondaryTarget })
+                {
+                    var place = Safe(() => item.Resolve(galaxy)) as StellarObject;
+                    var (placeType, placeId) = Target(place);
+                    string placeName = Safe(() => (place as INamed)?.Name);
+                    if (placeId != null && !string.IsNullOrEmpty(placeName) && places.All(x => x.Name != placeName))
+                    {
+                        places.Add(new PlaceRow { Name = placeName, Type = placeType, Id = placeId.Value });
+                    }
+                }
+                row.Places = places.Count > 0 ? places : null;
+            }
             if (!idle)
             {
                 var now = Safe(() => mission.GetCurrentTarget(galaxy));
