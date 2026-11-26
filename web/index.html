@@ -485,6 +485,9 @@
   .mactions { display: flex; flex-wrap: wrap; gap: 6px; }
   .mbox.wide { width: min(600px, calc(100% - 32px)); }
   #resModalBody .scard { background: var(--panel-h); }
+  /* In the resource modal: always three columns (two on a phone), so every group lines up */
+  #resModalBody .scards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (max-width: 560px) { #resModalBody .scards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   #resModalBody .scard:hover { background: var(--hover); }
   #resModalMeta { display: flex; align-items: center; gap: 8px; }
   #resModalBody h3 { margin: 6px 0 2px; }
