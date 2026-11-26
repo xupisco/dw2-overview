@@ -2569,8 +2569,9 @@ const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
 // adequate). X = 3 months (the game's Critical tooltip). Still off: the game had Carbonite critical (1,014 in stock,
 // 0.49/s used: years by this count); the mod now sends ResourceRatesRequiredComplete and the game's surplus to check.
 const GAME_YEAR_S = 600, CRITICAL_MONTHS = 3;
-/** The stock the game calls On Hand: held at colonies and bases (cargo still on ships does not count yet). */
-const stockOf = r => r.onHand ?? r.stock;
+/** The stock the supply rule uses: the empire's total (CalculateTotalCargoLevels, cargo on ships included), the one
+ * checked against the game's table. onHand (colonies and bases) and onShips are shown in a resource's details. */
+const stockOf = r => r.stock;
 /** How long the stock lasts, in seconds of game time; null when nothing is used up (production covers it). */
 function resLasts(r) {
   const net = (r.rateRequired ?? 0) - (r.rateCurrent ?? 0);
@@ -2657,7 +2658,7 @@ function resExpand(r) {
   const perSec = v => v != null ? (+v).toFixed(2) : '–';
   return `<div class="rexp">
     <div class="rdnums">
-      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small>+ ${fmt.big(Math.round(r.onShips))} on ships</small>` : ''}</span>
+      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small>${fmt.big(Math.round(r.onShips))} of it still on ships</small>` : ''}</span>
       <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
       <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
     </div>
