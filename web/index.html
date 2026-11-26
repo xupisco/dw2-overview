@@ -239,12 +239,17 @@
   .kpi.kres .pb { height: 3px; margin: 3px 0 2px; }
   .kpi.kres .pb > i { box-shadow: none; }
   .kpi .kchip { color: var(--acc); text-decoration: underline dotted; cursor: pointer; }
-  .kpi.ksupply { gap: 3px; }
-  .ksup { display: grid; grid-template-columns: 82px 1fr auto; align-items: center; gap: 8px; font: 12px Barlow, sans-serif !important; letter-spacing: 0 !important; text-transform: none !important; color: var(--tx) !important; }
-  .ksup > span { color: var(--mut); }
-  .ksup em { font-style: normal; color: var(--mut); white-space: nowrap; }
-  .ksbar { display: flex; height: 4px; background: var(--track); min-width: 40px; }
-  .ksbar > i { display: block; }
+  .kpi.ksupply { cursor: default; padding: 6px 12px; }
+  .ksupply table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .ksupply th { font: 600 12px var(--cond); letter-spacing: .08em; text-transform: uppercase; color: var(--mut); text-align: right; padding: 0 0 2px 10px; background: none; }
+  .ksupply th:first-child { text-align: left; padding-left: 0; }
+  .ksupply td { padding: 1px 0 1px 10px; text-align: right; color: var(--mut); white-space: nowrap; }
+  .ksupply td:first-child { text-align: left; padding-left: 0; }
+  .ksupply .ksn { font: 600 14px var(--cond); color: var(--tx); cursor: pointer; padding: 0 2px; }
+  .ksupply .ksn:hover { background: var(--hover); }
+  .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
+  .buildroles[hidden] { display: none; }
+  .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
   .ovbuild { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 14px; }
   .ovsort { margin-left: auto; margin-right: 10px; }
   .ovsort button { height: 20px; border: 0; background: transparent; color: var(--mut); padding: 0 6px; font-size: 12px; cursor: pointer; }
@@ -631,7 +636,7 @@
     <option value="facility">Facilities</option>
     <option value="yard">Yards</option>
   </select>
-  <select id="role">
+  <select id="role" hidden>
     <option value="">All roles</option>
   </select>
   <select id="work">
@@ -707,6 +712,7 @@
   <div id="oempty" class="empty" hidden></div>
 </div>
 <div id="colCards" class="colcards" hidden></div>
+<div id="buildRoles" class="slegend roles buildroles"></div>
 <div class="wrap" id="tab-construction">
   <table>
     <thead><tr>
@@ -854,15 +860,16 @@ function syncFilters() {
   const mark = (el, on) => { if (el) { el.classList.toggle('active', !!on); if (on) marks.push(el); } };
   mark($('search'), tab !== 'overview' && $('search').value.trim());
   for (const id of ['state', 'category', 'role', 'work']) mark($(id), tab === 'construction' && $(id).value !== '');
+  const buildChips = (tab === 'construction' || tab === 'overview') && buildRoleFilter.size;
   mark($('rstate'), tab === 'research' && $('rstate').value !== 'queue');
   mark($('mprio'), tab === 'messages' && $('mprio').value !== '0');
   document.querySelectorAll('#gfilters select').forEach(el => mark(el, el.value !== ''));
   const chips = (tab === 'ships' && (shipBucketFilter.size || shipRoleFilter.size)) || (tab === 'resources' && resSupply);
-  $('clearFilters').hidden = !(marks.length || chips);
+  $('clearFilters').hidden = !(marks.length || chips || (tab === 'construction' && buildChips));
 }
 function clearFilters() {
   $('search').value = '';
-  if (tab === 'construction') { for (const id of ['state', 'category', 'role', 'work']) $(id).value = ''; render(); return; }
+  if (tab === 'construction') { for (const id of ['state', 'category', 'role', 'work']) $(id).value = ''; buildRoleFilter.clear(); try { localStorage.setItem('overview.buildRoles', '[]'); } catch (e) { } render(); return; }
   if (tab === 'research') $('rstate').value = 'queue';
   if (tab === 'messages') $('mprio').value = '0';
   filterValues[tab] = {};
@@ -1043,6 +1050,7 @@ function setTab(name, fromHistory) {
   tab = name;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
+  $('buildRoles').hidden = tab !== 'construction';
   $('tab-other').hidden = ['construction', 'ships', 'overview', 'resources'].includes(tab);
   $('tab-ships').hidden = tab !== 'ships';
   $('tab-overview').hidden = tab !== 'overview';
@@ -1438,10 +1446,11 @@ function compare(a, b) {
 
 function render() {
   setTimeout(syncFilters, 0);
+  $('buildRoles').innerHTML = buildRoleChips(items, r => `data-brole="${esc(r)}"`);
   const q = $('search').value.trim().toLowerCase();
   const st = $('state').value, cat = $('category').value, work = $('work').value, role = $('role').value;
   shown = items.filter(i =>
-    (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) && (!role || i.role === role) &&
+    (!st || i.state === st || (st === 'active' && i.state !== 'idle')) &&(!cat || i.category === cat) && (!work || i.work === work) && (!role || i.role === role) && buildRoleOk(i) &&
     (!q || [i.name, i.design, i.role, i.where, i.system, i.work, i.site, ...(i.extracts || []).map(r => r.name)].some(v => v && v.toLowerCase().includes(q)))
   ).sort(compare);
 
@@ -1834,6 +1843,7 @@ document.querySelectorAll('#tab-construction th').forEach(th => th.addEventListe
 $('search').addEventListener('input', () => tab === 'construction' ? render() : renderOther());
 $('rstate').addEventListener('input', renderOther);
 $('clearFilters').addEventListener('click', clearFilters);
+$('buildRoles').addEventListener('click', e => { const b = e.target.closest('[data-brole]'); if (b) toggleBuildRole(b.dataset.brole); });
 $('search').addEventListener('keydown', e => { if (e.key === 'Escape' && $('search').value) { e.preventDefault(); $('search').value = ''; tab === 'construction' ? render() : renderOther(); } });
 $('mprio').addEventListener('input', renderOther);
 $('gfilters').addEventListener('input', e => {
@@ -2188,6 +2198,21 @@ function toggleFreighters() {
   try { localStorage.setItem('overview.hideFreighters', ovHideFreighters ? '1' : '0'); } catch (e) { }
   renderOverview();
 }
+// Construction by role, the same groups as Ships (facilities apart); shared by the tab and the dashboard.
+const buildRoleFilter = new Set();
+try { for (const r of JSON.parse(localStorage.getItem('overview.buildRoles') || '[]')) buildRoleFilter.add(r); } catch (e) { }
+const buildRole = i => i.state === 'idle' ? null : i.category === 'facility' ? 'Facilities' : shipCategory({ kind: i.role || '', isBase: i.category === 'base' });
+const buildRoleOk = i => !buildRoleFilter.size || buildRoleFilter.has(buildRole(i));
+function toggleBuildRole(r) {
+  if (buildRoleFilter.has(r)) buildRoleFilter.delete(r); else buildRoleFilter.add(r);
+  try { localStorage.setItem('overview.buildRoles', JSON.stringify([...buildRoleFilter])); } catch (e) { }
+  if (tab === 'construction') render(); else if (tab === 'overview') renderOverview();
+}
+/** Chips for the roles present: none chosen shows all; one click shows only that role; more clicks add. */
+function buildRoleChips(list, attr) {
+  const roles = [...CATEGORY_ORDER, 'Facilities'].filter(r => list.some(i => buildRole(i) === r));
+  return roles.map(r => `<button type="button" ${attr(r)} class="${!buildRoleFilter.size || buildRoleFilter.has(r) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(r === 'Facilities' ? 'Colonization' : r, 12)}${esc(r)} <em>${list.filter(i => buildRole(i) === r).length}</em></button>`).join('');
+}
 let ovBuildSort = 'progress';
 try { ovBuildSort = localStorage.getItem('overview.buildSort') || 'progress'; } catch (e) { }
 const OV_BUILD_LINES = 8;
@@ -2255,13 +2280,13 @@ function blockHtml(id) {
     const active = ov.research.find(r => r.state === 'active');
     const queued = ov.research.filter(r => r.state === 'queued').length;
     const idle = ovIdleShips(), idleAll = ovIdleAll();
+    // Supply as the game shows it (Adequate / Low / Critical per category), small; a count opens Resources on it.
     const res = (ov.resources || []).filter(resRelevant);
-    const supplyLine = ([key, label]) => {
-      const n = st => res.filter(r => inCat(r, key) && resStatus(r) === st).length;
-      const [a, l, c] = [n('adequate'), n('low'), n('critical')], t = a + l + c || 1;
-      const note = [c ? `<em style="color:var(--bad)">${c} critical</em>` : '', l ? `<em style="color:var(--warn)">${l} low</em>` : ''].filter(Boolean).join(' ') || '<em>ok</em>';
-      return `<span class="ksup"><span>${label}</span><i class="ksbar"><i style="flex:${a / t};background:var(--ok)"></i><i style="flex:${l / t};background:var(--warn)"></i><i style="flex:${c / t};background:var(--bad)"></i></i>${note}</span>`;
-    };
+    const fuels = res.filter(r => inCat(r, 'fuel') && ((r.rateRequired ?? 0) > 0 || (r.stock ?? 0) > 0)).map(r => r.name);
+    const supplyRow = ([key, label]) => `<tr><td>${esc(key === 'fuel' && fuels.length ? `${label} (${fuels.join(', ')})` : label)}</td>${['adequate', 'low', 'critical'].map(st => {
+      const list = res.filter(r => inCat(r, key) && resStatus(r) === st);
+      return `<td><span class="ksn" style="color:${list.length && st !== 'adequate' ? STATUS_COLOR[st] : ''}" title="${esc(list.map(r => r.name).join(', '))}" ${act(goTab('resources', () => { resSupply = { cat: key, status: st }; renderResources(); }))}>${list.length}</span></td>`;
+    }).join('')}</tr>`;
     const kpi = (label, value, sub, subColor, fn) => `<button type="button" class="kpi" ${fn ? act(fn) : ''}><span>${label}</span><b>${value}</b><small style="color:${subColor}">${sub}</small></button>`;
     return `<div class="kpis">
       ${kpi('Cash', money0(eco.cash), eco.cashflowActual == null ? 'flow not computed yet' : `${eco.cashflowActual >= 0 ? '+' : ''}${money0(eco.cashflowActual)} / yr`, eco.cashflowActual == null ? 'var(--mut)' : eco.cashflowActual >= 0 ? 'var(--ok)' : 'var(--bad)')}
@@ -2275,7 +2300,7 @@ function blockHtml(id) {
         <b style="color:${idle.length ? 'var(--warn)' : ''}">${idle.length}</b>
         <small>${idle.length ? esc([...new Set(idle.map(shipCategory))].map(c => `${idle.filter(s => shipCategory(s) === c).length} ${c.toLowerCase()}`).join(', ')) : 'all busy'}
           ${idleAll.some(s => shipCategory(s) === 'Logistics') ? `· <span class="kchip" ${act(toggleFreighters)} title="Freighters wait for cargo on their own; hide them here and in Needs attention">${ovHideFreighters ? 'freighters hidden' : 'hide freighters'}</span>` : ''}</small></button>
-      ${res.length ? `<button type="button" class="kpi ksupply" ${act(goTab('resources', () => { resSupply = null; renderResources(); }))}><span>Supply</span>${RES_CATS.map(supplyLine).join('')}</button>` : ''}
+      ${res.length ? `<div class="kpi ksupply"><table><thead><tr><th>Supply</th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${RES_CATS.map(supplyRow).join('')}</tbody></table></div>` : ''}
     </div>`;
   }
   if (id === 'attention') {
@@ -2290,11 +2315,12 @@ function blockHtml(id) {
       yard: (a, b) => (a.where || '').localeCompare(b.where || '') || (b.progress ?? -1) - (a.progress ?? -1),
       name: (a, b) => (a.name || a.design || '').localeCompare(b.name || b.design || ''),
     };
-    const all = ov.construction.filter(i => i.state !== 'idle').sort(by[ovBuildSort] || by.progress);
+    const busy = ov.construction.filter(i => i.state !== 'idle');
+    const all = busy.filter(buildRoleOk).sort(by[ovBuildSort] || by.progress);
     const rows = all.slice(0, OV_BUILD_LINES), more = all.length - rows.length;
     const sorter = `<span class="seg ovsort">${['progress', 'yard', 'name'].map(k => `<button type="button" class="${ovBuildSort === k ? 'on' : ''}" ${act(() => { ovBuildSort = k; try { localStorage.setItem('overview.buildSort', k); } catch (e) { } renderOverview(); })}>${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
     return panel('Construction', 'var(--acc)', `${sorter}${linkTo(more > 0 ? `+${more} more` : 'All yards', 'construction')}`,
-      `<div class="ovbuild">${rows.map(i => `<button type="button" class="ovrow prog" ${act(() => goTo(i.whereType, i.whereId))}>
+      `<div class="slegend roles ovroles">${buildRoleChips(busy, r => act(() => toggleBuildRole(r)))}</div><div class="ovbuild">${rows.map(i => `<button type="button" class="ovrow prog" ${act(() => goTo(i.whereType, i.whereId))}>
         <span class="pt"><b>${esc(i.name || i.design || 'Not started')}</b><em class="${i.state === 'queued' ? 'warn' : ''}">${i.progress != null ? Math.round(i.progress * 100) + '%' : i.state}</em></span>
         <span class="pb"><i style="width:${Math.round((i.progress || 0) * 100)}%"></i></span>
         <small>${esc([i.design, i.role && human(i.role), i.where && 'by ' + i.where].filter(Boolean).join(' · '))}${i.site ? ' · at ' + esc(i.site) : ''}${i.queue ? ' · queue #' + i.queue : ''}</small></button>`).join('')}</div>`
