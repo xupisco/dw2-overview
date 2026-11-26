@@ -2569,15 +2569,22 @@ const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
 // adequate). X = 3 months (the game's Critical tooltip). Still off: the game had Carbonite critical (1,014 in stock,
 // 0.49/s used: years by this count); the mod now sends ResourceRatesRequiredComplete and the game's surplus to check.
 const GAME_YEAR_S = 600, CRITICAL_MONTHS = 3;
+/** The stock the game calls On Hand: held at colonies and bases (cargo still on ships does not count yet). */
+const stockOf = r => r.onHand ?? r.stock;
 /** How long the stock lasts, in seconds of game time; null when nothing is used up (production covers it). */
 function resLasts(r) {
   const net = (r.rateRequired ?? 0) - (r.rateCurrent ?? 0);
   if (!(net > 0)) return null;
-  return (r.stock ?? 0) / net;
+  return (stockOf(r) ?? 0) / net;
 }
 function resStatus(r) {
   if (r.critical) return 'critical';
-  if ((r.stock ?? 0) <= 0 && ((r.rateRequired ?? 0) > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
+  if ((stockOf(r) ?? 0) <= 0 && ((r.rateRequired ?? 0) > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) return 'critical';
+  // Construction resources: the game also calls one critical when there is little excess at the spaceports
+  // (its tooltip: 'Very low excess supply at spaceports'): below the level to maintain, and production not
+  // covering use. Carbonite on 2026-11-26 (1,014 against 1,460, nothing produced); Steel is below its level
+  // too but produces more than it uses, and stays adequate, as in the game.
+  if (inCat(r, 'construction') && r.maintain > 0 && (stockOf(r) ?? 0) < r.maintain && (r.rateCurrent ?? 0) < (r.rateRequired ?? 0)) return 'critical';
   const t = resLasts(r);
   if (t == null) return 'adequate';
   if (t < GAME_YEAR_S * CRITICAL_MONTHS / 12) return 'critical';
@@ -2589,8 +2596,8 @@ const resRelevant = r => (r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.r
   || inCat(r, 'construction') || inCat(r, 'fuel');   // the game lists every construction and fuel resource
 function resRunsOut(r) {
   const net = resNet(r);
-  if (!(net < 0) || !r.stock) return null;
-  return r.stock / -net;   // seconds, at the current game speed
+  if (!(net < 0) || !stockOf(r)) return null;
+  return stockOf(r) / -net;   // seconds, at the current game speed
 }
 /** A duration of game time (seconds at speed 1) as the game would say it: months, or years. */
 const dur = s => { if (s == null) return ''; const months = s / (GAME_YEAR_S / 12); return months < 1 ? '< 1 month' : months < 24 ? `≈ ${Math.round(months)} month${Math.round(months) === 1 ? '' : 's'}` : `≈ ${(months / 12).toFixed(1)} years`; };
@@ -2650,7 +2657,7 @@ function resExpand(r) {
   const perSec = v => v != null ? (+v).toFixed(2) : '–';
   return `<div class="rexp">
     <div class="rdnums">
-      <span><small>Stock / maintain</small><b>${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b></span>
+      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small>+ ${fmt.big(Math.round(r.onShips))} on ships</small>` : ''}</span>
       <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
       <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
     </div>
@@ -2763,7 +2770,7 @@ function renderResources() {
     return `<div class="rrow${open ? ' on' : ''}" data-res="${r.id}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open: prices, where it is mined, known deposits'}">
         <span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
         <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
-        <span class="num">${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
+        <span class="num">${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
         <span class="rrate">${resRateCell(r)}</span>
         <span class="rnext">${resNext(r)}</span>
         <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined ?? 0} of ${r.deposits ?? 0}</span>
@@ -2994,7 +3001,7 @@ async function loadPaletteResources() {
     let rows = (await getJson('/api/resources')).items || [];
     if (!rows.length) { await new Promise(r => setTimeout(r, 1500)); rows = (await getJson('/api/resources')).items || []; }
     palette.resources = rows.filter(resRelevant).map(r => ({ type: 'resource', id: r.id, name: r.name, kind: 'Resource',
-      category: r.category, status: resStatus(r), stock: r.stock }));
+      category: r.category, status: resStatus(r), stock: stockOf(r) }));
     if (palette.open) paletteResults();
   } catch (e) { palette.resources = []; }
 }

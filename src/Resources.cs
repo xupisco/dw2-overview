@@ -14,6 +14,9 @@ internal sealed class ResourceRow
     /// <summary>Every category the resource belongs to: the game counts e.g. Caslon both as fuel and as construction.</summary>
     public List<string> Categories { get; set; }
     public double? Stock { get; set; }
+    /// <summary>Held at colonies and bases (what the game seems to call On Hand), and still on ships.</summary>
+    public double? OnHand { get; set; }
+    public double? OnShips { get; set; }
     /// <summary>The stock level to maintain (the game's "Maintain" column); below it the game shows the stock in red.</summary>
     public double? Maintain { get; set; }
     public double? RateRequired { get; set; }
@@ -117,6 +120,37 @@ internal static class ResourcesView
 
         // Resources: the empire's numbers per resource.
         var stock = Amounts(Safe(() => empire.CalculateTotalCargoLevels(empire.EmpireId)));
+        // The game's "On Hand" is less than CalculateTotalCargoLevels (Carbonite 488 against 1,014 on 2026-11-26):
+        // the total must count cargo still on ships. Stock held at colonies and at bases, apart, to compare.
+        var atColonies = new Dictionary<short, float>();
+        var atBases = new Dictionary<short, float>();
+        var onShips = new Dictionary<short, float>();
+        void AddCargo(Dictionary<short, float> into, CargoList cargo)
+        {
+            foreach (var c in Copy(cargo))
+            {
+                if (c.EmpireId == empire.EmpireId)
+                {
+                    into[c.ResourceId] = into.GetValueOrDefault(c.ResourceId) + (float)c.Amount;
+                }
+            }
+        }
+        foreach (var orb in Copy(empire.Colonies))
+        {
+            AddCargo(atColonies, Safe(() => orb.Colony?.Cargo));
+        }
+        foreach (var ship in Copy(empire.Ships))
+        {
+            AddCargo(ship.IsBase ? atBases : onShips, Safe(() => ship.Cargo));
+        }
+        if (!stockLogged)
+        {
+            stockLogged = true;
+            foreach (var id in stock.Keys.OrderBy(k => k))
+            {
+                Log.Info($"Stock {Safe(() => galaxy.Resources.GetById(id)?.Name) ?? id.ToString()}: total {stock[id]:0}, colonies {atColonies.GetValueOrDefault(id):0}, bases {atBases.GetValueOrDefault(id):0}, ships {onShips.GetValueOrDefault(id):0}.");
+            }
+        }
         var maintain = Amounts(Safe(() => empire.CalculateTotalStockLevels(false)));
         var required = Amounts(Safe(() => empire.ResourceRatesRequired));
         var requiredComplete = Amounts(Safe(() => empire.ResourceRatesRequiredComplete));
@@ -160,6 +194,8 @@ internal static class ResourcesView
                 Categories = new[] { ("fuel", Safe(() => res.IsFuel)), ("construction", Safe(() => res.IsConstruction)), ("luxury", Safe(() => res.IsLuxury)) }
                     .Where(c => c.Item2).Select(c => c.Item1).ToList(),
                 Stock = Get(stock, id),
+                OnHand = Num(atColonies.GetValueOrDefault(id) + atBases.GetValueOrDefault(id)),
+                OnShips = Num(onShips.GetValueOrDefault(id)),
                 Maintain = Get(maintain, id),
                 RateRequired = Get(required, id),
                 RateRequiredComplete = Get(requiredComplete, id),
@@ -182,6 +218,7 @@ internal static class ResourcesView
     }
 
     private static string lastShortages;
+    private static bool stockLogged;
 
     private static Dictionary<short, float> Amounts(ResourceQuantityList list)
     {

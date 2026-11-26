@@ -90,3 +90,11 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 
 - `TextHelper.ResolveMissionDescription(galaxy, empire, ship, mission)` dá o texto da missão como no painel do jogo ("Build MS-3 (Large Mining Station) at Kintaris 2", "Mine Kintaris 2, offload at Goma Spaceport", "Survey Osnoa (Alurthas system) (86 secs)"; às vezes sem o espaço antes do tempo). `ShipMission.GetCurrentTarget(galaxy)` é o destino atual.
 - Missão `Build`: `PrimaryTarget` é de onde vem o material (Goma) e `SecondaryTarget` é onde a base será construída (Kintaris 2); `BuildDesignId` é o design. **Confirmado** no log em 2026-11-26 (Lone Rebel, Shining Lady). Enquanto a nave vai buscar o material, o estaleiro dela fica vazio: não é estaleiro parado.
+
+## Tabela de suprimento (regra do jogo)
+
+Reconstruída em 2026-11-26 e conferida com o jogo (Fuel 1/0/0, Construction 15/0/1, Luxury 27/8/1):
+- Tempo de estoque = estoque / (consumo - produção), em tempo de jogo. Um ano de jogo = 600 s na velocidade 1 (600.000 unidades de data; as taxas são por segundo). Adequate: mais de 1 ano, ou produção cobre o consumo; Low: menos de 1 ano; Critical: menos de 3 meses (tooltip do jogo: `less than 3 months supply`) ou sem estoque.
+- Recursos de construção também ficam Critical com `Very low excess supply at spaceports`: estoque abaixo do nível a manter (`CalculateTotalStockLevels`) e produção menor que o consumo (Carbonite, 1.014 contra 1.460, sem produção). O Steel, abaixo do nível mas produzindo mais do que usa, fica Adequate.
+- Não servem: comparar só produção e demanda (daria 31 luxos críticos); somar o gasto das obras (`ResourceRatesUnderConstruction`) quebra o Luxury; `DetermineCriticalResourceShortages()` veio vazio.
+- O `On Hand` de 488 da tela `Resources & Stock Levels` é de um lugar; o tooltip `Stockpile` da lista dá o total (1.446). `CalculateTotalCargoLevels` inclui a carga nas naves; o mod agora manda também colônias + bases (`onHand`) e naves (`onShips`).
