@@ -39,6 +39,8 @@ internal sealed class DepositRow
     public string System { get; set; }
     /// <summary>colony (own), station (own mining station there), or null when not mined by the empire.</summary>
     public string MinedBy { get; set; }
+    /// <summary>An own mining station still being built there (not mining yet): its construction, 0..1.</summary>
+    public double? StationBuilding { get; set; }
     public List<DepositResource> Resources { get; set; }
 }
 
@@ -56,12 +58,23 @@ internal static class ResourcesView
     {
         // Deposits: every orb the empire has explored, with the resources it has discovered there.
         var minedByColony = new HashSet<int>(Copy(empire.Colonies).Select(o => o.OrbId));
+        // A mining station is a base from the moment its construction starts (seen 2026-11-26: Kintaris 10 counted
+        // as mined while the game said "building Mining Station here"); it mines once ConstructionLevel reaches 1.
         var minedByStation = new HashSet<int>();
+        var stationBuilding = new Dictionary<int, double>();
         foreach (var ship in Copy(empire.Ships))
         {
             if (ship.IsBase && ship.Role.ToString().Contains("Mining") && ship.Parent.Type == ItemType.Orb)
             {
-                minedByStation.Add(ship.Parent.Id);
+                float level = Safe(() => ship.ConstructionLevel);
+                if (float.IsFinite(level) && level < 1f)
+                {
+                    stationBuilding[ship.Parent.Id] = Math.Max(stationBuilding.GetValueOrDefault(ship.Parent.Id), Math.Round(Math.Max(level, 0f), 3));
+                }
+                else
+                {
+                    minedByStation.Add(ship.Parent.Id);
+                }
             }
         }
         var deposits = new List<DepositRow>();
@@ -89,6 +102,7 @@ internal static class ResourcesView
                 Kind = orb.Category.ToString(),
                 System = SystemName(galaxy, orb),
                 MinedBy = minedByColony.Contains(orb.OrbId) ? "colony" : minedByStation.Contains(orb.OrbId) ? "station" : null,
+                StationBuilding = !minedByColony.Contains(orb.OrbId) && !minedByStation.Contains(orb.OrbId) && stationBuilding.TryGetValue(orb.OrbId, out double b) ? b : null,
                 Resources = found,
             });
         }

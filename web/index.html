@@ -462,7 +462,7 @@
           <div id="mutedList" class="mutelist"></div>
         </div>
       </span>
-      <button type="button" class="tool" id="logBtn" title="Message log, on the side (the page stays in view)">
+      <button type="button" class="tool" id="logBtn" title="Message log, on the side (the page stays in view) · Q">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
       </button>
       <button type="button" class="tool" id="themeBtn" title="Theme">
@@ -1204,6 +1204,15 @@ function setLog(open) {
   logSig = '';
   if (open) refresh();
 }
+// Q opens and closes the message log (left hand, while the mouse stays on the page); not while typing.
+document.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() !== 'q' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const t = e.target;
+  if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  if (palette.open || !$('msgModal').hidden) return;
+  e.preventDefault();
+  setLog(!logOpen);
+});
 function renderLog(messages) {
   const sig = logPrio + JSON.stringify(messages.slice(0, 80).map(m => m.key));
   if (sig === logSig) return;
@@ -1952,7 +1961,7 @@ function renderResources() {
       .map(d => ({ d, ab: d.resources.find(x => x.id === pick.id).abundance }))
       .sort((a, b) => b.ab - a.ab);
     const mined = sites.filter(s => s.d.minedBy), notMined = sites.filter(s => !s.d.minedBy);
-    const site = s => `<button type="button" class="dsite" data-orb="${s.d.orbId}"><span><b>${esc(s.d.name)}</b><small>${esc(human(s.d.kind))}${s.d.system ? ' · ' + esc(s.d.system) : ''}${s.d.minedBy ? ' · ' + s.d.minedBy : ''}</small></span>
+    const site = s => `<button type="button" class="dsite" data-orb="${s.d.orbId}"><span><b>${esc(s.d.name)}</b><small>${esc(human(s.d.kind))}${s.d.system ? ' · ' + esc(s.d.system) : ''}${s.d.minedBy ? ' · ' + s.d.minedBy : ''}${s.d.stationBuilding != null ? ` · <span class="mk-warn">station being built, ${Math.round(s.d.stationBuilding * 100)}%</span>` : ''}</small></span>
       <i class="pb"><i style="width:${s.ab}%"></i></i><em>${s.ab}%</em><span class="go">Go to ›</span></button>`;
     const st = resStatus(pick), out = resRunsOut(pick);
     $('resDetail').innerHTML = `<div class="rdhead"><span class="rico big" data-cat="${pick.category}">${esc(resAbbr(pick.name))}</span>
@@ -1971,7 +1980,7 @@ function renderResources() {
       .sort((a, b) => (!!b.minedBy - !!a.minedBy) || (a.name || '').localeCompare(b.name || ''));
     $('resDeposits').innerHTML = `<table class="heat"><thead><tr><th>Site</th>${cols.map(r =>
       `<th title="${esc(r.name)} (${r.category})"><span class="rico" data-cat="${r.category}" style="${resStatus(r) === 'critical' ? 'box-shadow: inset 0 -2px 0 var(--bad)' : ''}">${esc(resAbbr(r.name))}</span></th>`).join('')}</tr></thead><tbody>${
-      rows.map(d => `<tr data-orb="${d.orbId}"><td><b>${esc(d.name)}</b> <small>${esc(human(d.kind))}</small>${d.minedBy ? ' <span class="tag building">mining</span>' : ''}</td>${cols.map(r => {
+      rows.map(d => `<tr data-orb="${d.orbId}"><td><b>${esc(d.name)}</b> <small>${esc(human(d.kind))}</small>${d.minedBy ? ' <span class="tag building">mining</span>' : d.stationBuilding != null ? ` <span class="tag queued" title="Mining station under construction">building ${Math.round(d.stationBuilding * 100)}%</span>` : ''}</td>${cols.map(r => {
         const x = d.resources.find(v => v.id === r.id);
         return x ? `<td class="hc" style="background:color-mix(in srgb, ${r.category === 'luxury' ? 'oklch(var(--L) 0.11 330)' : r.category === 'fuel' ? 'var(--warn)' : 'var(--acc)'} ${15 + x.abundance * 0.6}%, transparent)">${x.abundance}%</td>` : '<td></td>';
       }).join('')}</tr>`).join('')}</tbody></table>`;

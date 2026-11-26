@@ -64,6 +64,7 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 | Não servem | `ResourceRateRequirementsMet` (false para tudo), `CriticalMissingResources` (vazia) | confirmado |
 | "Sources" do jogo | conta algo além dos depósitos conhecidos (Emeros "0 of 1" sem depósito conhecido); a nossa coluna se chama Deposits | a investigar |
 | Depósitos | `Empire.ExplorationMap.GetAllKnownOrbs(galaxy, empire, 1)`; `Orb.Resources` (`OrbResource.ResourceId`, `Abundance` em %, `DiscoveryLevel` comparado a `ExplorationMap.CheckExplorationLevel(orb)`); estação de mineração = base própria com role de mineração e `Ship.Parent` no orbe | 15 depósitos no save de teste |
+| Estação de mineração em obra | já existe como base própria (com role de mineração) desde o início da obra; `Ship.ConstructionLevel` < 1 até ficar pronta. Antes disso o depósito não conta como minerado | visto em 2026-11-26 (Kintaris 10, "building Mining Station here") |
 
 ## Sugestões do conselheiro
 
