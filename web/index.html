@@ -355,20 +355,26 @@
   .rnext { font-size: 12px; color: var(--mut); min-width: 0; }
   .rnext a.go { font-size: 12px; }
   /* The opened row: numbers, then where it is mined and the known deposits */
-  .locs { display: flex; flex-direction: column; gap: 4px; }
+  .locs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px; align-items: start; }
   .locs[hidden] { display: none; }
-  .locrow { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 3fr) auto; gap: 14px; align-items: center; padding: 8px 12px; background: var(--panel); cursor: pointer; }
+  .locrow { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
+  .locrow .lhead { display: flex; align-items: flex-start; gap: 8px; }
+  .locrow .lhead .lname { flex: 1; }
+  .locrow .lhead .tag { flex: none; }
   .locrow:hover { background: var(--hover); }
   .locrow.flash { background: var(--acc-d); }
   .locrow .lname { display: flex; flex-direction: column; min-width: 0; }
   .locrow .lname b { font-weight: 500; }
   .locrow .lname small { color: var(--mut); font-size: 12px; }
   .lres { display: flex; flex-wrap: wrap; gap: 4px; }
-  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px; white-space: nowrap; }
+  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px 1px 6px; white-space: nowrap; border-left: 3px solid var(--mut); }
+  .lchip[data-cat="construction"] { border-left-color: var(--acc); }
+  .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
+  .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
+  .lchip.unused { opacity: .45; }
   .lchip b { font-weight: 500; }
   .lchip.st-critical { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
   .lchip.st-low { box-shadow: inset 0 0 0 1px var(--warn); color: var(--warn); }
-  @media (max-width: 760px) { .locrow { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
@@ -2683,18 +2689,21 @@ function renderLocations(all, deps, q) {
       && (!q || (d.name || '').toLowerCase().includes(q) || d.resources.some(x => (x.name || '').toLowerCase().includes(q))))
     .sort((a, b) => mined ? (a.minedBy === 'colony' ? -1 : 0) - (b.minedBy === 'colony' ? -1 : 0) || (a.name || '').localeCompare(b.name || '')
       : byNeed(a, b) || (a.name || '').localeCompare(b.name || ''));
+  // A chip carries the resource's type colour (as in the list), its shortage as an outline, and fades when the
+  // empire does not use that resource at all.
   const chip = x => {
     const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate';
-    return `<span class="lchip st-${st}" title="${esc(x.name)}${st !== 'adequate' ? ' · ' + st : ''}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
+    const note = [r ? human(r.category) : '', st !== 'adequate' ? st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
+    return `<span class="lchip st-${st}${used ? '' : ' unused'}" data-cat="${r ? esc(r.category) : ''}" title="${esc(x.name)} · ${esc(note)}">${esc(x.name)} <b>${x.abundance}%</b></span>`;
   };
   $('resLocations').innerHTML = list.map(d => {
     const g = going.get(d.orbId);
     const who = d.stationBuilding != null ? `<span class="tag building">station being built ${Math.round(d.stationBuilding * 100)}%</span>`
       : g ? `<span class="tag enroute" title="${esc(g.name || '')}">${esc(g.where || 'a ship')} en route</span>` : '';
     return `<div class="locrow" data-orb="${d.orbId}" title="Go to ${esc(d.name)}">
-      <span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>
-      <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span>
-      <span class="lwho">${who}</span></div>`;
+      <span class="lhead"><span class="lname"><b>${esc(d.name)}</b><small>${esc(human(d.kind))}${d.system ? ' · ' + esc(d.system) : ''}${d.minedBy ? ' · ' + esc(d.minedBy) : ''}</small></span>${who}</span>
+      <span class="lres">${[...d.resources].sort((a, b) => b.abundance - a.abundance).map(chip).join('')}</span></div>`;
   }).join('') || `<div class="empty">${deps.length ? 'Nothing matches.' : 'No known deposits yet (needs the mod version with deposits).'}</div>`;
   $('count').textContent = `${list.length} location${list.length === 1 ? '' : 's'}`;
 }
