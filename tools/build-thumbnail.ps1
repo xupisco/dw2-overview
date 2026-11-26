@@ -1,4 +1,4 @@
-# Renders tools\thumbnail.html to preview.jpg (2560x1440) with headless Edge.
+# Renders tools\thumbnail.html to preview.jpg (1440x1440, square: Steam and the launcher show it in a square) with headless Edge.
 # It shows workshop\overview.jpg: run tools\build-screenshots.ps1 first.
 # Usage: .\tools\build-thumbnail.ps1
 $ErrorActionPreference = 'Stop'
@@ -9,7 +9,7 @@ $png = Join-Path $env:TEMP 'dw2-overview-preview.png'
 $jpg = Join-Path $root 'preview.jpg'
 if (-not (Test-Path (Join-Path $root 'workshop\overview.jpg'))) { throw 'workshop\overview.jpg is missing: run tools\build-screenshots.ps1 first.' }
 
-& $edge --headless=new --disable-gpu --hide-scrollbars --allow-file-access-from-files --force-device-scale-factor=2 --window-size=1280,720 `
+& $edge --headless=new --disable-gpu --hide-scrollbars --allow-file-access-from-files --force-device-scale-factor=2 --window-size=720,720 `
     --virtual-time-budget=2000 "--screenshot=$png" $html 2>$null | Out-Null
 if (-not (Test-Path $png)) { throw 'Edge did not write the screenshot.' }
 
