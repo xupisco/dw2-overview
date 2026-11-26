@@ -27,7 +27,7 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
   - decisões pendentes (mensagens que pedem resposta: diplomacia, investigações).
 
 - **Revisão da aba Resources** (pedido do Leandro, 2026-11-26): ficou mais complexa que a tela do jogo, rever o que ela mostra e como se lê.
-- **Revisão tela por tela** (pedido do Leandro): quando as funcionalidades estiverem ok, passar cada aba junto, olhando a interface.
+- **Revisão tela por tela** (pedido do Leandro): quando as funcionalidades estiverem ok, passar cada aba junto, olhando a interface. Princípio (2026-11-26): é um **helper**, não um segundo jogo. Cada tela responde "o que precisa de mim?" ou "o que está acontecendo?"; o que só repete uma tela do jogo vira atalho para ela (a palette já abre as telas do jogo). Exemplo a decidir: o Latest messages do Overview ignora os tipos silenciados (o mute vale só para alertas).
 
 ## Sequência
 
