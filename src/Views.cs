@@ -406,10 +406,17 @@ internal static class Views
         cash = Num(Safe(() => empire.Economy.Money)),
         privateCash = Num(Safe(() => empire.Economy.PrivateMoney)),
         moneyAvailable = Num(Safe(() => empire.MoneyAvailable)),
-        cashflowState = Num(Safe(() => empire.CalculateCashflowState(1f, true))),
-        cashflowActual = Num(Safe(() => empire.CalculateCashflowActual(1f, true))),
+        cashflowState = Sane(Safe(() => empire.CalculateCashflowState(1f, true))),
+        cashflowActual = Sane(Safe(() => empire.CalculateCashflowActual(1f, true)) is var cached && Math.Abs(cached) < 1e12f
+            ? cached : Safe(() => empire.CalculateCashflowActual(1f, false))),
         warWeariness = Num(Safe(() => empire.WarWeariness)),
     };
+
+    /// <summary>
+    /// Right after a save loads, the cached cashflow comes back as float.MaxValue (3.4e38 a year); a value that
+    /// large means "not computed yet", so the uncached one is used, and null if that is absurd too.
+    /// </summary>
+    private static double? Sane(float value) => Math.Abs(value) < 1e12f ? Num(value) : null;
 
     private static double? Num(float value) => float.IsFinite(value) ? Math.Round(value, 4) : null;
 }

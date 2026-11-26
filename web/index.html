@@ -738,6 +738,8 @@ async function refresh() {
       $('status').textContent = `Live · ${info.collectedAt}`;
       $('status').title = `updated ${info.collectedAt}, collected in ${info.collectMs} ms`;
       const eco = info.economy || {};
+      // Right after a save loads the game reports a cashflow of 3.4e38 (not computed yet): show it as unknown.
+      for (const k of ["cashflowActual", "cashflowState"]) if (eco[k] != null && Math.abs(eco[k]) >= 1e12) eco[k] = null;
       const money = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
       const flow = eco.cashflowActual;
       const clock = info.paused ? '<span class="paused">Game paused</span>'
@@ -745,7 +747,7 @@ async function refresh() {
       $('empire').innerHTML = [
         `<b>${esc(info.empire)}</b>`,
         `Date <b>${esc(info.starDateText || info.starDate)}</b>`,
-        `Cash <b>${money(eco.cash)}</b> <span class="${flow >= 0 ? 'up' : 'down'}">${flow >= 0 ? '+' : ''}${money(flow)}/yr</span>`,
+        `Cash <b>${money(eco.cash)}</b>${flow == null ? '' : ` <span class="${flow >= 0 ? 'up' : 'down'}">${flow >= 0 ? '+' : ''}${money(flow)}/yr</span>`}`,
         clock,
       ].filter(Boolean).map(s => `<span>${s}</span>`).join('');
       $('empire').style.display = 'contents';
@@ -1406,7 +1408,7 @@ function blockHtml(id) {
     const troubled = ov.colonies.filter(c => c.rebelling || (c.unrest || 0) > 0);
     const kpi = (label, value, sub, subColor, fn) => `<button type="button" class="kpi" ${fn ? act(fn) : ''}><span>${label}</span><b>${value}</b><small style="color:${subColor}">${sub}</small></button>`;
     return `<div class="kpis">
-      ${kpi('Cash', money0(eco.cash), `${eco.cashflowActual >= 0 ? '+' : ''}${money0(eco.cashflowActual)} / yr`, eco.cashflowActual >= 0 ? 'var(--ok)' : 'var(--bad)')}
+      ${kpi('Cash', money0(eco.cash), eco.cashflowActual == null ? 'flow not computed yet' : `${eco.cashflowActual >= 0 ? '+' : ''}${money0(eco.cashflowActual)} / yr`, eco.cashflowActual == null ? 'var(--mut)' : eco.cashflowActual >= 0 ? 'var(--ok)' : 'var(--bad)')}
       ${kpi('Population', big(pop), `${ov.colonies.length} colon${ov.colonies.length === 1 ? 'y' : 'ies'}`, 'var(--mut)', goTab('colonies'))}
       ${kpi('Yards', `${busyY} / ${busyY + idleY}`, idleY ? `${idleY} idle` : 'all busy', idleY ? 'var(--warn)' : 'var(--mut)', goTab('construction'))}
       ${kpi('Research', active ? Math.round(active.progress * 100) + '%' : '–', active ? (queued ? `${queued} in queue` : 'queue empty after this') : 'nothing active', active && queued ? 'var(--mut)' : 'var(--warn)', goTab('research'))}
