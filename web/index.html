@@ -1395,6 +1395,7 @@ $('msgActions').addEventListener('click', e => {
  * the dialog button (yes, no, other, show); the first one is the green one.
  */
 function gameButtons(m) {
+  if (isAnswered(m)) return '';
   const list = m.buttons && m.buttons.length ? m.buttons
     : m.pending && m.advisor ? [{ id: 'yes', text: 'Accept' }, { id: 'no', text: 'Decline' }] : [];
   return list.map((b, i) => `<button type="button" class="abtn${i === 0 ? ' ok' : ''}" data-gb="${esc(b.id)}">${esc(b.text)}</button>`).join('');
@@ -1418,12 +1419,24 @@ function syncGameButtons(messages) {
   document.querySelectorAll('#toasts .toast').forEach(el => { if (el.msg) update(el.msg, el.querySelector('.gbtns')); });
   if (msgOpen && !$('msgModal').hidden) update(msgOpen, $('msgActions').querySelector('.gbtns'));
 }
-const hasGameButtons = m => (m.buttons && m.buttons.length) || (m.pending && m.advisor);
+const hasGameButtons = m => !isAnswered(m) && ((m.buttons && m.buttons.length) || (m.pending && m.advisor));
 
 /** Presses a button of the game's message dialog for that message (the mod opens it there first if needed). */
+/**
+ * Messages just answered from the page: the game acts at once, but our data is up to ~3 s old (the mod
+ * collects every second, the page reads every two), so they lose their buttons and leave "Needs attention"
+ * right away. After a few seconds the game's own data decides again (if the answer did not take, it is back).
+ */
+const answered = new Map();
+const bareKey = k => (k || '').replace(/^pending\|/, '');
+const isAnswered = m => { const t = answered.get(bareKey(m && m.key)); return t != null && Date.now() - t < 8000; };
+
 async function pressDialog(key, button) {
   if (!token || !key) return;
-  const bare = k => (k || '').replace(/^pending\|/, '');
+  const bare = bareKey;
+  answered.set(bare(key), Date.now());
+  lastSnapshot = ''; logSig = '';
+  if (tab === 'overview' && ov) renderOverview();
   document.querySelectorAll('#toasts .toast').forEach(el => { if (el.msg && bare(el.msg.key) === bare(key)) el.remove(); });
   if (msgOpen && bare(msgOpen.key) === bare(key)) closeMessage();
   try {
@@ -1432,8 +1445,10 @@ async function pressDialog(key, button) {
       headers: { 'Content-Type': 'application/json', 'X-Overview-Token': token },
       body: JSON.stringify({ key, button }),
     });
-    if (!r.ok) notice(`The mod refused it (${r.status})`);
+    if (!r.ok) { answered.delete(bare(key)); notice(`The mod refused it (${r.status})`); }
+    else { setTimeout(() => { lastSnapshot = ''; logSig = ''; refresh(); }, 1200); }
   } catch (e) {
+    answered.delete(bare(key));
     notice('Game not reachable');
   }
 }
@@ -1862,7 +1877,7 @@ function attentionItems() {
   const items = [];
   const add = (level, title, body, cta, fn) => items.push({ level, title, body, cta, fn });
   // Advisor suggestions waiting, and whatever message the game has open in its dialog (e.g. a contract done).
-  for (const m of ov.messages.filter(m => (m.pending && m.advisor) || m.onScreen)) {
+  for (const m of ov.messages.filter(m => ((m.pending && m.advisor) || m.onScreen) && !isAnswered(m))) {
     items.push({ level: 'warn', title: m.pending && m.advisor ? 'Advisor suggestion' : 'Open in the game: ' + m.title, body: plain(m.pending && m.advisor ? (m.task || m.text) : m.text), cta: 'Read', fn: () => openMessage(m), msg: m });
   }
   for (const c of ov.colonies) {
