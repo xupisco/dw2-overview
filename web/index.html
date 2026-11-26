@@ -2260,7 +2260,7 @@ function highlight(text, hits) {
 /** Everything known so far, own first, without duplicates. */
 function paletteItems() {
   const seen = new Set(), all = [];
-  for (const item of [...palette.index, ...palette.remote]) {
+  for (const item of [...palette.index, ...(palette.resources || []), ...palette.remote]) {
     const k = item.type + ':' + item.id;
     if (!seen.has(k)) { seen.add(k); all.push(item); }
   }
@@ -2355,7 +2355,7 @@ function paletteResults() {
         const it = r.item;
         html += `<div class="pitem${on}" data-n="${n}">
           <span class="pname">${highlight(it.name, r.hits)}</span>
-          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
+          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.type === 'resource' ? ` · ${esc(human(it.category))}${it.status !== 'adequate' ? ` · <span class="${it.status === 'critical' ? 'flag' : 'mk-warn'}">${esc(it.status)}</span>` : ''}${it.stock != null ? ' · stock ' + fmt.big(Math.round(it.stock)) : ''}` : ''}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
           <span class="pkey">Enter</span></div>`;
       }
     }
@@ -2389,6 +2389,7 @@ async function openPalette() {
   $('pinput').focus();
   paletteResults();
   getJson('/api/commands').then(r => { palette.commands = r.items || []; if (palette.open) paletteResults(); }).catch(() => { });
+  loadPaletteResources();
   try {
     palette.index = (await getJson('/api/index')).items || [];
     if (!palette.index.length) { await new Promise(r => setTimeout(r, 1200)); palette.index = (await getJson('/api/index')).items || []; }
@@ -2410,6 +2411,24 @@ function enterGroup(group) {
   paletteResults();
 }
 
+/**
+ * Resources as palette items: the ones that matter to the empire (stock, use, deposits...), with their
+ * supply state. Choosing one opens it in the Resources tab (stock, rate, where it is mined, deposits).
+ * The mod collects resources only after being asked, hence the second try.
+ */
+async function loadPaletteResources() {
+  try {
+    let rows = (await getJson('/api/resources')).items || [];
+    if (!rows.length) { await new Promise(r => setTimeout(r, 1500)); rows = (await getJson('/api/resources')).items || []; }
+    palette.resources = rows.filter(resRelevant).map(r => ({ type: 'resource', id: r.id, name: r.name, kind: 'Resource',
+      category: r.category, status: resStatus(r), stock: r.stock }));
+    if (palette.open) paletteResults();
+  } catch (e) { palette.resources = []; }
+}
+function openResource(id) {
+  goTab('resources', () => { resView = 'resources'; resSupply = null; resPick = id; $('search').value = ''; renderResources(); })();
+}
+
 function paletteChoose(n, viaTab) {
   const r = palette.rows[n];
   if (!r) return;
@@ -2417,7 +2436,7 @@ function paletteChoose(n, viaTab) {
   if (r.command) { if (!viaTab) { if (r.command.run) r.command.run(); else pressKey(r.command.index); closePalette(); } return; }
   // Tab on an item lists everything of its kind.
   if (viaTab) { if (!palette.scope && r.item.kind) enterGroup({ by: 'kind', value: human(r.item.kind) }); return; }
-  goTo(r.item.type, r.item.id);
+  if (r.item.type === 'resource') openResource(r.item.id); else goTo(r.item.type, r.item.id);
   closePalette();
 }
 
