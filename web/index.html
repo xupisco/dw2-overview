@@ -487,11 +487,12 @@
   .rchead { display: flex; align-items: center; gap: 10px; }
   .rchead .rname { flex: 1; }
   .rcnums { display: flex; gap: 24px; font-size: 12px; }
-  .rcnums span { display: flex; flex-direction: column; }
+  .rcnums > span { display: flex; flex-direction: column; }
   .rcnums small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
   .rcnums b { font-weight: 500; font-size: 14px; }
   .rcnums em { font-style: normal; color: var(--mut); }
-  .rcnums .v { white-space: nowrap; }
+  .rcnums .v { white-space: nowrap; display: block; }
+  .rcnums .v span, .rcnums .v b, .rcnums .v em { display: inline; }
   .rcnext { font-size: 12px; color: var(--mut); }
   .mactions .abtn { height: 30px; padding: 0 14px; font-size: 13px; }
   .mk-loc, .mk-res { color: var(--acc); } .mk-hl { color: oklch(var(--L) 0.11 60); } .mk-warn { color: var(--warn); } .mk-fac { color: var(--bad); }
