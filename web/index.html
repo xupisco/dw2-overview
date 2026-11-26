@@ -160,6 +160,8 @@ const fmt = {
     return String(v);
   },
   bool: v => v ? 'yes' : '',
+  pct: v => v == null ? null : (v * 100).toFixed(0) + '%',
+  int: v => v == null ? null : (v > 0 ? '+' : '') + Math.round(v),
 };
 const columns = {
   colonies: [
@@ -168,14 +170,15 @@ const columns = {
     { key: 'race', label: 'Race' },
     { key: 'population', label: 'Population', f: fmt.big, num: true },
     { key: 'maxPopulation', label: 'Max pop.', f: fmt.big, num: true },
-    { key: 'development', label: 'Development', f: fmt.num, num: true },
-    { key: 'approval', label: 'Approval', f: fmt.num, num: true },
+    { key: 'growth', label: 'Growth (raw)', f: fmt.num, num: true },
+    { key: 'development', label: 'Development', f: fmt.pct, num: true },
+    { key: 'approval', label: 'Approval', f: fmt.int, num: true },
     { key: 'happiness', label: 'Happiness', f: fmt.num, num: true },
     { key: 'unrest', label: 'Unrest', f: fmt.num, num: true },
-    { key: 'corruption', label: 'Corruption', f: fmt.num, num: true },
-    { key: 'taxRate', label: 'Tax', f: fmt.num, num: true },
-    { key: 'revenue', label: 'Revenue/yr', f: fmt.num, num: true },
-    { key: 'quality', label: 'Quality', f: fmt.num, num: true },
+    { key: 'corruption', label: 'Corruption', f: fmt.pct, num: true },
+    { key: 'taxRate', label: 'Tax', f: fmt.pct, num: true },
+    { key: 'revenue', label: 'Revenue/yr', f: fmt.big, num: true },
+    { key: 'quality', label: 'Quality', f: fmt.pct, num: true },
     { key: 'facilities', label: 'Facilities', num: true },
     { key: 'rebelling', label: 'Rebelling', f: v => v ? '<span class="flag">REBELLING</span>' : '', html: true },
     { key: 'autoTax', label: 'Auto tax', f: fmt.bool },
@@ -194,7 +197,7 @@ const columns = {
 };
 const hints = {
   construction: "Click a row to go to its yard or colony in the game; click a ship's name to go to the ship.",
-  colonies: 'Click a colony to go to it in the game. Values are the game\'s raw numbers for now.',
+  colonies: 'Click a colony to go to it in the game. Hover a value to see the raw number.',
   research: 'Active = within the first N of the queue, N being how many projects your empire researches at once. "Available, not queued" is the game\'s NextProjects list.',
 };
 
@@ -260,7 +263,10 @@ async function refresh() {
       $('empire').textContent = '';
     } else {
       $('status').textContent = `connected · updated ${info.collectedAt} (${info.collectMs} ms)`;
-      $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate}`;
+      const eco = info.economy || {};
+      const money = v => v == null ? '?' : Math.round(v).toLocaleString('en-US');
+      $('empire').textContent = `${info.empire} · ${info.starDateText || 'star date ' + info.starDate} · cash ${money(eco.cash)}`;
+      $('empire').title = `private cash ${money(eco.privateCash)} · cashflow (state) ${money(eco.cashflowState)} · cashflow (actual) ${money(eco.cashflowActual)} · war weariness ${eco.warWeariness ?? '?'}`;
       rows = data.items || [];
     }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.

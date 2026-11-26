@@ -12,6 +12,7 @@ internal sealed class ColonyRow
     public string Race { get; set; }
     public long? Population { get; set; }
     public long? MaxPopulation { get; set; }
+    public double? Growth { get; set; }
     public double? Development { get; set; }
     public double? Approval { get; set; }
     public double? Happiness { get; set; }
@@ -61,13 +62,16 @@ internal static class Views
                 Race = Safe(() => colony.Population?.DominantRace?.Name),
                 Population = Safe(() => (long?)colony.Population?.TotalAmount),
                 MaxPopulation = colony.MaximumPopulation,
+                Growth = Num(Safe(() => colony.CalculateGrowthRate(orb, empire))),
                 Development = Num(Safe(() => colony.DevelopmentLevel)),
                 Approval = Num(colony.EmpireApprovalRating),
                 Happiness = Num(colony.RacialHappiness),
                 Unrest = Num(colony.Unrest),
                 Corruption = Num(colony.Corruption),
                 TaxRate = Num(colony.TaxRate),
-                Revenue = Num(Safe(() => colony.CalculateAnnualRevenue(orb, empire, colony.Corruption, true))),
+                // Without support costs this should match the empire panel's "Private Colony Revenue, Projected"
+                // (with them it came out exactly 1,000 lower in the first test).
+                Revenue = Num(Safe(() => colony.CalculateAnnualRevenue(orb, empire, colony.Corruption, false))),
                 Quality = Num(Safe(() => orb.Quality)),
                 Rebelling = colony.IsRebelling,
                 Facilities = Copy(Safe(() => orb.Facilities)).Count,
@@ -123,6 +127,20 @@ internal static class Views
         Speed = Num(p.Speed),
         Rushing = p.Rushing,
         AtStation = p.AssignedResearchStationId > 0,
+    };
+
+    /// <summary>
+    /// The empire panel's top numbers. Which cashflow method matches the panel's "Cashflow" is not known yet,
+    /// so both candidates go out and get compared with the game.
+    /// </summary>
+    public static object Economy(Empire empire) => new
+    {
+        cash = Num(Safe(() => empire.Economy.Money)),
+        privateCash = Num(Safe(() => empire.Economy.PrivateMoney)),
+        moneyAvailable = Num(Safe(() => empire.MoneyAvailable)),
+        cashflowState = Num(Safe(() => empire.CalculateCashflowState(1f, true))),
+        cashflowActual = Num(Safe(() => empire.CalculateCashflowActual(1f, true))),
+        warWeariness = Num(Safe(() => empire.WarWeariness)),
     };
 
     private static double? Num(float value) => float.IsFinite(value) ? Math.Round(value, 4) : null;

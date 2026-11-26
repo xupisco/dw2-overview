@@ -128,6 +128,7 @@ internal static class Snapshot
                 starDate = Safe(() => galaxy.StarDate),
                 starDateText = Safe(() => TextHelper.ResolveStarDateDescription(galaxy.StarDate)),
                 token = Commands.Token,
+                economy = Views.Economy(empire),
                 collectedAt,
                 collectMs = Math.Round(sw.Elapsed.TotalMilliseconds, 2),
                 timings = new { construction = Math.Round(constructionMs, 2), colonies = Math.Round(coloniesMs, 2), research = Math.Round(researchMs, 2) },

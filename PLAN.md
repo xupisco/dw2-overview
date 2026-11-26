@@ -13,7 +13,7 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 ## Wishlist (sem ordem, depois da sequência)
 
 - **Detalhe da pesquisa:** ao abrir um projeto, mostrar o que ele libera, como o tooltip do jogo: componentes (`ResearchProjectDefinition.Components`), instalações (`PlanetaryFacilityIds`), cascos (`ShipHulls`), bônus (`EmpireBonuses`), e também os dias que faltam e o custo do crash program. O tooltip do jogo mostra "211 days to research", "55% Complete" (bate com o nosso `ProgressRatio`) e "Crash Program for 3,384 credits from Cash on Hand of 9,320 credits".
-- **Dinheiro em caixa** no cabeçalho (o campo do império ainda não foi achado).
+- **Dinheiro em caixa** no cabeçalho: feito (`Economy.Money`), falta conferir o fluxo de caixa.
 
 ## Sequência
 
