@@ -25,7 +25,8 @@ Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetail
 - **Alerts:** new game messages as toasts (or Windows notifications while the page is in the background, if you turn them on), by priority, with mute per message type. **Watch** rules alert you when something changes: the game paused itself, nothing is being researched, a yard ran out of work, a ship became idle, a colony is unhappy, a resource became critical, cashflow turned negative.
 - **Command palette (Ctrl+K):** find any ship, base, colony, fleet, resource or anything the game knows, by name, kind, system or mission; `>` runs the game's own commands (open screens, pause…).
 - **Game controls:** play / pause (the page's edges glow while the game is paused), mute the game, music volume.
-- **Keys:** `Space` play / pause, `Q` the message log, `/` the search, `Esc` clears the filters.
+- **From the game:** `Ctrl+Alt+O` opens the page in your default browser (the game says so the first time a save is loaded).
+- **Keys on the page:** `Space` play / pause, `Q` the message log, `/` the search, `Esc` clears the filters.
 - **Narrow windows:** a menu button, tables as cards (the server answers on this computer only, so a phone cannot reach it yet).
 
 ## Privacy and performance

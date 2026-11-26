@@ -12,6 +12,8 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 
 ## Wishlist (sem ordem, depois da sequência)
 
+- **Abrir a página de dentro do jogo** (2026-11-26, não testado no jogo): `Ctrl+Alt+O` abre `http://localhost:<porta>/` no navegador padrão (`src/Hotkey.cs`, no postfix do `DWGame.Update`). Na primeira vez que um save carrega na sessão, a mensagem curta do jogo avisa do atalho. Os atalhos do jogo ignoram modificadores e as DLLs do jogo vêm sem o corpo dos métodos (não dá para ver os atalhos padrão), então o log diz no primeiro carregamento se algum atalho do jogo usa O. Conferir na próxima vez que abrir o jogo; se usar, trocar a tecla.
+
 - **Detalhe da pesquisa:** ao abrir um projeto, mostrar o que ele libera, como o tooltip do jogo: componentes (`ResearchProjectDefinition.Components`), instalações (`PlanetaryFacilityIds`), cascos (`ShipHulls`), bônus (`EmpireBonuses`), e também os dias que faltam e o custo do crash program. O tooltip do jogo mostra "211 days to research", "55% Complete" (bate com o nosso `ProgressRatio`) e "Crash Program for 3,384 credits from Cash on Hand of 9,320 credits".
 - **Dinheiro em caixa** no cabeçalho: feito, com o fluxo de caixa (`Economy.Money`, `CalculateCashflowActual`).
 

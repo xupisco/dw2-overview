@@ -146,6 +146,7 @@ internal static class Snapshot
     {
         Commands.Run(__instance, gameTime);
         Audio.Tick(__instance);
+        Hotkey.Tick(__instance, __instance.Galaxy != null && (__instance.Renderer as ScaledRenderer)?.PlayerEmpire != null);
         double now = clock.Elapsed.TotalSeconds;
         if (now < nextCollect)
         {
