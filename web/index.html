@@ -1749,6 +1749,8 @@ function miniBar(rows) {
   }).join('');
 }
 
+/** Fuel as the game draws it: a ship can carry more than its range needs (251 of 100), shown as full. */
+const fuelPct = s => Math.round(Math.min(Math.max(s.fuel, 0), 1) * 100);
 /** The reactor's energy as a second line under fuel (shields in its tooltip); nothing with an older mod. */
 function energyLine(s) {
   if (s.energy == null) return '';
@@ -1808,7 +1810,7 @@ function renderShips() {
         ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
       const next = s.queued ? ` <span class="chip">+${s.queued} next</span>` : '';
       const fuel = s.fuel == null ? '<span class="none">–</span>'
-        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${fuelPct(s)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${fuelPct(s)}%</span>`;
       const manual = s.automation === 'Manual' || s.manual;
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
@@ -1923,7 +1925,7 @@ function attentionItems() {
   if (idleShips.length) add('warn', `${idleShips.length} idle ship${idleShips.length > 1 ? 's' : ''}`, idleShips.slice(0, 4).map(s => s.name).join(', ') + (idleShips.length > 4 ? '…' : ''), 'Ships',
     goTab('ships', () => { shipBucketFilter.clear(); shipBucketFilter.add('idle'); renderShips(); }));
   const lowFuel = ov.ships.filter(s => s.fuel != null && s.fuel < 0.2);
-  if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${Math.round(s.fuel * 100)}%`).join(', '), 'Ships', goTab('ships'));
+  if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${fuelPct(s)}%`).join(', '), 'Ships', goTab('ships'));
   if ((ovInfo.economy?.cashflowActual ?? 0) < 0) add('bad', 'Negative cashflow', `${money0(ovInfo.economy.cashflowActual)} a year`, null, null);
   const order = { bad: 0, warn: 1 };
   return items.sort((a, b) => order[a.level] - order[b.level]);
@@ -2153,7 +2155,7 @@ function renderResources() {
       const bucket = shipBucket(s), color = SHIP_BUCKETS.find(b => b.key === bucket).color;
       const target = s.target ? ` <span class="arrow">→</span> ${s.targetId ? `<a class="go" href="#" data-tt="${esc(s.targetType)}" data-tid="${s.targetId}">${esc(s.target)}</a>` : esc(s.target)}` : '';
       const fuel = s.fuel == null ? '<span class="none">–</span>'
-        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${Math.round(s.fuel * 100)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${Math.round(s.fuel * 100)}%</span>`;
+        : `<small class="mut" title="Fuel: how much of the ship's full range is left">Fuel</small><span class="fbar ${s.fuel < 0.25 ? 'low' : ''}"><i style="width:${fuelPct(s)}%"></i></span><span class="${s.fuel < 0.25 ? 'flag' : ''}">${fuelPct(s)}%</span>`;
       return `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
         <span class="sname"><b>${esc(s.name)}</b><small>${esc(human(s.kind))}${s.design ? ' · ' + esc(s.design) : ''}</small></span>
