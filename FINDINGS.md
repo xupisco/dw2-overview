@@ -42,3 +42,9 @@ Notas internas, em português. O ambiente, o carregamento de mods e o código pr
 ## Teclado
 
 Os atalhos do jogo ignoram modificadores (Ctrl+Alt+letra também dispara a letra).
+
+## Atalhos do jogo como comandos
+
+- `DWGame.DWSettings.KeyMappings` (`KeyMapping`: `Key`, `KeyName`, `ShiftActive`, `UiSection`, `TaskType`, `QueueBaseRole`, `CockpitTaskType`, `Description`) traz os atalhos com os remapeamentos do jogador. `Description` veio vazio em todos.
+- `DWGame.InputSystem.HandleKeyPress(galaxy, mapping, gameTime, dt, total, dt)` executa um atalho como se a tecla fosse apertada; roda no postfix de `DWGame.Update(GameTime gameTime)`. **confirmado** (2026-11-26): pausa, telas (Research, Colonies) e ações sem tecla atribuída.
+- `DWGame.GetGamePaused()` e `GetGameSpeed()` dão o estado do relógio; `PauseGame`, `ResumeGame`, `ChangeGameSpeed` existem, não usados.
