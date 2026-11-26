@@ -1,6 +1,6 @@
 # DW2 Empire Overview
 
-A Distant Worlds 2 mod that shows your empire as a web page you can keep open next to the game, for example on a second monitor or a phone. The game has no outside API, so the mod runs a small web server inside the game and serves the page and the data itself. Nothing else needs to be installed: open `http://localhost:4722` in any browser while the game is running.
+A Distant Worlds 2 mod that shows your empire as a web page you can keep open next to the game, for example on a second monitor. The game has no outside API, so the mod runs a small web server inside the game and serves the page and the data itself. Nothing else needs to be installed: open `http://localhost:4722` in any browser while the game is running.
 
 The idea is a helper, not a second game: each screen answers "what needs me?" or "what is happening?", and anything you click takes you to it in the game.
 
@@ -20,7 +20,7 @@ The idea is a helper, not a second game: each screen answers "what needs me?" or
 - **Command palette (Ctrl+K):** find any ship, base, colony, fleet, resource or anything the game knows, by name, kind, system or mission; `>` runs the game's own commands (open screens, pause…).
 - **Game controls:** play / pause (the page's edges glow while the game is paused), mute the game, music volume.
 - **Keys:** `Space` play / pause, `Q` the message log, `/` the search, `Esc` clears the filters.
-- **Phones:** a menu button, tables as cards.
+- **Narrow windows:** a menu button, tables as cards (the server answers on this computer only, so a phone cannot reach it yet).
 
 ## Install (development)
 

@@ -1,0 +1,82 @@
+[h1]Empire Overview (ALPHA)[/h1]
+
+[h1]Your empire as a web page for a second screen: what needs you, what is being built and why, and the supply table as the game counts it. Click anything to go to it in the game.[/h1]
+
+[h2]/========== ALPHA ==========\[/h2]
+This is an early version. It works and is played with every day, but expect rough edges, screens that change between versions, and numbers that may not match the game in every case. Reports are very welcome: a screenshot of the page next to the game's own screen helps the most.
+
+[h2]/========== REQUIREMENTS ==========\[/h2]
+[list]
+[*][url=https://github.com/lucky-wolf/DW2-Mod-Launcher/releases]DW2 Mod Launcher[/url] (to load the mod)
+[*]Any web browser, on the same computer as the game
+[*]Tested with Distant Worlds 2 version 1.3.8.4
+[/list]
+
+[h2]/========== WHAT IT IS ==========\[/h2]
+The mod runs a small web server inside the game. Open [b]http://localhost:4722[/b] in any browser while the game is running and keep it next to the game, on a second monitor for example. Nothing else to install.
+
+It is a helper, not a second game: each screen answers "what needs me?" or "what is happening?", and anything you click selects and centers it in the game.
+
+[h2]/========== WHAT IT SHOWS ==========\[/h2]
+[h3]Overview[/h3]
+[list]
+[*][b]At a glance:[/b] cash, population, yards, the research in progress, idle ships.
+[*][b]Needs attention:[/b] advisor suggestions (accept or decline them right there), idle yards, an empty research queue, critical resources and whether anyone is already on them, unhappy colonies, ships low on fuel.
+[*][b]Supply:[/b] the game's own Adequate / Low / Critical table.
+[*][b]Construction:[/b] what the yards are building, by role, and for which short resource.
+[/list]
+
+[h3]Construction[/h3]
+Everything being built or queued in your yards, bases built in place, construction ships on their way to build, bases you ordered that still wait for a ship, and idle yards. A mining station says what its site holds, coloured by how short your empire is of it.
+
+[h3]Resources[/h3]
+[list]
+[*]Each resource with its stock, how long it lasts at the current pace (in game months and years) and the [b]next step[/b]: where it is mined, a station being built or ordered, the best known deposit, or none known.
+[*][b]Mined and new mining locations[/b], new ones in the game's own priority, with who is already going there.
+[*]Filters by type and by availability (mined, not mined, not found).
+[/list]
+
+[h3]Ships, colonies, research, messages[/h3]
+[list]
+[*][b]Ships:[/b] each ship's mission in the game's own words (the places in it are links), what it carries, and fuel or energy only when they are low. Idle and short ships first.
+[*][b]Colonies:[/b] cards with the planet, population and its growth, development, corruption, tax, approval and the planet's resources; colonies in trouble first.
+[*][b]Research:[/b] the queue; a click opens the project in the game's research screen.
+[*][b]Messages:[/b] the game's message log, with the game's own buttons (Accept, Dismiss, "Take me to...").
+[/list]
+
+[h2]/========== WHILE YOU PLAY ==========\[/h2]
+[list]
+[*][b]Alerts:[/b] new game messages as toasts (or Windows notifications while the page is in the background, if you turn them on), with mute per message type.
+[*][b]Watch:[/b] alerts when something changes: the game paused itself, nothing is being researched, a yard ran out of work, a ship became idle, a colony became unhappy, a resource became critical, cashflow turned negative.
+[*][b]Command palette (Ctrl+K):[/b] find any ship, base, colony, fleet or resource; type [b]>[/b] to run the game's own commands.
+[*][b]Game controls:[/b] play / pause (the page's edges glow while the game is paused), mute, music volume.
+[*][b]Keys:[/b] Space play / pause, Q message log, / search, Esc clear filters.
+[*][b]Small windows:[/b] a menu and cards that fit a narrow browser window.
+[/list]
+
+[h2]/========== GOOD TO KNOW ==========\[/h2]
+[list]
+[*][b]Only on this computer.[/b] The server answers on localhost only, so other machines cannot reach it. Other websites cannot read it either, and commands need a per-session token.
+[*][b]Port:[/b] 4722. To change it, create [i]overview.json[/i] in the mod's folder with [i]{"port": 4800}[/i].
+[*][b]Light on the game:[/b] the data is read at most once a second, and only while a page is open.
+[*][b]Log:[/b] data\Logs\DW2Overview\DW2Overview.log, in the game folder.
+[/list]
+
+[h2]/========== COMPATIBILITY ==========\[/h2]
+[list]
+[*][b]Doesn't change any game data or saves.[/b] It only reads the game, and acts only when you click (go to, answer a suggestion, pause, open a screen).
+[*][b]Works in existing saves.[/b] Safe to add or remove at any time.
+[*][b]Other mods:[/b] it adds nothing to the game's data, so it should sit fine next to content and UI mods.
+[/list]
+
+[h2]/========== HOW TO USE THIS MOD ==========\[/h2]
+[olist]
+[*]Install the [url=https://github.com/lucky-wolf/DW2-Mod-Launcher/releases]DW2 Mod Launcher[/url] if you don't have it.
+[*]Subscribe to this mod here in Steam Workshop.
+[*]Start Distant Worlds 2 through the DW2 Mod Launcher and enable the mod.
+[*]Load a game, then open [b]http://localhost:4722[/b] in your browser.
+[/olist]
+
+[h2]/========== CREDITS ==========\[/h2]
+Made by Leandro with the help of Claude, Anthropic's AI assistant, which wrote much of the code and the documentation.
+Source code (MIT license): [url=https://github.com/xupisco/dw2-overview]github.com/xupisco/dw2-overview[/url]
