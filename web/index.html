@@ -388,7 +388,7 @@ async function refresh() {
       rows = data.items || [];
     }
     if (info.loaded && $('notify').value !== 'off') {
-      checkNotify(tab === 'messages' ? rows : ((await getJson('/api/messages')).items || []));
+      checkNotify(tab === 'messages' ? rows : ((await getJson('/api/messages')).items || []), info.starDate);
     }
     // Redraw only when the data changed: replacing the rows under the mouse can swallow a click.
     const snapshot = tab + JSON.stringify(rows) + (data.concurrent ?? '');
@@ -413,13 +413,17 @@ async function refresh() {
 // shows up: as a toast in the page while you are looking at it, or as a system notification when the page
 // is hidden or not focused (the game has the focus, another tab is in front). Clicking either goes to what
 // the message is about.
-let knownMessages = null;
-function checkNotify(messages) {
-  if (knownMessages === null) { knownMessages = new Set(messages.map(m => m.key)); return; }
+// The game's date when alerts started is the baseline: a message dated before it is old news even if this
+// page never saw it (the list can come empty while the game is still loading a save).
+let knownMessages = null, alertsSince = null;
+function checkNotify(messages, starDate) {
+  if (knownMessages === null) { knownMessages = new Set(messages.map(m => m.key)); alertsSince = starDate; return; }
+  if (starDate != null && alertsSince != null && starDate < alertsSince) alertsSince = starDate;   // another save loaded
   const min = +$('notify').value;
   for (const m of [...messages].reverse()) {
     if (knownMessages.has(m.key)) continue;
     knownMessages.add(m.key);
+    if (alertsSince != null && m.starDate < alertsSince) continue;
     if ((priorityRank[m.priority] ?? 0) < min) continue;
     const go = () => { if (m.relatedId) goTo(m.relatedType, m.relatedId); };
     const looking = !document.hidden && document.hasFocus();
@@ -676,7 +680,9 @@ function paletteItems() {
   return all;
 }
 
-const inScope = (item, scope) => !scope || (scope.by === 'kind' ? human(item.kind) === scope.value : item.system === scope.value);
+/** The value an item has for a group dimension: its kind, its system, or (own ships) its mission. */
+const groupValue = (item, by) => by === 'kind' ? human(item.kind) : by === 'mission' ? (item.mission ? human(item.mission) : null) : item.system;
+const inScope = (item, scope) => !scope || groupValue(item, scope.by) === scope.value;
 
 function paletteResults() {
   const q = $('pinput').value.trim().toLowerCase();
@@ -688,7 +694,9 @@ function paletteResults() {
   for (const item of items) {
     if (!q) { found.push({ item, score: item.own ? 3 : 0, hits: [] }); continue; }
     const byName = fuzzy(item.name, q), byKind = fuzzy(human(item.kind), q), bySystem = fuzzy(item.system, q);
-    const score = Math.max(byName ? byName.score : -1, byKind ? byKind.score * 0.7 : -1, bySystem ? bySystem.score * 0.6 : -1);
+    const byMission = item.mission ? fuzzy(human(item.mission), q) : null;
+    const score = Math.max(byName ? byName.score : -1, byKind ? byKind.score * 0.7 : -1,
+      bySystem ? bySystem.score * 0.6 : -1, byMission ? byMission.score * 0.6 : -1);
     if (score < 0) continue;
     found.push({ item, score: score + (item.own ? 3 : 0), hits: byName ? byName.hits : [] });
   }
@@ -699,7 +707,8 @@ function paletteResults() {
   if (!scope) {
     const count = new Map();
     for (const item of items) {
-      for (const [by, value] of [['kind', human(item.kind)], ['system', item.system]]) {
+      for (const by of ['kind', 'system', 'mission']) {
+        const value = groupValue(item, by);
         if (!value) continue;
         const k = by + '|' + value;
         count.set(k, (count.get(k) || 0) + 1);
@@ -728,13 +737,13 @@ function paletteResults() {
       if (r.group) {
         html += `<div class="pitem${on}" data-n="${n}">
           <span class="pname">${highlight(r.group.value, r.hits)}</span>
-          <span class="pmeta">${r.group.by === 'kind' ? 'kind' : 'system'} · ${r.group.count}</span>
+          <span class="pmeta">${r.group.by} · ${r.group.count}</span>
           <span class="pkey">Tab</span></div>`;
       } else {
         const it = r.item;
         html += `<div class="pitem${on}" data-n="${n}">
           <span class="pname">${highlight(it.name, r.hits)}</span>
-          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.system ? ' · ' + esc(it.system) : ''}</span>
+          <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(human(it.kind) || it.type)}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
           <span class="pkey">Enter</span></div>`;
       }
     }

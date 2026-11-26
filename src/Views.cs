@@ -97,6 +97,8 @@ internal sealed class IndexRow
     public string Kind { get; set; }
     public string System { get; set; }
     public bool Own { get; set; }
+    /// <summary>Own ships only: the current mission, or "Idle".</summary>
+    public string Mission { get; set; }
 }
 
 internal static class Views
@@ -195,8 +197,27 @@ internal static class Views
                 Kind = Safe(() => kind),
                 System = SystemName(galaxy, obj),
                 Own = obj is Ship ship ? ship.EmpireId == empire.EmpireId : kind == "Colony",
+                Mission = obj is Ship own && own.EmpireId == empire.EmpireId ? MissionName(own) : null,
             });
         }
+    }
+
+    /// <summary>
+    /// The current mission's type; without one: "UnderConstruction" or "InRepair" while in a yard (a queued
+    /// ship has no mission yet but is not idle), null for a base (bases get no missions), "Idle" otherwise.
+    /// </summary>
+    public static string MissionName(Ship ship)
+    {
+        var mission = Safe(() => ship.Mission);
+        if (mission != null && mission.Type != ShipMissionType.Undefined)
+        {
+            return mission.Type.ToString();
+        }
+        if (Safe(() => ship.IsUnderConstructionOrRepair))
+        {
+            return Safe(() => ship.ConstructionLevel) < 1f ? "UnderConstruction" : "InRepair";
+        }
+        return ship.IsBase ? null : "Idle";
     }
 
     public static List<ShipRow> Ships(Galaxy galaxy, Empire empire)
@@ -218,7 +239,7 @@ internal static class Views
                 Design = Safe(() => ship.Design?.Name),
                 System = SystemName(galaxy, ship),
                 Fleet = Safe(() => ship.Fleet?.Name),
-                Mission = idle ? "Idle" : mission.Type.ToString(),
+                Mission = MissionName(ship),
                 Target = Safe(() => (target as INamed)?.Name),
                 TargetType = targetType,
                 TargetId = targetId,
