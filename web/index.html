@@ -395,6 +395,7 @@
   .mresblock { margin-top: 10px; }
   .lchip b { font-weight: 500; }
   .lchip.st-short { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
+  .lchip.st-over { box-shadow: inset 0 0 0 1px var(--warn); }
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
@@ -1752,12 +1753,14 @@ let resCat = new Map(), resSurplus = new Map();
 /**
  * A deposit chip's mark, as the game marks resource icons on places (mining suggestions, New Mining Locations):
  * red with "PRODUCTION SHORTAGE 0.31/sec" when the empire makes less than it uses (CalculateResourceRateSurplus
- * below zero; checked 2026-11-26: Mebnar -0.3066 here, 0.31/sec in the game). That is about the rate, not the
- * stock, so it differs from the supply table's Critical / Low.
+ * below zero; checked 2026-11-26: Mebnar -0.3066 here, 0.31/sec in the game), and yellow with "PRODUCTION
+ * OVERSUPPLY 4.53/sec" when it makes more (Steel +4.5334). That is about the rate, not the stock, so it differs
+ * from the supply table's Critical / Low.
  */
 function chipMark(surplus) {
-  return surplus != null && surplus < 0
-    ? { cls: 'st-short', note: `Production shortage ${(-surplus).toFixed(2)}/sec` } : { cls: '', note: '' };
+  if (surplus == null || Math.abs(surplus) < 0.005) return { cls: '', note: '' };
+  return surplus < 0 ? { cls: 'st-short', note: `Production shortage ${(-surplus).toFixed(2)}/sec` }
+    : { cls: 'st-over', note: `Production oversupply ${surplus.toFixed(2)}/sec` };
 }
 /**
  * The resources at the places a message's task names (the site of a suggested mining station...), as the game's

@@ -92,6 +92,11 @@ Conferido contra as telas do jogo em 2026-11-26 (painel do império > Resources,
 - Missão `Build`: `PrimaryTarget` é de onde vem o material (Goma) e `SecondaryTarget` é onde a base será construída (Kintaris 2); `BuildDesignId` é o design. **Confirmado** no log em 2026-11-26 (Lone Rebel, Shining Lady). Enquanto a nave vai buscar o material, o estaleiro dela fica vazio: não é estaleiro parado.
 - Naves mineradoras mineram sem estação (missão `Mine`/`MineLoad`: "Mine Osnoa (Alurthas system), offload at Goma Spaceport"). O lugar continua em New Mining Locations do jogo, porque essa lista é de lugares sem estação. Em 2026-11-26 a Charming Quest minerava Attarion Fur em Osnoa, e a página dizia "Not mined": agora os depósitos trazem as naves que mineram ali (`ships`, pelo `PrimaryTarget` da missão, que se supõe ser o lugar minerado; o log "Mining ships at work" confere). Que recurso a nave tira: o que ela já carrega daquele lugar; sem carga ainda, qualquer um dos de lá.
 
+## Marcas nos ícones de recurso dos lugares
+
+- No diálogo de sugestão do advisor (e nos ícones de recurso dos lugares), o pontilhado é a produção, não o estoque: vermelho "PRODUCTION SHORTAGE x/sec" quando `CalculateResourceRateSurplus(id, false)` < 0, amarelo "PRODUCTION OVERSUPPLY x/sec" quando > 0. **Confirmado** em 2026-11-26 no AS693: Mebnar −0,3066 (0.31/sec), Cuprica −0,5074 (vermelho), Steel +4,5334 (4.53/sec, amarelo).
+- **Em aberto:** a abundância difere. No mesmo AS693 o jogo mostra Mebnar 7%, Steel 12%, Cuprica 97%; o nosso `OrbResource.Abundance` dá 5%, 9% e 97%. Talvez o jogo aplique algum bônus (tecnologia ou raça de mineração) ou use outro campo.
+
 ## Tabela de suprimento (regra do jogo)
 
 Reconstruída em 2026-11-26 e conferida com o jogo (Fuel 1/0/0, Construction 15/0/1, Luxury 27/8/1):
