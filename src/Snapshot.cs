@@ -186,7 +186,7 @@ internal static class Snapshot
                     Log.Info($"First resources: {resources.Count} resources, {deposits.Count} deposits in {resourcesMs:0.00} ms");
                     foreach (var r in resources)
                     {
-                        Log.Info($"  {r.Name,-18} {r.Category,-12} stock={r.Stock} req={r.RateRequired} cur={r.RateCurrent} bld={r.RateBuilding} known={r.Known} sell={r.PriceSell} buy={r.PriceBuy} base={r.BaseCost} met={r.RateMet} critical={r.Critical} deposits={r.Mined}/{r.Deposits}");
+                        Log.Info($"  {r.Name,-18} {r.Category,-12} stock={r.Stock} maintain={r.Maintain} req={r.RateRequired} cur={r.RateCurrent} bld={r.RateBuilding} known={r.Known} sell={r.PriceSell} buy={r.PriceBuy} base={r.BaseCost} met={r.RateMet} critical={r.Critical} deposits={r.Mined}/{r.Deposits}");
                     }
                     foreach (var d in deposits.Take(15))
                     {

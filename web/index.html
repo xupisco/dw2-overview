@@ -109,7 +109,7 @@
   tbody tr:hover td { background: var(--hover); }
   tbody tr.flash td { background: var(--acc-d); }
   td.num { text-align: right; }
-  .none { color: var(--mut); }
+  .none, .mut { color: var(--mut); }
   .empty { padding: 40px 16px; color: var(--mut); text-align: center; }
   .flag { color: var(--bad); }
   .go { color: var(--acc); text-decoration: none; }
@@ -475,7 +475,7 @@
   </div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
-      <div class="rhead"><span></span><span>Resource</span><span class="num">Stock</span><span class="num">Rate</span><span>Runs out</span><span class="num">Sources</span><span></span></div>
+      <div class="rhead"><span></span><span>Resource</span><span class="num">Stock</span><span class="num">Rate</span><span>Runs out</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
       <div id="resList"></div>
     </div>
     <div id="resDetail" class="rdetail"></div>
@@ -1494,10 +1494,20 @@ try { resView = localStorage.getItem('overview.resView') || 'resources'; } catch
 const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury']];
 /** Net change per second, as the game shows it: current minus required. */
 const resNet = r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0);
-/** Critical: needed and nothing comes in. Low: some comes in, less than needed. */
+/**
+ * The game shows the stock in red when it is below the level to maintain (its "Maintain" column, e.g. Caslon
+ * 4,627 of 20,000), so: low below that level, critical below half of it. Where the mod gives no maintain
+ * level (older version), the rates decide: critical when needed and nothing comes in, low when less comes in.
+ */
 function resStatus(r) {
+  if (r.critical) return 'critical';
+  if (r.maintain != null) {
+    if (r.maintain <= 0) return 'adequate';
+    const stock = r.stock ?? 0;
+    return stock < r.maintain / 2 ? 'critical' : stock < r.maintain ? 'low' : 'adequate';
+  }
   const req = r.rateRequired ?? 0, cur = r.rateCurrent ?? 0;
-  if (r.critical || (req > 0 && cur <= 0)) return 'critical';
+  if (req > 0 && cur <= 0) return 'critical';
   if (cur < req) return 'low';
   return 'adequate';
 }
@@ -1538,7 +1548,7 @@ function renderResources() {
       return `<button type="button" class="rrow${resPick === r.id ? ' on' : ''}" data-res="${r.id}" title="${esc(raw)}">
         <span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
         <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}${r.priceSell != null ? ' · ' + fmt.num(r.priceSell) + ' cr' : ''}</small></span>
-        <span class="num">${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}</span>
+        <span class="num" title="${r.maintain ? 'maintain ' + Math.round(r.maintain).toLocaleString('en-US') : ''}">${r.stock != null ? fmt.big(Math.round(r.stock)) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
         <span class="num" style="color:${net < 0 ? 'var(--bad)' : net > 0 ? 'var(--ok)' : 'var(--mut)'}">${net ? (net > 0 ? '+' : '') + net.toFixed(2) + '/s' : '–'}</span>
         <span class="rout">${out != null ? `<em style="color:${out < 1800 ? 'var(--bad)' : 'var(--warn)'}">${dur(out)}</em><i class="pb"><i style="width:${Math.max(3, Math.min(100, out / 36))}%;background:${out < 1800 ? 'var(--bad)' : 'var(--warn)'}"></i></i>` : ''}</span>
         <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined} of ${r.deposits}</span>
@@ -1560,7 +1570,7 @@ function renderResources() {
     const st = resStatus(pick), out = resRunsOut(pick);
     $('resDetail').innerHTML = `<div class="rdhead"><span class="rico big" data-cat="${pick.category}">${esc(resAbbr(pick.name))}</span>
         <span><b>${esc(pick.name)}</b><small>${esc(human(pick.category))}</small></span>${st !== 'adequate' ? `<span class="tag ${st === 'critical' ? 'prio-Critical' : 'queued'}">${st}</span>` : ''}</div>
-      <div class="rdnums"><span><small>Stock</small><b>${pick.stock != null ? fmt.big(Math.round(pick.stock)) : '–'}</b></span>
+      <div class="rdnums"><span><small>Stock / maintain</small><b>${pick.stock != null ? fmt.big(Math.round(pick.stock)) : '–'}${pick.maintain ? ' / ' + fmt.big(Math.round(pick.maintain)) : ''}</b></span>
         <span><small>Rate</small><b style="color:${resNet(pick) < 0 ? 'var(--bad)' : 'inherit'}">${resNet(pick) ? resNet(pick).toFixed(2) + '/s' : '–'}</b></span>
         <span><small>Runs out</small><b>${out != null ? dur(out) : '–'}</b></span>
         <span><small>Price</small><b>${pick.priceSell != null ? fmt.num(pick.priceSell) : '–'}</b></span></div>

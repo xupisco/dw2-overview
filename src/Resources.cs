@@ -12,6 +12,8 @@ internal sealed class ResourceRow
     /// <summary>fuel, construction, luxury or other.</summary>
     public string Category { get; set; }
     public double? Stock { get; set; }
+    /// <summary>The stock level to maintain (the game's "Maintain" column); below it the game shows the stock in red.</summary>
+    public double? Maintain { get; set; }
     public double? RateRequired { get; set; }
     public double? RateCurrent { get; set; }
     public double? RateBuilding { get; set; }
@@ -90,6 +92,7 @@ internal static class ResourcesView
 
         // Resources: the empire's numbers per resource.
         var stock = Amounts(Safe(() => empire.CalculateTotalCargoLevels(empire.EmpireId)));
+        var maintain = Amounts(Safe(() => empire.CalculateTotalStockLevels(false)));
         var required = Amounts(Safe(() => empire.ResourceRatesRequired));
         var current = Amounts(Safe(() => empire.ResourceRatesCurrent));
         var building = Amounts(Safe(() => empire.ResourceRatesUnderConstruction));
@@ -103,7 +106,9 @@ internal static class ResourcesView
         {
             short id = res.ResourceId;
             int depositCount = deposits.Count(d => d.Resources.Any(r => r.Id == id));
-            bool relevant = known.ContainsKey(id) || stock.ContainsKey(id) || required.ContainsKey(id) || depositCount > 0;
+            // The game keeps a zero entry for every resource in the rate lists, so only real amounts count.
+            bool relevant = known.GetValueOrDefault(id) > 0 || stock.GetValueOrDefault(id) > 0 || required.GetValueOrDefault(id) > 0
+                || current.GetValueOrDefault(id) > 0 || maintain.GetValueOrDefault(id) > 0 || depositCount > 0;
             if (!relevant)
             {
                 continue;
@@ -114,6 +119,7 @@ internal static class ResourcesView
                 Name = Safe(() => res.Name),
                 Category = Safe(() => res.IsFuel) ? "fuel" : Safe(() => res.IsConstruction) ? "construction" : Safe(() => res.IsLuxury) ? "luxury" : "other",
                 Stock = Get(stock, id),
+                Maintain = Get(maintain, id),
                 RateRequired = Get(required, id),
                 RateCurrent = Get(current, id),
                 RateBuilding = Get(building, id),
