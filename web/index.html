@@ -355,12 +355,17 @@
   .catsq[data-cat="luxury"] { background: oklch(var(--L) 0.11 330); }
   .catsq[data-cat="other"] { background: var(--mut); }
   /* Supply table (and its months below) on the left, the Trends chart on the right; stacked on narrow screens */
-  .restop { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; margin-bottom: 10px; }
+  .restop { display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 12px; align-items: stretch; margin-bottom: 10px; }
   .restop .trends { margin-bottom: 0; }
   @media (max-width: 1000px) { .restop { grid-template-columns: minmax(0, 1fr); } }
+  /* The left column is as tall as the chart beside it: the months strip takes what the table leaves */
   .supcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .supplyhist { background: var(--panel); padding: 8px 10px 4px; }
+  .supcol .supply { width: 100%; }
+  .supcol .supply button { width: 100%; }
+  .supplyhist { background: var(--panel); padding: 8px 10px 4px; flex: 1; min-height: 96px; display: flex; flex-direction: column; }
   .supplyhist[hidden] { display: none; }
+  .supplyhist .shbody { flex: 1; min-height: 0; position: relative; }
+  .supplyhist svg { position: absolute; inset: 0 auto auto 0; }
   .suphead { display: flex; align-items: center; gap: 12px; color: var(--mut); font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
   .suphead .tlegend { margin: 0 0 0 auto; text-transform: none; letter-spacing: 0; font: 11.5px var(--sans, inherit); }
   .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
@@ -3404,25 +3409,27 @@ function renderSupplyHist() {
   const el = $('resSupplyHist'), last = hist.points[hist.points.length - 1];
   const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
   const pts = hist.points.filter(p => p.d >= from);
-  const sig = [hist.epoch, hist.points.length, last?.d, trendRange, el.clientWidth, resData.items?.length].join('|');
+  el.hidden = pts.length < 2;
+  if (el.hidden) { el.innerHTML = ''; supplySig = ''; return; }
+  // Drawn to fill the space the column leaves it (the column is as tall as the Trends panel beside it).
+  if (!el.querySelector('.shbody')) el.innerHTML = `<div class="suphead">Low or critical, each month <span class="tlegend"><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span></span></div><div class="shbody"></div>`;
+  const body = el.querySelector('.shbody');
+  const sig = [hist.epoch, hist.points.length, last?.d, trendRange, body.clientWidth, body.clientHeight, resData.items?.length].join('|');
   if (sig === supplySig) return;
   supplySig = sig;
-  el.hidden = pts.length < 2;
-  if (el.hidden) { el.innerHTML = ''; return; }
   const sup = pts.map(histSupply), max = Math.max(1, ...sup.map(s => s.low + s.critical));
-  const W = Math.max(200, el.clientWidth || 400), H = 62, L = 22, R = 4, T = 4, B = 15;
+  const W = Math.max(200, body.clientWidth || 400), H = Math.max(50, body.clientHeight || 62), L = 22, R = 4, T = 4, B = 15;
   const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R), y = v => H - B - v / max * (H - B - T);
   const area = (a, b) => `M${x(d0)},${y(a(0))}` + pts.map((p, i) => `L${x(p.d).toFixed(1)},${y(b(i)).toFixed(1)}`).join('') + pts.map((p, i) => `L${x(p.d).toFixed(1)},${y(a(i)).toFixed(1)}`).reverse().join('') + 'Z';
   const yr0 = Math.ceil(d0 / hist.yearUnits), yr1 = Math.floor(d1 / hist.yearUnits);
   const years = yr1 > yr0 ? [yr0, yr1] : [yr0].filter(v => v * hist.yearUnits <= d1);
-  el.innerHTML = `<div class="suphead">Low or critical, each month <span class="tlegend"><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span></span></div>`
-    + `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="How many resources were low or critical each month">`
+  body.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="How many resources were low or critical each month">`
     + `<text class="ax" x="${L - 5}" y="${T + 8}" text-anchor="end">${max}</text><text class="ax" x="${L - 5}" y="${H - B}" text-anchor="end">0</text>`
     + `<line class="grid" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`
     + `<path class="crit" d="${area(() => 0, i => sup[i].critical)}"/><path class="low" d="${area(i => sup[i].critical, i => sup[i].critical + sup[i].low)}"/>`
     + years.map(v => `<text class="ax" x="${x(v * hist.yearUnits)}" y="${H - 2}" text-anchor="middle">${v}</text>`).join('')
     + `<line class="xh" y1="${T}" y2="${H - B}" style="display:none"/><rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="ttip" hidden></div>`;
-  const root = el.querySelector('svg'), xh = root.querySelector('.xh'), tip = el.querySelector('.ttip');
+  const root = body.querySelector('svg'), xh = root.querySelector('.xh'), tip = body.querySelector('.ttip');
   root.querySelector('.hit').addEventListener('mousemove', e => {
     const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
     let i = 0, best = Infinity;
@@ -3435,7 +3442,7 @@ function renderSupplyHist() {
     tip.hidden = false;
     const px = x(pts[i].d) * box.width / W;
     tip.style.left = Math.max(0, px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
-    tip.style.top = (H + 18) + 'px';
+    tip.style.top = '4px';
   });
   root.querySelector('.hit').addEventListener('mouseleave', () => { xh.style.display = 'none'; tip.hidden = true; });
 }
