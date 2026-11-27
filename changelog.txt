@@ -1,5 +1,20 @@
 Empire Overview - changelog
 
+0.1.2-alpha (2026-11-26)
+- Advisor suggestions show the site's resources, as the game's dialog does (a
+  suggested mining station: what is there and how much).
+- Resource pills follow the game's marks: the name in red for a production
+  shortage, in yellow for oversupply (the tooltip says how much per second).
+  One pill everywhere (cargo, places, suggestions, palette), with the type as
+  the left stripe; a click on any pill opens that resource.
+- Command palette: a place shows its resources and who is mining it;
+  Shift+Enter opens it on the page (Enter still goes there in the game).
+- Resources: the search also matches places ("as693" lists what is there);
+  Mined and New locations have the type filter; tab counts follow the filters;
+  the resource details show places in three columns.
+- Location cards keep the place's name readable with two badges; the message
+  log button shows its key (Q).
+
 0.1.1-alpha (2026-11-26)
 - Ctrl+Alt+9 in the game opens the page in your default browser; the game shows
   the shortcut once when a save loads. (The game's own shortcuts ignore Ctrl and
