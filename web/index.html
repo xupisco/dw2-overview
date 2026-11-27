@@ -3497,8 +3497,7 @@ function renderSupplyHist() {
 function renderTrends(all) {
   trendAll = all;
   const box = $('resTrends');
-  box.hidden = resView !== 'resources';
-  if (box.hidden) return;
+  box.hidden = false;   // in every view (resources, mined and new locations), as the supply table beside it
   trendDefault(all);
   const sel = trendSel || new Map(), last = hist.points[hist.points.length - 1];
   const sig = [trendMeasure, trendRange, JSON.stringify([...sel]), [...trendOff].join(), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
