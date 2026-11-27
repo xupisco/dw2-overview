@@ -1,6 +1,6 @@
 Empire Overview - changelog
 
-0.1.6-alpha (not released yet)
+0.1.6-alpha (2026-11-27)
 - Ships: Group by Fleet (ships without one at the end); a fleet's name, in a
   row or as a group, selects the whole fleet in the game.
 - Ships table: the name stays whole; the fleet is cut instead (whole on
