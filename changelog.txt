@@ -18,6 +18,10 @@ Empire Overview - changelog
 - Overview: a Trends block under Construction, with the same resources,
   measure and range as the Resources tab's chart (turn it off in Customize).
 - Customize overview: drag a block to change the order (the arrows are gone).
+- Resources: each list has its own order, next to the type filters, and a
+  second click reverses it. Resources: priority, runs out, net rate, name.
+  Mined locations: most needed, type, system, name. New locations: the game's
+  priority, most needed, richest, system, name.
 - Rows / Cards is now Table / Cards everywhere; on Resources and
   Construction it sits next to the list it changes.
 
