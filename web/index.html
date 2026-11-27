@@ -302,10 +302,6 @@
   .legrow > .seg button { height: 26px; border: 0; background: transparent; color: var(--mut); padding: 0 10px; font-size: 12px; cursor: pointer; }
   .legrow > .seg button:hover { color: var(--tx); }
   .legrow > .seg button.on { background: var(--acc-d); color: var(--acc); }
-  /* Ships: the status panel keeps its layout; the switch sits by its last legend line */
-  .shiprow { align-items: flex-end; padding: 0; margin-bottom: 10px; }
-  .shiprow > .sstatus { flex: 1; min-width: 0; margin-bottom: 0; }
-  .shiprow > .seg { margin: 0 12px 10px 0; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
   /* Construction in the dashboard: the tab's table, four columns */
   .ovtable { width: 100%; border-collapse: collapse; }
@@ -428,6 +424,8 @@
   .tlegend { display: flex; gap: 14px; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
   .tlegend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
   .rmchart { margin: 4px 0 6px; }
+  .ovtrends { padding: 10px 12px 8px; }
+  .ovtlegend:empty { display: none; }
   .rmchead { margin: 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rmcrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
   .rmseg { background: var(--track); margin-left: 8px; }
@@ -921,6 +919,7 @@
     <span id="sgroupby" class="seg" title="Group the ships by">
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
     </span>
+    <span id="sview" class="seg" title="Table or cards"><button type="button" data-view="rows">Table</button><button type="button" data-view="cards">Cards</button></span>
   </span>
   <span id="mfilters" class="group" hidden>
   <select id="mprio">
@@ -961,8 +960,7 @@
   <div id="resLocations" class="locs" hidden></div>
 </div>
 <div id="tab-ships" hidden>
-  <div class="legrow shiprow"><div id="shipStatus" class="sstatus"></div>
-    <span id="sview" class="seg" title="Table or cards"><button type="button" data-view="rows">Table</button><button type="button" data-view="cards">Cards</button></span></div>
+  <div id="shipStatus" class="sstatus"></div>
   <div id="shipList" class="slist"></div>
 </div>
 <div class="wrap" id="tab-other" hidden>
@@ -1420,7 +1418,9 @@ async function refresh() {
     if (messages) syncGameButtons(messages);
     runWatch(info).catch(() => { });
     // The Resources tab's trends and sparklines: new points every game month (checked every 15 s).
-    if (tab === 'resources' && info.loaded) loadHistory().then(changed => { if (changed && tab === 'resources') renderResources(); });
+    // The Overview's Trends block too, when it is on.
+    if (info.loaded && (tab === 'resources' || (tab === 'overview' && ovLayout.some(b => b.id === 'trends' && b.on))))
+      loadHistory().then(changed => { if (!changed) return; if (tab === 'resources') renderResources(); else if (tab === 'overview' && ov) renderOverview(); });
     if (tab === 'overview') {
       const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
       if (snap === lastSnapshot) return;
@@ -2651,6 +2651,7 @@ const OV_BLOCKS = [
   { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
   { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical, as the game shows it', size: 'S', on: true },
   { id: 'construction', name: 'Construction', note: 'What the yards are building, by role, sorted, a few lines', size: 'M', on: true },
+  { id: 'trends', name: 'Trends', note: 'The resources in the Resources tab\'s Trends chart, over time (picked there)', size: 'M', on: true },
   { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: false },
   { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: false },
   { id: 'messages', name: 'Latest messages', note: 'Newest five from the log (Q opens the whole log)', size: 'M', on: false },
@@ -2660,8 +2661,13 @@ let ovLayout = OV_BLOCKS.map(b => ({ id: b.id, size: b.size, on: b.on }));
 try {
   const saved = JSON.parse(localStorage.getItem('overview.layout4') || 'null');
   if (Array.isArray(saved)) {
-    const known = saved.filter(s => OV_BLOCKS.some(b => b.id === s.id));
-    ovLayout = [...known, ...ovLayout.filter(d => !known.some(s => s.id === d.id))];   // new blocks join at the end
+    // A block new since the layout was saved goes in after the block it follows in OV_BLOCKS (or at the end).
+    ovLayout = saved.filter(s => OV_BLOCKS.some(b => b.id === s.id));
+    OV_BLOCKS.forEach((def, i) => {
+      if (ovLayout.some(s => s.id === def.id)) return;
+      const after = i > 0 ? ovLayout.findIndex(s => s.id === OV_BLOCKS[i - 1].id) : -1;
+      ovLayout.splice(after < 0 ? ovLayout.length : after + 1, 0, { id: def.id, size: def.size, on: def.on });
+    });
   }
 } catch (e) { }
 const saveLayout = () => { try { localStorage.setItem('overview.layout4', JSON.stringify(ovLayout)); } catch (e) { } };
@@ -2861,6 +2867,13 @@ function blockHtml(id) {
     return panel('Supply', 'var(--acc)', linkTo('Resources', 'resources'),
       `<table class="supply ovsupply"><thead><tr><th></th><th>Adequate</th><th>Low</th><th>Critical</th></tr></thead><tbody>${rows}</tbody></table>`);
   }
+  if (id === 'trends') {
+    // The chart itself is drawn after the grid is in the page (it needs its width): see fillOvTrends.
+    const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level, range = (TREND_RANGES.find(([k]) => k === trendRange) || [])[1] || '';
+    const head = `<span class="ovnote" title="Change them in the Resources tab">${esc(m.label)} · ${esc(range)}</span>${linkTo('Resources', 'resources')}`;
+    const why = ovTrendsEmpty();
+    return panel('Trends', 'var(--acc)', head, why ? `<div class="ovempty">${why}</div>` : '<div class="ovtrends"><div class="tchart" id="ovTrChart"></div><div class="tlegend ovtlegend"></div></div>');
+  }
   if (id === 'idle') {
     const rows = ov.ships.filter(s => shipBucket(s) === 'idle');
     return panel('Idle ships', 'var(--acc)', linkTo('Ships', 'ships'),
@@ -2888,6 +2901,7 @@ function renderOverview() {
   flush();
   $('ovGrid').innerHTML = html;
   $('count').textContent = '';
+  fillOvTrends();
 }
 
 function renderCustomize() {
@@ -3394,6 +3408,8 @@ function drawChart(el, pts, series, opt) {
   if (labels) {
     const ends = series.map(s => { let i = s.values.length - 1; while (i >= 0 && (s.values[i] == null || !isFinite(s.values[i]))) i--; return i < 0 ? null : { s, above: s.values[i] > hi, cy: y(s.values[i]), yy: Math.max(T, y(s.values[i])), xx: x(pts[i].d) }; }).filter(Boolean).sort((a, b) => a.yy - b.yy);
     for (let i = 1; i < ends.length; i++) ends[i].yy = Math.max(ends[i].yy, ends[i - 1].yy + 13);
+    // Lines ending together at the bottom: push the names back up so the last one stays inside the chart.
+    for (let i = ends.length - 1; i >= 0; i--) ends[i].yy = Math.min(ends[i].yy, i === ends.length - 1 ? plotB : ends[i + 1].yy - 13);
     svg += ends.map(e => (e.above ? '' : `<circle class="dot" cx="${e.xx}" cy="${e.cy}" r="3.5" style="fill:${e.s.color}"/>`)
       + `<text class="lbl" x="${W - R + 8}" y="${e.yy + 4}">${e.above ? `<title>Above the top of the scale: ${esc(opt.fmt(e.s.values[e.s.values.length - 1] ?? 0))}</title>` : ''}${esc(e.s.name)}${e.above ? ' ↑' : ''}</text>`).join('');
   }
@@ -3483,14 +3499,7 @@ function renderTrends(all) {
   const box = $('resTrends');
   box.hidden = resView !== 'resources';
   if (box.hidden) return;
-  const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level;
-  // First time: the resources that need attention, else the most used ones (only those with a level to keep).
-  if (!trendSel && all.length) {
-    let pick = all.filter(r => resStatus(r) !== 'adequate' && r.maintain > 0).slice(0, 4);
-    if (!pick.length) pick = all.filter(r => r.maintain > 0).sort((a, b) => (b.rateRequired ?? 0) - (a.rateRequired ?? 0)).slice(0, 3);
-    trendSel = new Map(pick.map((r, i) => [r.id, i]));
-    saveTrendSel();
-  }
+  trendDefault(all);
   const sel = trendSel || new Map(), last = hist.points[hist.points.length - 1];
   const sig = [trendMeasure, trendRange, JSON.stringify([...sel]), [...trendOff].join(), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
   if (sig === trendSig) return;   // the list redraws every few seconds; the chart only when its data changes (keeps the hover)
@@ -3499,14 +3508,13 @@ function renderTrends(all) {
     + `<span class="seg">${TREND_RANGES.map(([k, v]) => `<button type="button" data-range="${k}" class="${k === trendRange ? 'on' : ''}">${v}</button>`).join('')}</span></div>`;
   const color = id => `var(--s${(sel.get(id) ?? 0) + 1})`;
   // Only the added resources: a chip shows or hides its line; adding and removing is in a resource's details.
-  const nameOf = id => all.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id;
+  const nameOf = id => trendName(id, all);
   const chips = [...sel.keys()].sort((a, b) => sel.get(a) - sel.get(b)).map(id => {
     const on = !trendOff.has(id), r = all.find(x => x.id === id), noLevel = trendMeasure === 'level' && r && !(r.maintain > 0);
     return `<button type="button" class="tchip${on ? ' on' : ''}" data-tres="${id}" style="--c:${color(id)}" title="${on ? 'Hide' : 'Show'} ${esc(nameOf(id))}${noLevel ? ' (no level to keep, so not on the % scale)' : ''}; to remove it, open it and use Remove from Trends"><i></i>${esc(nameOf(id))}</button>`;
   }).join('') + `<span class="thint">${sel.size ? 'Add more' : 'Add resources'} from a resource's details: open a row or card, then Show in Trends</span>`;
   let body;
-  const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
-  const pts = hist.points.filter(p => p.d >= from);
+  const pts = trendPoints();
   if (pts.length < 2) {
     body = `<div class="tnote">${hist.game ? `Recording: the mod saves a point every game month (about 50 seconds at normal speed), page open or not. The chart starts after two.` : 'No history yet (it needs the mod version that records it, and a game running).'}</div>`;
   } else if (!sel.size) {
@@ -3518,10 +3526,59 @@ function renderTrends(all) {
   }
   box.innerHTML = head + `<div class="tchips">${chips}</div>` + body;
   if (!$('trChart')) return;
-  const ids = [...sel.keys()].filter(id => !trendOff.has(id)).sort((a, b) => sel.get(a) - sel.get(b));
-  const series = ids.map(id => ({ id, name: nameOf(id), color: color(id),
+  const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level;
+  drawChart($('trChart'), pts, trendSeries(pts, all), { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 200 });
+}
+
+// ---- Shared by the Resources tab's Trends panel and the Overview's Trends block ----
+/** First time: the resources that need attention, else the most used ones (only those with a level to keep). */
+function trendDefault(all) {
+  if (trendSel || !all.length) return;
+  let pick = all.filter(r => resStatus(r) !== 'adequate' && r.maintain > 0).slice(0, 4);
+  if (!pick.length) pick = all.filter(r => r.maintain > 0).sort((a, b) => (b.rateRequired ?? 0) - (a.rateRequired ?? 0)).slice(0, 3);
+  trendSel = new Map(pick.map((r, i) => [r.id, i]));
+  saveTrendSel();
+}
+const trendName = (id, all) => all.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id;
+/** The recorded points in the Trends range (2 years, 10 years or all). */
+function trendPoints() {
+  const last = hist.points[hist.points.length - 1];
+  const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
+  return hist.points.filter(p => p.d >= from);
+}
+/** The shown lines (added and not hidden), in their colour order, in the Trends measure. */
+function trendSeries(pts, all) {
+  const sel = trendSel || new Map(), m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level;
+  return [...sel.keys()].filter(id => !trendOff.has(id)).sort((a, b) => sel.get(a) - sel.get(b)).map(id => ({
+    id, name: trendName(id, all), color: `var(--s${sel.get(id) + 1})`,
     values: pts.map(p => { const r = histRow(p, id); return r ? m.get(r) : (trendMeasure === 'stock' ? 0 : null); }) }));
-  drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 200 });
+}
+
+/** Why the Overview's Trends block has no chart, or '' when it has one. */
+function ovTrendsEmpty() {
+  trendDefault((ov && ov.resources || []).filter(resRelevant));
+  if (trendPoints().length < 2) return hist.game ? 'Recording: a point every game month (about 50 seconds at normal speed). The chart starts after two.' : 'No history yet.';
+  if (!trendSel || !trendSel.size) return 'No resource in the chart: add some from a resource\'s details (Show in Trends).';
+  if ([...trendSel.keys()].every(id => trendOff.has(id))) return 'Every line is hidden in the Resources tab.';
+  return '';
+}
+/**
+ * The Overview redraws its grid on every update; the chart is drawn again only when its data changed, otherwise the
+ * one already drawn is moved into the new grid (so the hover survives).
+ */
+let ovTrendNode = null, ovTrendSig = '';
+function fillOvTrends() {
+  const slot = document.querySelector('#ovGrid .ovtrends');
+  if (!slot) return;
+  const all = (ov && ov.resources || []).filter(resRelevant), pts = trendPoints(), last = pts[pts.length - 1];
+  const sig = [trendMeasure, trendRange, JSON.stringify([...(trendSel || [])]), [...trendOff].join(), hist.epoch, hist.points.length, last?.d, slot.clientWidth, document.documentElement.dataset.theme].join('|');
+  if (sig === ovTrendSig && ovTrendNode) { slot.replaceWith(ovTrendNode); return; }
+  const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level, series = trendSeries(pts, all);
+  drawChart(slot.querySelector('.tchart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 190 });
+  // More than 4 lines have no names at their ends: a legend then (2 to 4 are named at the ends).
+  slot.querySelector('.ovtlegend').innerHTML = series.length > 4 ? series.map(s => `<span style="--c:${s.color}">${esc(s.name)}</span>`).join('') : '';
+  ovTrendNode = slot;
+  ovTrendSig = sig;
 }
 $('resTrends').addEventListener('click', e => {
   const b = e.target.closest('button');

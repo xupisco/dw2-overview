@@ -15,8 +15,10 @@ Empire Overview - changelog
 - A resource's details: stock, rate (and how long the stock lasts) and
   prices as cards, and its stock over the whole game. Rows open the details
   too, as cards do.
-- Rows / Cards is now Table / Cards everywhere, and sits next to the list it
-  changes (Resources, Construction, Ships).
+- Overview: a Trends block under Construction, with the same resources,
+  measure and range as the Resources tab's chart (turn it off in Customize).
+- Rows / Cards is now Table / Cards everywhere; on Resources and
+  Construction it sits next to the list it changes.
 
 0.1.4-alpha (2026-11-27)
 - Fix: the page answered "Not found" for everyone but me. The release carried
