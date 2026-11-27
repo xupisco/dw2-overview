@@ -1,5 +1,11 @@
 Empire Overview - changelog
 
+0.1.3-alpha (2026-11-26)
+- Abandoned ships and bases (the game's Exploration list): Needs attention says
+  who is on each ("Lucky Beggar repairing", "nobody on it, dangerous"), and the
+  Ships tab has an Abandoned group with health and danger.
+- Toasts: the resources of a suggested site keep their spacing.
+
 0.1.2-alpha (2026-11-26)
 - Advisor suggestions show the site's resources, as the game's dialog does (a
   suggested mining station: what is there and how much).
