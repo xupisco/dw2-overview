@@ -738,9 +738,13 @@
   .sname.one { flex-direction: row; align-items: baseline; gap: 8px; }
   .sname.one small { flex: none; }
   /* The name wins: chips stay on one line and the fleet's gives way first (cut, whole on hover). */
-  .sname.one b { flex: 0 1 auto; min-width: 4em; }
-  .sname.one .chip { flex: 0 100 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sname.one b { flex: 0 0.001 auto; min-width: 4em; }
+  .sname.one .chip { flex: 0 1 auto; min-width: 2.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sname.one .chip.man { flex: none; }
+  a.fleetgo { color: inherit; text-decoration: none; }
+  a.fleetgo:hover { color: var(--acc); }
+  .sgroup .fleetsel { margin-left: auto; font-size: 12px; }
+  .sgroup .fleetsel + .sbar { margin-left: 12px; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
   .swarncol { font-size: 12px; }
   .swarncol .swarn { flex-wrap: nowrap; gap: 10px; white-space: nowrap; }
@@ -934,7 +938,7 @@
   </span>
   <span id="sfilters" class="group" hidden>
     <span id="sgroupby" class="seg" title="Group the ships by"><span class="seglbl">Group</span>
-      <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
+      <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="fleet">Fleet</button><button type="button" data-by="flat">Flat</button>
     </span>
     <span id="ssort" class="seg" title="Order inside each group; click the chosen one again to reverse it"></span>
     <span id="sview" class="seg" title="Table or cards"><button type="button" data-view="rows">Table</button><button type="button" data-view="cards">Cards</button></span>
@@ -2548,9 +2552,9 @@ function renderShips() {
   }).join('')}</div>`;
 
   // Groups
-  const keyOf = s => shipGroupBy === 'role' ? shipCategory(s) : shipGroupBy === 'mission' ? shipBucket(s) : shipGroupBy === 'system' ? (s.system || '—') : 'all';
+  const keyOf = s => shipGroupBy === 'role' ? shipCategory(s) : shipGroupBy === 'mission' ? shipBucket(s) : shipGroupBy === 'system' ? (s.system || '—') : shipGroupBy === 'fleet' ? (s.fleet || NO_FLEET) : 'all';
   const labelOf = k => shipGroupBy === 'mission' ? (SHIP_BUCKETS.find(b => b.key === k)?.label || k) : k;
-  const order = k => shipGroupBy === 'role' ? CATEGORY_ORDER.indexOf(k) : shipGroupBy === 'mission' ? SHIP_BUCKETS.findIndex(b => b.key === k) : 0;
+  const order = k => shipGroupBy === 'role' ? CATEGORY_ORDER.indexOf(k) : shipGroupBy === 'mission' ? SHIP_BUCKETS.findIndex(b => b.key === k) : shipGroupBy === 'fleet' ? +(k === NO_FLEET) : 0;
   const groups = new Map();
   for (const s of sortedBy(SHIP_ORDERS, shipSort, rows)) {
     const k = keyOf(s);
@@ -2568,7 +2572,7 @@ function renderShips() {
       html += `<div class="sgroup" data-group="${esc(shipGroupBy + ':' + k)}">
         <span class="caret2">${collapsed ? '▸' : '▾'}</span>
         ${shipGroupBy === 'role' ? `<span class="sicon">${icon(k)}</span>` : ''}
-        <b>${esc(labelOf(k))}</b><em>${list.length}</em>
+        <b>${esc(labelOf(k))}</b><em>${list.length}</em>${fleetGo(shipGroupBy === 'fleet' && list.find(s => s.fleetId)?.fleetId, 'Select this fleet in the game')}
         <span class="sbar mini">${miniBar(list)}</span></div>`;
     }
     if (collapsed) continue;
@@ -2593,14 +2597,14 @@ function renderShips() {
           <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small></span>
           <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span></div>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
-        ${manual || s.fleet ? `<span class="scmeta">${[manual ? '✋ Manual' : '', s.fleet ? esc(s.fleet) : ''].filter(Boolean).join(' · ')}</span>` : ''}
+        ${manual || s.fleet ? `<span class="scmeta">${[manual ? '✋ Manual' : '', s.fleet ? fleetChip(s, '') : ''].filter(Boolean).join(' · ')}</span>` : ''}
         <span class="sfuel">${shipState(s).cargo}${shipState(s).warn}</span>
       </div>`;
         continue;
       }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
-        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip man" title="Under manual orders">✋</span>' : ''}${s.fleet ? `<span class="chip" title="Fleet: ${esc(s.fleet)}">${esc(s.fleet)}</span>` : ''}</span>
+        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip man" title="Under manual orders">✋</span>' : ''}${s.fleet && shipGroupBy !== 'fleet' ? fleetChip(s, 'chip') : ''}</span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="sfuel">${shipState(s).cargo}</span><span class="swarncol">${shipState(s).warn}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
@@ -2616,6 +2620,12 @@ function renderShips() {
   $('ssort').innerHTML = orderButtons(SHIP_ORDERS, shipSort);
 }
 let shipRowsShown = [];
+const NO_FLEET = 'No fleet';
+// The fleet's name; a click selects the whole fleet in the game (a mod without fleetId shows it as plain text).
+const fleetChip = (s, cls) => s.fleetId
+  ? `<a href="#" class="${cls} fleetgo" data-tt="fleet" data-tid="${s.fleetId}" title="Fleet: ${esc(s.fleet)} · click to select the fleet in the game">${esc(s.fleet)}</a>`
+  : `<span class="${cls}" title="Fleet: ${esc(s.fleet)}">${esc(s.fleet)}</span>`;
+const fleetGo = (id, title) => id ? `<a href="#" class="go fleetsel" data-tt="fleet" data-tid="${id}" title="${title}">Select fleet</a>` : '';
 
 /**
  * The game's Abandoned Ships and Bases: wrecks the empire can claim; a damaged one by a construction ship repairing
@@ -2685,6 +2695,8 @@ $('sgroupby').addEventListener('click', e => {
 });
 $('shipList').addEventListener('click', e => {
   const g = e.target.closest('.sgroup');
+  const sel = g && e.target.closest('[data-tt]');
+  if (sel) { e.preventDefault(); goTo(sel.dataset.tt, +sel.dataset.tid); return; }
   if (g) {
     const k = g.dataset.group;
     if (shipCollapsed.has(k)) shipCollapsed.delete(k); else shipCollapsed.add(k);

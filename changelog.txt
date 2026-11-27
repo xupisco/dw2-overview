@@ -1,5 +1,11 @@
 Empire Overview - changelog
 
+0.1.6-alpha (not released yet)
+- Ships: Group by Fleet (ships without one at the end); a fleet's name, in a
+  row or as a group, selects the whole fleet in the game.
+- Ships table: the name stays whole; the fleet is cut instead (whole on
+  hover) and Manual is a hand.
+
 0.1.5-alpha (2026-11-27)
 - Trends: the mod records the empire every game month, page open or not
   (data\Logs\DW2Overview\history, one file per game). Loading an earlier

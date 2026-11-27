@@ -172,6 +172,8 @@ internal sealed class ShipRow
     public string Design { get; set; }
     public string System { get; set; }
     public string Fleet { get; set; }
+    /// <summary>The fleet's id, for /api/goto {"type": "fleet"} (selects the whole fleet in the game).</summary>
+    public int? FleetId { get; set; }
     /// <summary>The current mission's type, or "Idle" when there is none.</summary>
     public string Mission { get; set; }
     public string Target { get; set; }
@@ -479,6 +481,7 @@ internal static class Views
                 Design = Safe(() => ship.Design?.Name),
                 System = SystemName(galaxy, ship),
                 Fleet = Safe(() => ship.Fleet?.Name),
+                FleetId = Safe(() => ship.Fleet?.FleetId),
                 Mission = MissionName(ship),
                 MissionText = idle ? null : Safe(() => TextHelper.ResolveMissionDescription(galaxy, empire, ship, mission)),
                 Target = Safe(() => (target as INamed)?.Name),
