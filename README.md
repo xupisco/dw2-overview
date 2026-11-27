@@ -12,7 +12,7 @@ Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetail
 
 ## What it shows
 
-- **Overview:** cash, population, yards, the research in progress and idle ships at a glance; **Needs attention** (advisor suggestions you can accept or decline right there, idle yards, an empty research queue, critical resources and whether anyone is already on them, unhappy colonies, low fuel); the **supply table** as the game shows it; what the yards are building. Blocks can be turned on, resized and reordered.
+- **Overview:** cash, population, yards, the research in progress and idle ships at a glance; **Needs attention** (advisor suggestions you can accept or decline right there, idle yards, an empty research queue, critical resources and whether anyone is already on them, unhappy colonies, low fuel); the **supply table** as the game shows it; what the yards are building. Blocks can be turned on, resized and dragged into another order.
 - **Construction:** everything being built or queued in yards, bases built in place, construction ships on their way to build, bases ordered and still waiting for a ship, and idle yards. A mining base says what its site holds, coloured by how short the empire is of it. Filters by state, kind, work and role.
 - **Ships:** every ship and base with its mission in the game's own words (the places in it are links), what it carries, and fuel or energy only when they are low. Grouped by role, mission or system; rows or cards; idle ships, ships short of fuel and damaged ships first.
 - **Colonies:** cards with a planet drawn from the game's own colours, population and its growth, development, corruption, tax, approval, the planet's resources, and colonies in trouble first.

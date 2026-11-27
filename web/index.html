@@ -329,16 +329,19 @@
   .ovdhead { display: flex; justify-content: space-between; align-items: center; }
   .ovdhead b { font: 600 15px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--acc); }
   .ovdrawer p { margin: 0; color: var(--mut); font-size: 12px; }
-  .ovitem { display: flex; align-items: center; gap: 10px; padding: 8px; background: var(--panel-h); }
-  .ovitem.off > span:nth-child(2) { opacity: .5; }
-  .ovitem > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+  #ovList { display: flex; flex-direction: column; gap: 2px; }
+  .ovitem { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 4px; background: var(--panel-h); cursor: grab; user-select: none; }
+  .ovitem.off > .ovname { opacity: .5; }
+  .ovitem > .ovname { flex: 1; display: flex; flex-direction: column; }
+  .ovgrip { flex: none; width: 12px; color: var(--mut); font-size: 14px; line-height: 1; text-align: center; touch-action: none; }
+  .ovitem:hover .ovgrip { color: var(--tx); }
+  .ovitem.dragging { position: relative; z-index: 1; outline: 1px solid var(--acc); box-shadow: 0 6px 18px rgba(0,0,0,.45); }
+  body.ovdragging, body.ovdragging * { cursor: grabbing !important; }
   .ovitem small { color: var(--mut); font-size: 12px; }
-  .sizes, .moves { display: flex; gap: 2px; }
-  .sizes button, .moves button { width: 24px; height: 22px; border: 0; background: var(--panel); color: var(--mut); cursor: pointer; font-size: 12px; }
+  .sizes { display: flex; gap: 2px; }
+  .sizes button { width: 24px; height: 22px; border: 0; background: var(--panel); color: var(--mut); cursor: pointer; font-size: 12px; }
   .sizes button.on { background: var(--acc-d); color: var(--acc); }
-  .sizes button:hover, .moves button:hover { color: var(--tx); }
-  .moves { flex-direction: column; }
-  .moves button { height: 13px; line-height: 1; }
+  .sizes button:hover { color: var(--tx); }
   .switch { position: relative; width: 30px; height: 16px; flex: none; cursor: pointer; }
   .switch input { opacity: 0; position: absolute; inset: 0; margin: 0; cursor: pointer; }
   .switch i { position: absolute; inset: 0; background: var(--track); }
@@ -943,7 +946,7 @@
 </div>
 <div id="ovPanel" class="ovdrawer" hidden>
   <div class="ovdhead"><b>Overview blocks</b><button type="button" id="ovClose" class="ovlink">Close ✕</button></div>
-  <p>Turn blocks on or off, pick a width and change the order. S = one column, M = two, L = the whole row. Saved in this browser.</p>
+  <p>Turn blocks on or off, pick a width and drag a block to change the order. S = the narrow left column, M = the wide right one, L = the whole row. Saved in this browser.</p>
   <div id="ovList"></div>
   <button type="button" id="ovReset" class="ovlink">Reset to default</button>
 </div>
@@ -2919,12 +2922,12 @@ function renderCustomize() {
   $('ovList').innerHTML = ovLayout.map((b, i) => {
     const def = OV_BLOCKS.find(d => d.id === b.id);
     return `<div class="ovitem${b.on ? '' : ' off'}" data-i="${i}">
+      <span class="ovgrip" title="Drag to move">⠿</span>
       <label class="switch"><input type="checkbox" data-on ${b.on ? 'checked' : ''}><i></i></label>
-      <span><b>${esc(def.name)}</b><small>${esc(def.note)}</small></span>
+      <span class="ovname"><b>${esc(def.name)}</b><small>${esc(def.note)}</small></span>
       <span class="sizes">${['S', 'M', 'L'].map(s => (def.sizes || ['S', 'M', 'L']).includes(s)
         ? `<button type="button" data-size="${s}" title="${{ S: 'Narrow left column', M: 'Wide right column', L: 'Whole width' }[s]}" class="${b.size === s ? 'on' : ''}">${s}</button>`
         : `<button type="button" disabled title="Too narrow for this block">${s}</button>`).join('')}</span>
-      <span class="moves"><button type="button" data-move="-1" title="Up">▴</button><button type="button" data-move="1" title="Down">▾</button></span>
     </div>`;
   }).join('');
 }
@@ -2941,17 +2944,48 @@ $('ovReset').addEventListener('click', () => {
 });
 $('ovList').addEventListener('click', e => {
   const item = e.target.closest('.ovitem');
-  if (!item) return;
-  const i = +item.dataset.i, b = ovLayout[i];
-  const size = e.target.closest('[data-size]'), move = e.target.closest('[data-move]');
-  if (size) b.size = size.dataset.size;
-  else if (move) {
-    const j = i + +move.dataset.move;
-    if (j < 0 || j >= ovLayout.length) return;
-    [ovLayout[i], ovLayout[j]] = [ovLayout[j], ovLayout[i]];
-  } else return;
+  const size = e.target.closest('[data-size]');
+  if (!item || !size) return;
+  ovLayout[+item.dataset.i].size = size.dataset.size;
   saveLayout(); renderCustomize(); renderOverview();
 });
+// Drag a block to a new place in the list: the row moves among the others as the pointer passes their middle, and
+// the order is saved on release. A mouse drags from anywhere on the row but its buttons; touch only from the grip,
+// so the drawer still scrolls.
+let ovDrag = null;
+$('ovList').addEventListener('pointerdown', e => {
+  const item = e.target.closest('.ovitem');
+  if (!item || e.button !== 0 || e.target.closest('button, input, .switch')) return;
+  if (e.pointerType !== 'mouse' && !e.target.closest('.ovgrip')) return;
+  ovDrag = { item, y: e.clientY, moving: false };
+  e.preventDefault();
+});
+document.addEventListener('pointermove', e => {
+  if (!ovDrag) return;
+  const { item } = ovDrag, list = $('ovList');
+  if (!ovDrag.moving) {
+    if (Math.abs(e.clientY - ovDrag.y) < 4) return;
+    ovDrag.moving = true;
+    item.classList.add('dragging');
+    document.body.classList.add('ovdragging');
+  }
+  e.preventDefault();
+  const next = [...list.children].find(x => x !== item && e.clientY < x.getBoundingClientRect().top + x.offsetHeight / 2);
+  if (next) { if (item.nextElementSibling !== next) list.insertBefore(item, next); }
+  else if (list.lastElementChild !== item) list.appendChild(item);
+});
+function endOvDrag(save) {
+  if (!ovDrag) return;
+  const { moving } = ovDrag;
+  ovDrag = null;
+  document.body.classList.remove('ovdragging');
+  if (!moving) return;
+  const order = [...$('ovList').children].map(x => ovLayout[+x.dataset.i]);
+  if (save && order.some((b, i) => b !== ovLayout[i])) { ovLayout = order; saveLayout(); renderOverview(); }
+  renderCustomize();
+}
+document.addEventListener('pointerup', () => endOvDrag(true));
+document.addEventListener('pointercancel', () => endOvDrag(false));
 $('ovList').addEventListener('change', e => {
   const box = e.target.closest('[data-on]');
   if (!box) return;
