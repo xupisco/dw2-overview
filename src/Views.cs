@@ -12,6 +12,32 @@ internal sealed class CargoRow
 }
 
 /// <summary>A place a mission names (its primary and secondary targets), for a link in the mission's text.</summary>
+internal sealed class AbandonedRow
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string RoleName { get; set; }
+    public bool IsBase { get; set; }
+    public string System { get; set; }
+    /// <summary>1 - HullDamageLevel (the game's "Health 59%").</summary>
+    public double? Health { get; set; }
+    /// <summary>Its location had threats last time we saw it: civilian ships will not go until it is cleared.</summary>
+    public bool Dangerous { get; set; }
+    public int Priority { get; set; }
+    public bool Available { get; set; }
+    public bool Queued { get; set; }
+    public bool CanAcquire { get; set; }
+    public List<OnItRow> On { get; set; }
+}
+
+internal sealed class OnItRow
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string RoleName { get; set; }
+    public string Mission { get; set; }
+}
+
 internal sealed class PlaceRow
 {
     public string Name { get; set; }
@@ -352,6 +378,85 @@ internal static class Views
             return Safe(() => ship.ConstructionLevel) < 1f ? "UnderConstruction" : "InRepair";
         }
         return ship.IsBase ? null : "Idle";
+    }
+
+    private static string lastAbandoned;
+
+    /// <summary>
+    /// The game's Abandoned Ships and Bases list (Empire.AbandonedShips, in its own priority): a wreck the empire
+    /// can claim; a damaged one by a construction ship repairing it ("Repair and Investigate"). How one at full
+    /// health is claimed is not known yet: the log names our ships whose missions target a wreck.
+    /// For each: health, whether its location is known to be dangerous (Empire.DangerousLocations: civilian
+    /// ships will not go), whether it is queued, and our ships whose mission targets it.
+    /// </summary>
+    public static List<AbandonedRow> Abandoned(Galaxy galaxy, Empire empire)
+    {
+        var rows = new List<AbandonedRow>();
+        var targets = Copy(Safe(() => empire.AbandonedShips));
+        if (targets.Count == 0)
+        {
+            return rows;
+        }
+        var queued = new HashSet<int>(Copy(Safe(() => empire.QueuedAbandonedTargets)).Where(s => s != null).Select(s => s.ShipId));
+        var dangerous = new HashSet<int>(Copy(Safe(() => empire.DangerousLocations)).Select(l => l.LocationId));
+        // Our ships heading for a wreck (repair, investigate, move...), by the wreck's id.
+        var on = new Dictionary<int, List<OnItRow>>();
+        foreach (var ship in Copy(empire.Ships))
+        {
+            var mission = Safe(() => ship.Mission);
+            if (ship.IsBase || mission == null || mission.Type == ShipMissionType.Undefined)
+            {
+                continue;
+            }
+            foreach (var item in new[] { mission.PrimaryTarget, mission.SecondaryTarget })
+            {
+                if (Safe(() => item.Resolve(galaxy)) is Ship target && target.ShipId != ship.ShipId)
+                {
+                    if (!on.TryGetValue(target.ShipId, out var list))
+                    {
+                        on[target.ShipId] = list = new();
+                    }
+                    if (list.All(x => x.Id != ship.ShipId))
+                    {
+                        list.Add(new OnItRow { Id = ship.ShipId, Name = Safe(() => ship.Name), Mission = mission.Type.ToString(), RoleName = Safe(() => TextHelper.ResolveDescription(ship.Role)) });
+                    }
+                }
+            }
+        }
+        int rank = 0;
+        foreach (var t in targets)
+        {
+            rank++;
+            if (Safe(() => t.StellarObject) is not Ship wreck)
+            {
+                continue;
+            }
+            float damage = Safe(() => wreck.HullDamageLevel);
+            int locationId = Safe(() => wreck.LocationId);
+            int systemId = Safe(() => wreck.GetSystemId(galaxy));
+            rows.Add(new AbandonedRow
+            {
+                Id = wreck.ShipId,
+                Name = Safe(() => wreck.Name),
+                RoleName = Safe(() => TextHelper.ResolveDescription(wreck.Role)),
+                IsBase = Safe(() => wreck.IsBase),
+                System = Snapshot.SystemName(galaxy, wreck),
+                Health = float.IsFinite(damage) ? Math.Round(Math.Clamp(1 - damage, 0, 1), 3) : null,
+                Dangerous = dangerous.Contains(locationId) || dangerous.Contains(systemId),
+                Priority = rank,
+                Available = Safe(() => t.Available),
+                Queued = queued.Contains(wreck.ShipId),
+                CanAcquire = Safe(() => wreck.CanAcquireAbandoned(empire)),
+                On = on.TryGetValue(wreck.ShipId, out var who) ? who : null,
+            });
+        }
+        string sig = string.Join("; ", rows.Select(r => $"{r.Name} h={r.Health} danger={r.Dangerous} avail={r.Available} queued={r.Queued} acquire={r.CanAcquire} on={string.Join(",", r.On?.Select(o => o.Name + ":" + o.Mission) ?? Enumerable.Empty<string>())}"));
+        if (sig != lastAbandoned)
+        {
+            lastAbandoned = sig;
+            Log.Info($"Abandoned ships ({rows.Count}): {sig}; dangerous locations {dangerous.Count}");
+        }
+        return rows;
     }
 
     public static List<ShipRow> Ships(Galaxy galaxy, Empire empire)

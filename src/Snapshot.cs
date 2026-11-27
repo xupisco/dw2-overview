@@ -217,7 +217,8 @@ internal static class Snapshot
                 mark = sw.Elapsed.TotalMilliseconds;
                 var ships = Views.Ships(galaxy, empire);
                 shipsMs = sw.Elapsed.TotalMilliseconds - mark;
-                ShipsJson = Serialize(new { loaded = true, collectedAt = DateTime.Now.ToString("HH:mm:ss"), items = ships });
+                var abandoned = Views.Abandoned(galaxy, empire);
+                ShipsJson = Serialize(new { loaded = true, collectedAt = DateTime.Now.ToString("HH:mm:ss"), items = ships, abandoned });
                 if (!shipsLogged)
                 {
                     shipsLogged = true;

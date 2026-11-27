@@ -245,7 +245,8 @@
   .ovrow small { font-size: 12px; color: var(--mut); }
   .ovrow em { flex: none; font-style: normal; font-size: 12px; color: var(--acc); white-space: nowrap; }
   .ovrow.att > i { flex: none; width: 6px; height: 6px; margin-top: 6px; transform: rotate(45deg); background: var(--acc); }
-  .ovrow.att > i.warn { background: var(--warn); } .ovrow.att > i.bad { background: var(--bad); }
+  .ovrow.att > i.warn { background: var(--warn); } .ovrow.att > i.bad { background: var(--bad); } .ovrow.att > i.info { background: var(--mut); }
+  .sgroup .sghint { font-size: 12px; margin-left: 10px; font-weight: 400; text-transform: none; letter-spacing: 0; }
   .ovrow.att small { font-size: 12px; }
   .ovrow.prog { flex-direction: column; gap: 5px; }
   /* name and percent on one line, the bar under them (the generic row rule would stack them) */
@@ -1341,7 +1342,7 @@ async function refresh() {
       fillWorkOptions();
       render();
     } else {
-      other = { rows, concurrent: data.concurrent };
+      other = { rows, concurrent: data.concurrent, abandoned: data.abandoned || [] };
       if (tab === 'resources') { resData = { items: rows, deposits: data.deposits || [] }; learnResources(rows); }
       renderOther();
     }
@@ -2455,12 +2456,43 @@ function renderShips() {
     }
     if (shipView === 'cards') html += '</div>';
   }
+  html += abandonedGroup(q);
   $('shipList').innerHTML = html || `<div class="empty">${all.length ? 'Nothing matches the filters.' : 'No ships (or no game loaded).'}</div>`;
   $('count').textContent = `${rows.length} of ${all.length}`;
   document.querySelectorAll('#sgroupby button').forEach(b => b.classList.toggle('on', b.dataset.by === shipGroupBy));
   document.querySelectorAll('#sview button').forEach(b => b.classList.toggle('on', b.dataset.view === shipView));
 }
 let shipRowsShown = [];
+
+/**
+ * The game's Abandoned Ships and Bases: wrecks the empire can claim; a damaged one by a construction ship repairing
+ * it (the game's "Repair and Investigate"). How one at full health is claimed is not known yet (the log says
+ * which of our ships target a wreck). Who is on each (our ships whose mission targets it), its
+ * health, and whether its location is dangerous (civilian ships will not go until it is cleared).
+ */
+function abandonedOn(a) {
+  return (a.on || []).map(o => `<a class="go" href="#" data-tt="ship" data-tid="${o.id}">${esc(o.name)}</a> <span class="mut">${esc(o.mission === 'Repair' ? 'repairing' : human(o.mission).toLowerCase())}</span>`).join(', ');
+}
+function abandonedGroup(q) {
+  const list = (other.abandoned || []).filter(a => !q || [a.name, a.roleName, a.system].some(v => v && v.toLowerCase().includes(q)));
+  if (!list.length || (shipBucketFilter.size && !shipBucketFilter.has('abandoned'))) return '';
+  const key = 'abandoned';
+  const collapsed = shipCollapsed.has(key);
+  let html = `<div class="sgroup" data-group="${key}"><span class="caret2">${collapsed ? '▸' : '▾'}</span><b>Abandoned</b><em>${list.length}</em>
+    <span class="mut sghint">the game's Abandoned Ships and Bases: wrecks to claim; a damaged one is claimed by a construction ship repairing it</span></div>`;
+  if (collapsed) return html;
+  for (const a of list) {
+    const pct = a.health != null ? Math.round(a.health * 100) : null;
+    const who = abandonedOn(a);
+    html += `<div class="srow abandoned" data-abandoned="${a.id}" title="Go to ${esc(a.name)}">
+      <span class="sicon">${icon(a.isBase ? 'Bases' : 'Military', 15)}</span>
+      <span class="sname one"><b>${esc(a.name)}</b><small>${esc(a.roleName || '')}${a.system ? ' · ' + esc(a.system) : ''}</small></span>
+      <span class="smission">${who || (a.queued ? '<span class="mk-warn">ordered, waiting for a ship</span>' : '<span class="mut">nobody on it</span>')}${a.dangerous ? ' <span class="tag planned" title="Our last sighting of this location showed threats: civilian ships will not go there until it is cleared">dangerous</span>' : ''}</span>
+      <span class="sfuel">${pct != null ? `<span class="${pct < 50 ? 'flag' : 'mut'}" title="Hull health: a wreck below 100% needs a construction ship to repair it">Health ${pct}%</span>` : ''}</span><span class="swarncol"></span><span class="sflags"></span>
+    </div>`;
+  }
+  return html;
+}
 
 $('shipStatus').addEventListener('click', e => {
   const r = e.target.closest('[data-role]');
@@ -2504,6 +2536,7 @@ $('shipList').addEventListener('click', e => {
   e.preventDefault();
   const tgt = e.target.closest('[data-tt]');
   if (tgt) goTo(tgt.dataset.tt, +tgt.dataset.tid);
+  else if (row.dataset.abandoned) goTo('ship', +row.dataset.abandoned);
   else goTo('ship', shipRowsShown[+row.dataset.n].id);
   row.classList.add('flash');
   setTimeout(() => row.classList.remove('flash'), 400);
@@ -2574,7 +2607,7 @@ async function loadOverview() {
   const names = ['construction', 'research', 'colonies', 'messages', 'ships', 'resources'];
   const got = await Promise.all(names.map(n => getJson('/api/' + n).then(r => r).catch(() => ({ items: [] }))));
   const data = {};
-  names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; if (got[i].deposits) data.deposits = got[i].deposits; });
+  names.forEach((n, i) => { data[n] = got[i].items || []; if (got[i].concurrent != null) data.concurrent = got[i].concurrent; if (got[i].deposits) data.deposits = got[i].deposits; if (got[i].abandoned) data.abandoned = got[i].abandoned; });
   learnResources(data.resources);
   return { items: [], ov: data };
 }
@@ -2622,6 +2655,13 @@ function attentionItems() {
     });
     const allCovered = critical.every(r => onIt(r) || shipOn(r));
     add(allCovered ? 'warn' : 'bad', `Critical: ${critical.slice(0, 4).map(r => r.name).join(', ')}${critical.length > 4 ? ` +${critical.length - 4}` : ''}`, lines.join(' · '), 'Resources', goTab('resources', () => { resView = 'resources'; resSupply = null; renderResources(); }));
+  }
+  const wrecks = ov.abandoned || [];
+  if (wrecks.length) {
+    const free = wrecks.filter(a => !(a.on || []).length && !a.queued);
+    const line = a => `${a.name}${a.health != null ? ` (${Math.round(a.health * 100)}%)` : ''}: ${(a.on || []).length ? a.on.map(o => o.name + (o.mission === 'Repair' ? ' repairing' : ' on it')).join(', ') : a.queued ? 'ordered' : a.dangerous ? 'nobody on it, dangerous' : 'nobody on it'}`;
+    add(free.some(a => !a.dangerous) ? 'warn' : 'info', `${wrecks.length} abandoned ship${wrecks.length > 1 ? 's' : ''} to claim`, wrecks.slice(0, 4).map(line).join(' · '), 'Ships',
+      goTab('ships', () => { shipCollapsed.delete('abandoned'); renderShips(); setTimeout(() => document.querySelector('.sgroup[data-group="abandoned"]')?.scrollIntoView({ block: 'start' }), 50); }));
   }
   if (lowFuel.length) add('warn', `${lowFuel.length} ship${lowFuel.length > 1 ? 's' : ''} low on fuel`, lowFuel.slice(0, 4).map(s => `${s.name} ${fuelPct(s)}%`).join(', '), 'Ships', goTab('ships'));
   if ((ovInfo.economy?.cashflowActual ?? 0) < 0) add('bad', 'Negative cashflow', `${money0(ovInfo.economy.cashflowActual)} a year`, null, null);
