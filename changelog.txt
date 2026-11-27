@@ -1,5 +1,16 @@
 Empire Overview - changelog
 
+0.1.5-alpha (not released yet)
+- Trends: the mod records the empire every game month, page open or not
+  (data\Logs\DW2Overview\history, one file per game). Loading an earlier
+  save drops the months after it.
+- Resources: a Trend column (stock over the last 5 years, with the level to
+  keep), and a Trends chart: pick up to 8 resources and see them as % of the
+  level to keep (so any two compare), stock, net rate or price, over 2 years,
+  10 years or the whole game, with how many resources were low or critical
+  each month. A table view gives the same numbers.
+- A resource's details show its stock over the whole game.
+
 0.1.4-alpha (2026-11-27)
 - Fix: the page answered "Not found" for everyone but me. The release carried
   a development setting that served the page from a folder on my machine. The

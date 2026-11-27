@@ -150,6 +150,14 @@ internal static class Server
                 case "/api/search":
                     HandleSearch(request, response);
                     return;
+                case "/api/history":
+                {
+                    // ?since=<star date>&epoch=<n>: only the newer points, if the page's copy is still current
+                    long? since = long.TryParse(request.QueryString["since"], out long s) ? s : null;
+                    int? epoch = int.TryParse(request.QueryString["epoch"], out int e) ? e : null;
+                    Send(response, 200, contentTypes[".json"], History.Json(since, epoch));
+                    return;
+                }
                 case "/api/index":
                     Snapshot.TouchIndex();
                     Send(response, 200, contentTypes[".json"], Snapshot.IndexJson);

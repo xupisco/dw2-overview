@@ -167,6 +167,9 @@ internal static class Snapshot
                 return;
             }
 
+            // The charts' history is recorded with or without a page open.
+            History.Tick(galaxy, empire);
+
             bool wanted = now - Volatile.Read(ref lastRequest) < KeepCollectingSeconds || !dumped;
             if (!wanted)
             {

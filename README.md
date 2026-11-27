@@ -83,6 +83,7 @@ The page is one client of a small JSON API, so other front ends could use it too
 | `/api/construction`, `/api/ships`, `/api/colonies`, `/api/research`, `/api/messages`, `/api/resources` | the lists behind each tab |
 | `/api/index`, `/api/search?q=` | everything the palette can find; the game's own "search known items" |
 | `/api/commands` | the game's key mappings, as commands |
+| `/api/history?since=&epoch=` | the empire over time, one point a game month (cash, cashflow, population, colonies, and per resource stock, rates, level to keep, price); with `since` and the `epoch` it last got, only the newer points |
 
 | Commands (`POST`, header `X-Overview-Token`) | |
 |---|---|

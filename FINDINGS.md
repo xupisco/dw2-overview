@@ -15,6 +15,8 @@ Notas internas, em português. O ambiente, o carregamento de mods e o código pr
 | Império do jogador | `ScaledRenderer.PlayerEmpire` (`DWGame.Renderer`) | confirmado |
 | Galáxia | `DWGame.Galaxy`; `Galaxy.Ships`, `Galaxy.Orbs`, `Galaxy.Designs` (`GetById`), `Galaxy.Systems` (`TryGetValue`) | confirmado |
 | Data | `Galaxy.StarDate`; texto com `TextHelper.ResolveStarDateDescription(starDate)` (ex.: `2757.05.11`) | confirmado |
+| Unidades da data | `Constants.YearDateUnits` = 600.000 por ano (o ano é `StarDate / 600000`: 1659345894 = 2765.07), `Constants.YearRealSeconds` = 600 (10 min reais por ano na velocidade 1), `Constants.StartStarDate` = 1652400000 (2754.0) | lido por reflexão (2026-11-27); o ano confere com o texto do jogo |
+| Identidade da partida | `Galaxy.RandomSeed` (int), junto com o `EmpireId` do jogador: nome do arquivo de histórico | a conferir se duas partidas podem ter a mesma semente |
 | Estaleiros em naves e bases | `Ship.ConstructionSystem` | confirmado |
 | Estaleiros em colônias | `Orb.Colony.ConstructionSystem` (o `Orb` não tem campo próprio) | lido, sem item visto ainda |
 | Conteúdo do estaleiro | `ConstructionSystem.Yards` (`ConstructionYard.ShipUnderConstructionId`, `DesignId`, `ConstructionType`) e `WaitQueue` (`ConstructionYardWait`, mesmos campos) | confirmado. Item na fila já é uma `Ship` com nome, em 0% (2026-11-26) |

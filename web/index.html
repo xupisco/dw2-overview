@@ -41,6 +41,10 @@
   * { box-sizing: border-box; }
   html { color-scheme: dark; }
   html[data-theme="Light"] { color-scheme: light; }
+  /* Chart series: the dataviz reference palette, in its fixed order (validated on these surfaces: dark #202020 and
+     #0f1a22 pass every check; on light three slots are under 3:1, so lines always carry a visible name) */
+  :root { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767; }
+  html[data-theme="Light"] { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948; }
   body { margin: 0; background: radial-gradient(1200px 500px at 70% -200px, var(--glow), transparent 70%) var(--bg); color: var(--tx);
     font: 13px/1.4 Barlow, system-ui, sans-serif; min-height: 100vh; }
   a { color: var(--acc); }
@@ -357,7 +361,52 @@
   .reswrap { display: block; }
   .reswrap[hidden] { display: none; }
   .rlist { background: var(--panel); }
-  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 160px minmax(220px, 2.2fr) 70px 70px; gap: 12px; align-items: center; padding: 7px 12px; }
+  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 88px 160px minmax(220px, 2.2fr) 70px 70px; gap: 12px; align-items: center; padding: 7px 12px; }
+  /* A row's stock over the last years: the line, and the level to keep dashed */
+  .spark { display: block; width: 88px; height: 24px; overflow: visible; }
+  .spark .sl { fill: none; stroke: var(--tx); stroke-opacity: .75; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .spark .sm { stroke: var(--mut); stroke-width: 1; stroke-dasharray: 2 3; }
+  .spark .se { fill: var(--tx); }
+  .sparknone { color: var(--mut); font-size: 11px; }
+  /* Trends: resources over time, the ones picked by the chips */
+  .trends { background: var(--panel); padding: 10px 12px 12px; margin-bottom: 10px; }
+  .trends[hidden] { display: none; }
+  .thead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .thead h3 { margin: 0 auto 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .thead .seg { background: var(--track); }
+  .thead .seg button, .thead .tbtn { height: 26px; border: 0; background: transparent; color: var(--mut); padding: 0 10px; font-size: 12px; cursor: pointer; }
+  .thead .seg button:hover, .thead .tbtn:hover { color: var(--tx); }
+  .thead .seg button.on, .thead .tbtn.on { background: var(--acc-d); color: var(--acc); }
+  .tchips { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 6px; }
+  .tchip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
+  .tchip:hover { color: var(--tx); }
+  .tchip i { width: 10px; height: 3px; border-radius: 2px; background: transparent; outline: 1px solid var(--line-2); }
+  .tchip.on { color: var(--tx); background: var(--panel-h); }
+  .tchip.on i { outline: 0; background: var(--c); }
+  .tchart { position: relative; }
+  .tchart svg { display: block; width: 100%; overflow: visible; }
+  .tchart .grid { stroke: var(--line); }
+  .tchart .ref { stroke: var(--mut); stroke-dasharray: 3 4; }
+  .tchart .ax { fill: var(--mut); font: 11px var(--cond); font-variant-numeric: tabular-nums; }
+  .tchart .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .tchart .lbl { fill: var(--tx); font-size: 11.5px; }
+  .tchart .xh { stroke: var(--mut); stroke-width: 1; }
+  .tchart .dot { stroke: var(--panel); stroke-width: 2; }
+  .tchart .crit { fill: var(--bad); fill-opacity: .75; } .tchart .low { fill: var(--warn); fill-opacity: .75; }
+  .ttip { position: absolute; top: 0; z-index: 3; pointer-events: none; background: var(--panel-h); box-shadow: 0 4px 16px rgba(0,0,0,.35); padding: 8px 10px; font-size: 12px; min-width: 150px; font-variant-numeric: tabular-nums; }
+  .ttip[hidden] { display: none; }
+  .ttip b { display: block; font-weight: 600; margin-bottom: 4px; }
+  .ttip div { display: flex; align-items: center; gap: 6px; } .ttip div em { font-style: normal; margin-left: auto; padding-left: 12px; }
+  .ttip i { width: 10px; height: 3px; border-radius: 2px; background: var(--c); flex: none; }
+  .ttip .sup { color: var(--mut); margin-top: 4px; }
+  .tnote { color: var(--mut); font-size: 12px; padding: 18px 0 8px; }
+  .tlegend { display: flex; gap: 14px; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+  .tlegend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
+  .ttable { margin-top: 8px; max-height: 260px; overflow: auto; }
+  .ttable table { width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .ttable td, .ttable th { padding: 3px 8px; text-align: right; } .ttable td:first-child, .ttable th:first-child { text-align: left; }
+  .ttable th { cursor: default; }
+  .rmchart { margin: 4px 0 6px; }
   .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
   .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
   .rrow:focus-visible { outline: 1px solid var(--acc); outline-offset: -1px; }
@@ -423,7 +472,7 @@
     .rhead { display: none; }
     .rrow { grid-template-columns: 34px minmax(0, 1fr) auto; row-gap: 3px; }
     .rrow > .rico { grid-row: span 2; }
-    .rrow .num { display: none; }
+    .rrow .num, .rrow .rspark { display: none; }
     .rrow .rname { grid-column: 2; grid-row: 1; } .rrow .rrate { grid-column: 3; grid-row: 1; text-align: right; }
     .rrow .rnext { grid-column: 2; grid-row: 2; } .rrow .rstat { grid-column: 3; grid-row: 2; }
     .rexp { --pl: 12px; }
@@ -857,10 +906,11 @@
   <div class="restop">
     <div id="resSupply"></div>
   </div>
+  <div id="resTrends" class="trends" hidden></div>
   <div id="resTypes" class="slegend roles restypes"></div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
-      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
+      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Stock over the last 5 years (dashed: the level to keep), from the history the mod records every game month">Trend</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
       <div id="resList"></div>
     </div>
   </div>
@@ -1324,6 +1374,8 @@ async function refresh() {
     }
     if (messages) syncGameButtons(messages);
     runWatch(info).catch(() => { });
+    // The Resources tab's trends and sparklines: new points every game month (checked every 15 s).
+    if (tab === 'resources' && info.loaded) loadHistory().then(changed => { if (changed && tab === 'resources') renderResources(); });
     if (tab === 'overview') {
       const snap = 'overview' + JSON.stringify(data.ov) + JSON.stringify(info.economy) + info.loaded;
       if (snap === lastSnapshot) return;
@@ -3098,8 +3150,16 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resExpand(r)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r)}`;
   $('resModal').hidden = false;
+  // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
+  await loadHistory();
+  const pts = hist.points;
+  if (pts.length >= 2 && $('rmChart')) {
+    const maint = (pts[pts.length - 1].r?.[id] || [])[3] || r.maintain || null;
+    drawChart($('rmChart'), pts, [{ name: 'Stock', color: 'var(--s1)', values: pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)) }],
+      { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 170 });
+  }
 }
 const closeResourceModal = () => { $('resModal').hidden = true; };
 /** A resource known only by name (ship cargo): its id from the resource list, loaded if needed. */
@@ -3134,6 +3194,220 @@ $('resLayout').addEventListener('click', e => {
   renderResources();
 });
 
+// ---- History: the empire over time, recorded by the mod every game month whether or not a page is open ----
+const hist = { game: null, epoch: null, points: [], res: new Map(), yearUnits: 600000, at: 0 };
+/** The points recorded since the last call (all of them after another game or an earlier save was loaded). True when anything changed. */
+async function loadHistory(force) {
+  if (!force && Date.now() - hist.at < 15000) return false;
+  hist.at = Date.now();
+  const last = hist.points[hist.points.length - 1];
+  let h;
+  try { h = await getJson('/api/history' + (last && hist.epoch != null ? `?since=${last.d}&epoch=${hist.epoch}` : '')); } catch (e) { return false; }
+  if (!h.loaded) { const had = hist.points.length; Object.assign(hist, { points: [], game: null, epoch: null }); return had > 0; }
+  if (!h.incremental) hist.points = [];
+  hist.points.push(...(h.points || []));
+  Object.assign(hist, { game: h.game, epoch: h.epoch, yearUnits: h.yearUnits || 600000, res: new Map((h.resources || []).map(r => [r.id, r])) });
+  return !h.incremental || (h.points || []).length > 0;
+}
+/** A star date as the game writes it: 2765.07 (year, month). */
+const histDate = d => { const y = d / hist.yearUnits; return `${Math.floor(y)}.${String(Math.min(12, Math.floor((y % 1) * 12) + 1)).padStart(2, '0')}`; };
+/** A resource at a recorded point, shaped like a row of /api/resources, so resStatus applies the tab's own rule. */
+function histRow(p, id) {
+  const v = p.r && p.r[id], meta = hist.res.get(+id) || {};
+  return v ? { id: +id, name: meta.name, stock: v[0], rateCurrent: v[1], rateRequired: v[2], maintain: v[3], priceSell: v[4], category: meta.category, categories: meta.categories } : null;
+}
+/** Low and critical resources at a point (the Resources tab's supply rule, on what was recorded then). */
+function histSupply(p) {
+  let low = 0, critical = 0;
+  for (const id of Object.keys(p.r || {})) {
+    const r = histRow(p, id);
+    if (!r || !((r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) continue;
+    const st = resStatus(r);
+    if (st === 'critical') critical++; else if (st === 'low') low++;
+  }
+  return { low, critical };
+}
+
+/** A row's stock over the last 5 years, with the level to keep dashed; a resource missing from a point had none. */
+function spark(id) {
+  const n = hist.points.length;
+  if (n < 2) return `<span class="sparknone" title="The mod records a point every game month (about 50 s at normal speed)">${hist.game ? 'recording…' : ''}</span>`;
+  const last = hist.points[n - 1].d, pts = hist.points.filter(p => p.d >= last - 5 * hist.yearUnits);
+  if (pts.length < 2) return '';
+  const vals = pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)), maint = (pts[pts.length - 1].r?.[id] || [])[3] || 0;
+  const hi = Math.max(...vals, maint, 1), d0 = pts[0].d, span = last - d0 || 1, W = 88, H = 24;
+  const x = d => 1 + (d - d0) / span * (W - 4), y = v => H - 2 - v / hi * (H - 4);
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.d).toFixed(1)},${y(vals[i]).toFixed(1)}`).join('');
+  const tip = `Stock ${histDate(d0)} to ${histDate(last)}: ${fmt.big(Math.round(vals[0]))} → ${fmt.big(Math.round(vals[vals.length - 1]))}${maint ? ` · level to keep ${fmt.big(Math.round(maint))}` : ''}`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title>`
+    + (maint ? `<line class="sm" x1="0" x2="${W}" y1="${y(maint).toFixed(1)}" y2="${y(maint).toFixed(1)}"/>` : '')
+    + `<path class="sl" d="${path}"/><circle class="se" cx="${x(last).toFixed(1)}" cy="${y(vals[vals.length - 1]).toFixed(1)}" r="2"/></svg>`;
+}
+
+// Trends: what each line shows. "Stock vs level" puts resources of any size on one scale (100% = at the level the
+// empire wants to keep), so Steel and Caslon compare; the other measures are in their own units.
+const TREND_MEASURES = {
+  level: { label: '% of level', title: 'Stock as a share of the level the empire wants to keep (100% = at the level): compares resources of any size. Resources without a level are left out.',
+    get: r => r.maintain > 0 ? r.stock / r.maintain * 100 : null, fmt: v => Math.round(v) + '%', ref: 100, refLabel: 'level to keep', cap: 400 },
+  stock: { label: 'Stock', title: 'Units in stock', get: r => r.stock, fmt: v => fmt.big(Math.round(v)) },
+  rate: { label: 'Net rate', title: 'What comes in minus what is used, per second', get: r => (r.rateCurrent ?? 0) - (r.rateRequired ?? 0), fmt: v => `${v > 0 ? '+' : ''}${v.toFixed(2)}/s`, ref: 0 },
+  price: { label: 'Price', title: 'Sell price', get: r => r.priceSell, fmt: v => fmt.num(v) },
+};
+const TREND_RANGES = [['2', '2 yr'], ['10', '10 yr'], ['all', 'All']];
+const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
+let trendMeasure = lsGet('overview.trendMeasure', 'level'), trendRange = lsGet('overview.trendRange', '10');
+let trendShow = lsGet('overview.trends', 'on') !== 'off', trendTable = false, trendAll = [], trendSig = '';
+/** Picked resources and their colour slot (0-7): a resource keeps its colour while picked, whatever else is turned on or off. */
+let trendSel = null;
+try { const s = JSON.parse(localStorage.getItem('overview.trendSel')); if (Array.isArray(s)) trendSel = new Map(s); } catch (e) { }
+const saveTrendSel = () => lsSet('overview.trendSel', JSON.stringify([...trendSel]));
+
+/** Nice round axis steps between lo and hi. */
+function niceTicks(lo, hi, n = 4) {
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw || 1)), e = raw / mag;
+  const step = (e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1) * mag, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toPrecision(12));
+  return out;
+}
+
+/**
+ * A line chart over recorded points, one y scale (never two). series: [{ name, color, values }] aligned with pts.
+ * opt: fmt, ref, refLabel, cap (values above run off the top; the tooltip still says them), supply (the
+ * low/critical strip under it), height. Hovering shows a crosshair and every value at that month.
+ */
+function drawChart(el, pts, series, opt) {
+  const W = Math.max(280, el.clientWidth || 600), stripH = opt.supply ? 34 : 0, H = opt.height || 220;
+  const labels = series.length <= 4, L = 54, R = labels ? 104 : 14, T = 8, B = 20, plotB = H - B - (stripH ? stripH + 18 : 0);
+  const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R);
+  const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
+  let lo = Math.min(0, ...all), hi = Math.max(...all, opt.ref ?? -Infinity, lo + 1e-9);
+  if (opt.cap && hi > opt.cap) hi = opt.cap;
+  hi += (hi - lo) * 0.05 || 1;
+  // Above the cap a line leaves the chart at the top (clipped); its name says so with ↑, the tooltip gives the value.
+  const ticks = niceTicks(lo, hi), y = v => plotB - (v - lo) / (hi - lo) * (plotB - T);
+  const path = vals => { let d = '', pen = false; vals.forEach((v, i) => { if (v == null || !isFinite(v)) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(pts[i].d).toFixed(1)},${y(v).toFixed(1)}`; pen = true; }); return d; };
+  let svg = ticks.map(t => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${esc(opt.fmt(t))}</text>`).join('');
+  if (opt.ref != null && opt.ref >= lo && opt.ref <= hi) svg += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(opt.ref)}" y2="${y(opt.ref)}"/>` + (opt.refLabel ? `<text class="ax" x="${L + 4}" y="${y(opt.ref) - 4}">${esc(opt.refLabel)}</text>` : '');
+  // Years along the bottom: about one label per 90 px.
+  const y0 = d0 / hist.yearUnits, y1 = d1 / hist.yearUnits, every = Math.max(1, Math.ceil((y1 - y0) / Math.max(1, (W - L - R) / 90)));
+  for (let yr = Math.ceil(y0); yr <= y1; yr += every) svg += `<text class="ax" x="${x(yr * hist.yearUnits)}" y="${H - 4}" text-anchor="middle">${yr}</text>`;
+  svg += `<clipPath id="tclip${el.id}"><rect x="${L}" y="${T - 2}" width="${W - L - R}" height="${plotB - T + 4}"/></clipPath><g clip-path="url(#tclip${el.id})">`
+    + series.map(s => `<path class="ln" style="stroke:${s.color}" d="${path(s.values)}"/>`).join('') + '</g>';
+  // Names at the ends of the lines (4 or fewer), nudged apart so they do not overlap.
+  if (labels) {
+    const ends = series.map(s => { let i = s.values.length - 1; while (i >= 0 && (s.values[i] == null || !isFinite(s.values[i]))) i--; return i < 0 ? null : { s, above: s.values[i] > hi, cy: y(s.values[i]), yy: Math.max(T, y(s.values[i])), xx: x(pts[i].d) }; }).filter(Boolean).sort((a, b) => a.yy - b.yy);
+    for (let i = 1; i < ends.length; i++) ends[i].yy = Math.max(ends[i].yy, ends[i - 1].yy + 13);
+    svg += ends.map(e => (e.above ? '' : `<circle class="dot" cx="${e.xx}" cy="${e.cy}" r="3.5" style="fill:${e.s.color}"/>`)
+      + `<text class="lbl" x="${W - R + 8}" y="${e.yy + 4}">${e.above ? `<title>Above the top of the scale: ${esc(opt.fmt(e.s.values[e.s.values.length - 1] ?? 0))}</title>` : ''}${esc(e.s.name)}${e.above ? ' ↑' : ''}</text>`).join('');
+  }
+  // The supply strip: how many resources were low or critical each month (critical at the bottom).
+  let supply = null;
+  if (stripH) {
+    supply = pts.map(histSupply);
+    const top = plotB + 18, max = Math.max(1, ...supply.map(s => s.low + s.critical)), sy = v => top + stripH - v / max * stripH;
+    const area = (a, b) => `M${x(pts[0].d)},${sy(a(0))}` + pts.map((p, i) => `L${x(p.d).toFixed(1)},${sy(b(i)).toFixed(1)}`).join('') + pts.map((p, i) => `L${x(p.d).toFixed(1)},${sy(a(i)).toFixed(1)}`).reverse().join('') + 'Z';
+    svg += `<text class="ax" x="${L - 6}" y="${top + 9}" text-anchor="end">${max}</text><text class="ax" x="${L - 6}" y="${top + stripH}" text-anchor="end">0</text>`
+      + `<line class="grid" x1="${L}" x2="${W - R}" y1="${top + stripH}" y2="${top + stripH}"/>`
+      + `<path class="crit" d="${area(() => 0, i => supply[i].critical)}"/><path class="low" d="${area(i => supply[i].critical, i => supply[i].critical + supply[i].low)}"/>`;
+  }
+  svg += `<g class="hov" visibility="hidden"><line class="xh" y1="${T}" y2="${plotB + (stripH ? stripH + 18 : 0)}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
+    + `<rect x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent" class="hit"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`
+    + (stripH ? '<div class="tlegend"><span style="--c:var(--bad)">Critical</span><span style="--c:var(--warn)">Low</span><span style="--c:transparent">resources each month</span></div>' : '');
+  const root = el.querySelector('svg'), hov = root.querySelector('.hov'), tip = el.querySelector('.ttip');
+  root.querySelector('.hit').addEventListener('mousemove', e => {
+    const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
+    let i = 0, best = Infinity;
+    pts.forEach((p, k) => { const dd = Math.abs(x(p.d) - mx); if (dd < best) { best = dd; i = k; } });
+    const xx = x(pts[i].d);
+    hov.setAttribute('visibility', 'visible');
+    hov.querySelector('.xh').setAttribute('x1', xx); hov.querySelector('.xh').setAttribute('x2', xx);
+    hov.querySelectorAll('.dot').forEach((c, k) => { const v = series[k].values[i]; c.setAttribute('visibility', v == null || !isFinite(v) || v > hi ? 'hidden' : 'visible'); c.setAttribute('cx', xx); c.setAttribute('cy', y(v ?? 0)); });
+    const rows = series.map(s => ({ s, v: s.values[i] })).sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity));
+    tip.innerHTML = `<b>${histDate(pts[i].d)}</b>` + rows.map(r => `<div style="--c:${r.s.color}"><i></i>${esc(r.s.name)}<em>${r.v == null || !isFinite(r.v) ? '–' : esc(opt.fmt(r.v))}</em></div>`).join('')
+      + (supply ? `<div class="sup">${supply[i].critical} critical · ${supply[i].low} low</div>` : '');
+    tip.hidden = false;
+    const px = xx * box.width / W;
+    tip.style.left = (px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
+  });
+  root.querySelector('.hit').addEventListener('mouseleave', () => { hov.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+}
+
+/** The Trends panel of the Resources tab: chips turn resources on and off, the chart and the supply strip follow. */
+function renderTrends(all) {
+  trendAll = all;
+  const box = $('resTrends');
+  box.hidden = resView !== 'resources';
+  if (box.hidden) return;
+  const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level;
+  // First time: the resources that need attention, else the most used ones (only those with a level to keep).
+  if (!trendSel && all.length) {
+    let pick = all.filter(r => resStatus(r) !== 'adequate' && r.maintain > 0).slice(0, 4);
+    if (!pick.length) pick = all.filter(r => r.maintain > 0).sort((a, b) => (b.rateRequired ?? 0) - (a.rateRequired ?? 0)).slice(0, 3);
+    trendSel = new Map(pick.map((r, i) => [r.id, i]));
+    saveTrendSel();
+  }
+  const sel = trendSel || new Map(), last = hist.points[hist.points.length - 1];
+  const sig = [trendShow, trendMeasure, trendRange, trendTable, JSON.stringify([...sel]), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
+  if (sig === trendSig) return;   // the list redraws every few seconds; the chart only when its data changes (keeps the hover)
+  trendSig = sig;
+  const head = `<div class="thead"><h3>Trends</h3>${trendShow ? `<span class="seg">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" data-measure="${k}" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}">${v.label}</button>`).join('')}</span>`
+    + `<span class="seg">${TREND_RANGES.map(([k, v]) => `<button type="button" data-range="${k}" class="${k === trendRange ? 'on' : ''}">${v}</button>`).join('')}</span>`
+    + `<button type="button" class="tbtn${trendTable ? ' on' : ''}" data-ttable title="The same numbers as a table, one row a year">Table</button>` : ''}`
+    + `<button type="button" class="tbtn" data-tshow>${trendShow ? 'Hide' : 'Show trends'}</button></div>`;
+  if (!trendShow) { box.innerHTML = head; return; }
+  const color = id => `var(--s${(sel.get(id) ?? 0) + 1})`;
+  const chips = [...all].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(r => {
+    const on = sel.has(r.id), off = trendMeasure === 'level' && !(r.maintain > 0);
+    return `<button type="button" class="tchip${on ? ' on' : ''}" data-tres="${r.id}" style="--c:${color(r.id)}${off && !on ? ';opacity:.5' : ''}" title="${on ? 'Hide' : 'Show'} ${esc(r.name)}${off ? ' (no level to keep: not on the % scale)' : ''}"><i></i>${esc(r.name)}</button>`;
+  }).join('');
+  let body;
+  const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
+  const pts = hist.points.filter(p => p.d >= from);
+  if (pts.length < 2) {
+    body = `<div class="tnote">${hist.game ? `Recording: the mod saves a point every game month (about 50 seconds at normal speed), page open or not. The chart starts after two.` : 'No history yet (it needs the mod version that records it, and a game running).'}</div>`;
+  } else if (!sel.size) {
+    body = '<div class="tnote">Pick resources above to see them over time.</div>';
+  } else {
+    body = '<div class="tchart" id="trChart"></div><div class="ttable" id="trTable"></div>';
+  }
+  box.innerHTML = head + `<div class="tchips">${chips}</div>` + body;
+  if (!$('trChart')) return;
+  const ids = [...sel.keys()].sort((a, b) => sel.get(a) - sel.get(b));
+  const series = ids.map(id => ({ id, name: hist.res.get(id)?.name || all.find(r => r.id === id)?.name || '#' + id, color: color(id),
+    values: pts.map(p => { const r = histRow(p, id); return r ? m.get(r) : (trendMeasure === 'stock' ? 0 : null); }) }));
+  drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, supply: true, height: 260 });
+  if (trendTable) {
+    // One row a year, newest first: the first month of each year, and the latest point.
+    const rows = pts.map((p, i) => ({ p, i })).filter(({ p, i }) => i === pts.length - 1 || histDate(p.d).endsWith('.01')).reverse();
+    $('trTable').innerHTML = `<table><thead><tr><th>Date</th>${series.map(s => `<th>${esc(s.name)}</th>`).join('')}<th>Critical · low</th></tr></thead><tbody>${rows.map(({ p, i }) => {
+      const sp = histSupply(p);
+      return `<tr><td>${histDate(p.d)}</td>${series.map(s => `<td>${s.values[i] == null || !isFinite(s.values[i]) ? '–' : esc(m.fmt(s.values[i]))}</td>`).join('')}<td>${sp.critical} · ${sp.low}</td></tr>`;
+    }).join('')}</tbody></table>`;
+  }
+}
+$('resTrends').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.tshow != null) { trendShow = !trendShow; lsSet('overview.trends', trendShow ? 'on' : 'off'); }
+  else if (b.dataset.measure) { trendMeasure = b.dataset.measure; lsSet('overview.trendMeasure', trendMeasure); }
+  else if (b.dataset.range) { trendRange = b.dataset.range; lsSet('overview.trendRange', trendRange); }
+  else if (b.dataset.ttable != null) trendTable = !trendTable;
+  else if (b.dataset.tres) {
+    const id = +b.dataset.tres;
+    trendSel = trendSel || new Map();
+    if (trendSel.has(id)) trendSel.delete(id);
+    else if (trendSel.size >= 8) { notice('Up to 8 resources at once: turn one off first'); return; }
+    else { let slot = 0; while ([...trendSel.values()].includes(slot)) slot++; trendSel.set(id, slot); }
+    saveTrendSel();
+  } else return;
+  trendSig = '';
+  renderTrends(trendAll);
+});
+let trendResize;
+addEventListener('resize', () => { clearTimeout(trendResize); trendResize = setTimeout(() => { if (tab === 'resources') renderTrends(trendAll); }, 200); });
+
 function renderResources() {
   setTimeout(syncFilters, 0);
   refreshResBuilds();
@@ -3152,6 +3426,7 @@ function renderResources() {
 
   const critical = all.filter(r => resStatus(r) === 'critical').length;
   $('psub').textContent = critical ? `${critical} critical` : '';
+  renderTrends(all);
 
   const deps = resData.deposits || [];
   // Places: in a view (mined or new), matching the search (place or resource name), having a resource of the
@@ -3207,6 +3482,7 @@ function renderResources() {
         <span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
         <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
         <span class="num">${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
+        <span class="rspark">${spark(r.id)}</span>
         <span class="rrate">${resRateCell(r)}</span>
         <span class="rnext">${resNext(r)}</span>
         <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined ?? 0} of ${r.deposits ?? 0}</span>
