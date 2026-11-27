@@ -435,6 +435,7 @@
   /* The resource's details: stock, rates and prices as three cards across the top */
   .rdnums.rmnums { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
   .rdnums.rmnums > span { background: var(--panel-h); padding: 10px 12px; gap: 2px; min-width: 0; }
+  .rdnums.rmnums em, .rdnums.rmnums em i { font-style: normal; font-size: 12px; color: var(--mut); }
   @media (max-width: 520px) { .rdnums.rmnums { grid-template-columns: 1fr; } }
   .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
   .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
@@ -3038,14 +3039,15 @@ function resRateCell(r) {
   return rate + (out != null ? ` <span style="color:${st === 'critical' ? 'var(--bad)' : st === 'low' ? 'var(--warn)' : 'var(--mut)'}">${dur(out)}</span>` : '');
 }
 
-/** The opened row: the numbers behind it, the prices, where it is mined and the known deposits. */
-/** Stock, rates and prices: inline in an opened row, as cards across the top of the resource's details. */
+/** Stock, rate and prices as cards across the top of the resource's details; the rate card has how long the stock lasts. */
 function resNums(r, cls = 'rdnums') {
   const n = v => v != null ? fmt.num(v) : '–';
   const perSec = v => v != null ? (+v).toFixed(2) : '–';
+  const net = resNet(r), out = resRunsOut(r), st = resStatus(r);
   return `<div class="${cls}">
-      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small title="Cargo on freighters and mining ships, not counted in the stock until it is delivered">+ ${fmt.big(Math.round(r.onShips))} on ships</small>` : ''}</span>
-      <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
+      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<em title="Cargo on freighters and mining ships, not counted in the stock until it is delivered">+ ${fmt.big(Math.round(r.onShips))} on ships</em>` : ''}</span>
+      <span title="What comes in minus what is used, per second"><small>Rate</small><b style="color:${net < 0 ? 'var(--bad)' : net > 0 ? 'var(--ok)' : ''}">${net ? `${net > 0 ? '+' : ''}${net.toFixed(2)}/s` : '–'}</b>
+        <em>${out != null ? `<i style="color:${st === 'critical' ? 'var(--bad)' : st === 'low' ? 'var(--warn)' : 'inherit'}">${dur(out)}</i> · ` : ''}in ${perSec(r.rateCurrent)} / used ${perSec(r.rateRequired)}</em></span>
       <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
     </div>`;
 }
@@ -3184,7 +3186,7 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<div class="rmcrow"><h4 class="rmchead" hidden>Stock over the game</h4>${trendButton(id)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<div class="rmcrow"><h4 class="rmchead" hidden>Stock over the game</h4>${trendButton(id)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
   $('resModal').hidden = false;
   // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
   await loadHistory();
@@ -3373,7 +3375,7 @@ function drawChart(el, pts, series, opt) {
       + `<line class="grid" x1="${L}" x2="${W - R}" y1="${top + stripH}" y2="${top + stripH}"/>`
       + `<path class="crit" d="${area(() => 0, i => supply[i].critical)}"/><path class="low" d="${area(i => supply[i].critical, i => supply[i].critical + supply[i].low)}"/>`;
   }
-  svg += `<g class="hov" visibility="hidden"><line class="xh" y1="${T}" y2="${plotB + (stripH ? stripH + 18 : 0)}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
+  svg += `<g class="hov" style="display:none"><line class="xh" y1="${T}" y2="${plotB + (stripH ? stripH + 18 : 0)}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
     + `<rect x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent" class="hit"/>`;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`
     + (stripH ? '<div class="tlegend"><b>Under the chart: how many of all the resources were</b><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span><b>each month (hover for which)</b></div>' : '');
@@ -3383,7 +3385,7 @@ function drawChart(el, pts, series, opt) {
     let i = 0, best = Infinity;
     pts.forEach((p, k) => { const dd = Math.abs(x(p.d) - mx); if (dd < best) { best = dd; i = k; } });
     const xx = x(pts[i].d);
-    hov.setAttribute('visibility', 'visible');
+    hov.style.display = "";
     hov.querySelector('.xh').setAttribute('x1', xx); hov.querySelector('.xh').setAttribute('x2', xx);
     hov.querySelectorAll('.dot').forEach((c, k) => { const v = series[k].values[i]; c.setAttribute('visibility', v == null || !isFinite(v) || v > hi ? 'hidden' : 'visible'); c.setAttribute('cx', xx); c.setAttribute('cy', y(v ?? 0)); });
     const rows = series.map(s => ({ s, v: s.values[i] })).sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity));
@@ -3395,7 +3397,7 @@ function drawChart(el, pts, series, opt) {
     const px = xx * box.width / W;
     tip.style.left = (px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
   });
-  root.querySelector('.hit').addEventListener('mouseleave', () => { hov.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+  root.querySelector('.hit').addEventListener('mouseleave', () => { hov.style.display = "none"; tip.hidden = true; });
 }
 
 /** The Trends panel of the Resources tab: chips turn resources on and off, the chart and the supply strip follow. */
