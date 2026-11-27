@@ -24,6 +24,8 @@ Empire Overview - changelog
   priority, most needed, richest, system, name.
 - Ships: an order inside every group (urgency, mission, fuel, damage, name),
   reversible like the others.
+- Ships: the role and state filters share one line (they combine: Mining +
+  Idle lists idle mining ships).
 - The menu has Resources before Colonies.
 - Rows / Cards is now Table / Cards everywhere; on Resources and
   Construction it sits next to the list it changes.

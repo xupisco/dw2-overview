@@ -293,7 +293,7 @@
   .kpi .ktoggle { position: absolute; top: 6px; right: 8px; font: 500 12px Barlow, sans-serif; font-style: normal; color: var(--mut); background: var(--track); padding: 1px 7px; cursor: pointer; }
   .kpi .ktoggle:hover { color: var(--tx); }
   .kpi .ktoggle.on { color: var(--acc); background: var(--acc-d); }
-  #resTypes .lsep { width: 1px; align-self: stretch; background: var(--line-2); margin: 0 6px; }
+  .slegend .lsep { width: 1px; align-self: stretch; background: var(--line-2); margin: 0 6px; }
   /* A legend row with the Rows / Cards switch at its right, next to what it changes */
   .legrow { display: flex; align-items: center; gap: 8px 16px; background: var(--panel); padding: 8px 12px; margin-bottom: 8px; }
   .legrow[hidden] { display: none; }
@@ -699,7 +699,7 @@
   .colcard .ccres span { font-size: 12px; background: var(--track); padding: 1px 6px; }
   .colcard .ccres span b { font-weight: 500; }
   .colcard .ccmeta { color: var(--mut); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
-  .slegend.roles svg { color: var(--acc); }
+  .slegend.roles svg, .slegend.sline svg { color: var(--acc); }
   /* Cards: name, mission, orders and place, fuel and energy in one block, so the eye stays on one ship */
   .shipcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin-top: 4px; }   /* + the list's 2px gap = the 6px between cards */
   .shipcard { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; background: var(--panel); cursor: pointer; min-width: 0; }
@@ -2534,13 +2534,13 @@ function renderShips() {
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
   const lit = (set, k) => !set.size || set.has(k);
   const roles = CATEGORY_ORDER.filter(c => all.some(s => shipCategory(s) === c));
-  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend">${SHIP_BUCKETS.map(b => {
+  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend sline">${roles.map(c => {
+    const n = all.filter(s => shipCategory(s) === c).length;
+    return `<button type="button" data-role="${esc(c)}" class="${lit(shipRoleFilter, c) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(c, 12)}${esc(c)} <em>${n}</em></button>`;
+  }).join('')}<span class="lsep"></span>${SHIP_BUCKETS.map(b => {
     const c = all.filter(s => shipBucket(s) === b.key).length;
     return `<button type="button" data-bucket="${b.key}" class="${lit(shipBucketFilter, b.key) ? '' : 'off'}${!c ? ' zero' : ''}" title="Show these; click more to add; none chosen shows all">
       <i style="background:${b.color}"></i>${b.label} <em>${c}</em></button>`;
-  }).join('')}</div><div class="slegend roles">${roles.map(c => {
-    const n = all.filter(s => shipCategory(s) === c).length;
-    return `<button type="button" data-role="${esc(c)}" class="${lit(shipRoleFilter, c) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(c, 12)}${esc(c)} <em>${n}</em></button>`;
   }).join('')}</div>`;
 
   // Groups
