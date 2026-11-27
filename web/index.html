@@ -397,7 +397,8 @@
   /* The place modal (palette, Shift+Enter) */
   #resModalBody .pltags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
   .lchip[data-res], .lchip[data-resname] { cursor: pointer; }
-  .lchip[data-res]:hover, .lchip[data-resname]:hover { background: var(--hover); }
+  /* Lighter than the track, so it shows on a hovered card or row too (both use --hover) */
+  .lchip[data-res]:hover, .lchip[data-resname]:hover { background: color-mix(in srgb, var(--tx) 18%, transparent); }
   #resModalBody .plgo { margin-top: 16px; }
   .lchip b { font-weight: 500; }
   .lchip.st-short .rn { color: var(--bad); }
