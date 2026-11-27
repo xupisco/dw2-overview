@@ -430,6 +430,11 @@
   .rmchart { margin: 4px 0 6px; }
   .rmchead { margin: 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rmcrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .rmseg { background: var(--track); margin-left: 8px; }
+  .rmseg button { height: 24px; border: 0; background: transparent; color: var(--mut); padding: 0 9px; font-size: 12px; cursor: pointer; }
+  .rmseg button:hover:not(:disabled) { color: var(--tx); }
+  .rmseg button.on { background: var(--acc-d); color: var(--acc); }
+  .rmseg button:disabled { opacity: .35; cursor: default; }
   .rmtrend { margin-left: auto; height: 26px; border: 0; padding: 0 10px; font-size: 12px; cursor: pointer; background: var(--acc-d); color: var(--acc); display: inline-flex; align-items: center; gap: 6px; }
   .rmtrend.on { background: var(--panel-h); color: var(--mut); }
   .rmtrend.on:hover { color: var(--tx); }
@@ -3196,17 +3201,32 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<div class="rmcrow"><h4 class="rmchead" hidden>Stock over the game</h4>${trendButton(id)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<div class="rmcrow"><h4 class="rmchead" hidden>Over the game</h4><span class="seg rmseg" hidden></span>${trendButton(id)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
   $('resModal').hidden = false;
-  // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
+  rmOpen = { id, r };
   await loadHistory();
-  const pts = hist.points;
-  if (pts.length >= 2 && $('rmChart')) {
-    const maint = (pts[pts.length - 1].r?.[id] || [])[3] || r.maintain || null;
-    document.querySelector('#resModalBody .rmchead').hidden = false;
-    drawChart($('rmChart'), pts, [{ name: 'Stock', color: 'var(--s1)', values: pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)) }],
-      { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 153 });
-  }
+  drawResourceChart();
+}
+/** The details' chart: this resource over the whole game, in the measure picked there (the Trends measures, one series). */
+let rmOpen = null, rmMeasure = 'stock';
+try { rmMeasure = localStorage.getItem('overview.rmMeasure') || 'stock'; } catch (e) { }
+function drawResourceChart() {
+  const pts = hist.points, el = $('rmChart');
+  if (!rmOpen || !el || pts.length < 2) return;
+  const { id, r } = rmOpen;
+  const maint = (pts[pts.length - 1].r?.[id] || [])[3] || r.maintain || null;
+  if (rmMeasure === 'level' && !maint) rmMeasure = 'stock';   // no level to keep: no % scale for it
+  const m = TREND_MEASURES[rmMeasure] || TREND_MEASURES.stock;
+  document.querySelector('#resModalBody .rmchead').hidden = false;
+  const seg = document.querySelector('#resModalBody .rmseg');
+  seg.hidden = false;
+  seg.innerHTML = Object.entries(TREND_MEASURES).map(([k, v]) => k === 'level' && !maint
+    ? `<button type="button" disabled title="No level to keep for this resource">${v.label}</button>`
+    : `<button type="button" data-rmm="${k}" class="${k === rmMeasure ? 'on' : ''}" title="${esc(v.title)}">${v.label}</button>`).join('');
+  const values = pts.map(p => { const row = histRow(p, id); return row ? m.get(row) : (rmMeasure === 'stock' ? 0 : null); });
+  const stock = rmMeasure === 'stock';
+  drawChart(el, pts, [{ name: m.label, color: 'var(--s1)', values }],
+    { fmt: m.fmt, ref: stock ? maint : m.ref, refLabel: stock ? (maint ? 'level to keep' : null) : m.refLabel, cap: m.cap, height: 153 });
 }
 /** The details' button that adds the resource to the Resources tab's Trends chart, or takes it out (with its colour there). */
 const trendButton = id => trendSel && trendSel.has(id)
@@ -3226,6 +3246,8 @@ $('resModalClose').addEventListener('click', closeResourceModal);
 $('resModal').addEventListener('mousedown', e => { if (e.target.id === 'resModal') closeResourceModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('resModal').hidden) closeResourceModal(); });
 $('resModalBody').addEventListener('click', e => {
+  const mm = e.target.closest('[data-rmm]');
+  if (mm) { rmMeasure = mm.dataset.rmm; try { localStorage.setItem('overview.rmMeasure', rmMeasure); } catch (er) { } drawResourceChart(); return; }
   const tb = e.target.closest('[data-trend]');
   if (tb) { const id = +tb.dataset.trend; if (trendAddRemove(id)) tb.outerHTML = trendButton(id); return; }
   const rs = e.target.closest('[data-res]');
