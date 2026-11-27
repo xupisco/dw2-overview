@@ -12,6 +12,8 @@ Notas internas, em português. Achados sobre o jogo em [FINDINGS.md](FINDINGS.md
 
 ## Wishlist (sem ordem, depois da sequência)
 
+- **Frotas** (ideia de 2026-11-26, o Leandro vai jogar mais e pensar): hoje só há o nome da frota nas naves, na palette e na busca. Proposta: agrupar por frota na aba Ships (cabeçalho com ordem e alvo atual, força, naves, combustível da frota, danificadas) e avisos no Needs attention (frota com pouco combustível, naves danificadas). Almirantes ficam de fora (consulta, não "o que precisa de mim"). Alternativa: uma aba própria.
+
 - **Abrir a página de dentro do jogo** (2026-11-26): `Ctrl+Alt+9` abre `http://localhost:<porta>/` no navegador padrão (`src/Hotkey.cs`, no postfix do `DWGame.Update`). Na primeira vez que um save carrega na sessão, a mensagem curta do jogo avisa do atalho. Os atalhos do jogo ignoram modificadores e as DLLs do jogo vêm sem o corpo dos métodos (não dá para ver os atalhos padrão), então o log diz no primeiro carregamento se algum atalho do jogo usa 9. Primeiro foi Ctrl+Alt+O, testado e funcionando, mas o jogo usa O para enfileirar uma estação de pesquisa no local selecionado, e ela dispararia junto. O `/api/commands` mostrou que o jogo usa todas as letras de a a z e nenhum número; o Leandro escolheu o 9 (o UI Themes usa Ctrl+Alt+0).
 
 - **Detalhe da pesquisa:** ao abrir um projeto, mostrar o que ele libera, como o tooltip do jogo: componentes (`ResearchProjectDefinition.Components`), instalações (`PlanetaryFacilityIds`), cascos (`ShipHulls`), bônus (`EmpireBonuses`), e também os dias que faltam e o custo do crash program. O tooltip do jogo mostra "211 days to research", "55% Complete" (bate com o nosso `ProgressRatio`) e "Crash Program for 3,384 credits from Cash on Hand of 9,320 credits".
