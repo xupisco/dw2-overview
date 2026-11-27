@@ -737,6 +737,10 @@
   .sfuel { display: flex; flex-direction: column; gap: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
   .sname.one { flex-direction: row; align-items: baseline; gap: 8px; }
   .sname.one small { flex: none; }
+  /* The name wins: chips stay on one line and the fleet's gives way first (cut, whole on hover). */
+  .sname.one b { flex: 0 1 auto; min-width: 4em; }
+  .sname.one .chip { flex: 0 100 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sname.one .chip.man { flex: none; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
   .swarncol { font-size: 12px; }
   .swarncol .swarn { flex-wrap: nowrap; gap: 10px; white-space: nowrap; }
@@ -2596,7 +2600,7 @@ function renderShips() {
       }
       html += `<div class="srow" data-n="${n}">
         <span class="sicon">${icon(shipCategory(s), 15)}</span>
-        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip" title="Under manual orders">✋ Manual</span>' : ''}${s.fleet ? `<span class="chip" title="Fleet">${esc(s.fleet)}</span>` : ''}</span>
+        <span class="sname one"><b>${esc(s.name)}</b><small title="${esc(s.design || '')}">${esc(kindText(s))}</small>${manual ? '<span class="chip man" title="Under manual orders">✋</span>' : ''}${s.fleet ? `<span class="chip" title="Fleet: ${esc(s.fleet)}">${esc(s.fleet)}</span>` : ''}</span>
         <span class="smission"><i style="background:${color}"></i>${missionHtml(s, bucket, phrase, target)}${next}</span>
         <span class="sfuel">${shipState(s).cargo}</span><span class="swarncol">${shipState(s).warn}</span>
         <span class="sflags">${s.docked ? '<span title="Docked">⚓</span>' : ''}${s.building ? '<span title="In a yard">⚒</span>' : ''}</span>
