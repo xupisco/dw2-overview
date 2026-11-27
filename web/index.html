@@ -813,6 +813,9 @@
   .pitem .own { color: var(--ok); }
   /* A place's resources and who is on it, on a second line of its result */
   .pitem.hasplace { flex-wrap: wrap; row-gap: 5px; }
+  .pitem .pname.withtags { display: flex; align-items: baseline; gap: 8px; }
+  .pitem .pname.withtags .pnm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .pitem .pname.withtags .tag { flex: none; }
   .pitem .pplace { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .pfoot { color: var(--mut); font-size: 12px; padding: 6px 16px; background: var(--panel-h); }
   .pscope { margin-left: 16px; padding: 2px 8px; background: var(--acc-d); color: var(--acc); white-space: nowrap; }
@@ -3999,10 +4002,12 @@ function paletteResults() {
       } else {
         const it = r.item;
         const dep = it.type === 'orb' ? palette.deposits?.get(it.id) : null;
-        html += `<div class="pitem${on}${dep ? ' hasplace' : ''}" data-n="${n}">
-          <span class="pname">${highlight(it.name, r.hits)}</span>
+        // Who is on the place (station being built, a ship on its way, miners) beside the name; its resources below.
+        const tags = dep ? depTags(dep) : '', chips = dep ? depChips(dep, palette.resById || new Map()) : '';
+        html += `<div class="pitem${on}${chips ? ' hasplace' : ''}" data-n="${n}">
+          <span class="pname${tags ? ' withtags' : ''}">${tags ? `<span class="pnm">${highlight(it.name, r.hits)}</span>${tags}` : highlight(it.name, r.hits)}</span>
           <span class="pmeta">${it.own ? '<span class="own">own</span> · ' : ''}${esc(kindText(it) || it.type)}${it.type === 'resource' ? ` · ${esc(human(it.category))}${it.status !== 'adequate' ? ` · <span class="${it.status === 'critical' ? 'flag' : 'mk-warn'}">${esc(it.status)}</span>` : ''}${it.stock != null ? ' · stock ' + fmt.big(Math.round(it.stock)) : ''}` : ''}${it.mission ? ` · <span class="${it.mission === 'Idle' ? 'flag' : ''}">${esc(human(it.mission))}</span>` : ''}${it.system ? ' · ' + esc(it.system) : ''}</span>
-          <span class="pkey">Enter</span>${dep ? `<span class="pplace">${depTags(dep)}${depChips(dep, palette.resById || new Map())}</span>` : ''}</div>`;
+          <span class="pkey">Enter</span>${chips ? `<span class="pplace">${chips}</span>` : ''}</div>`;
       }
     }
   };
