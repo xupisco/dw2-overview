@@ -46,7 +46,7 @@ Requirements: .NET SDK (8 or newer) and the game installed.
 The script builds the mod, copies the DLL, `mod.json` and the `web\` folder to `<game>\mods\DW2Overview\`, and adds `mods/DW2Overview` to `mods.json` and to the launcher's `mods.<profile>.json` (keeping a backup copy).
 
 Options:
-- `-LiveWeb`: the installed mod serves the page straight from this repository's `web\` folder, so a page change only needs F5 in the browser, not a game restart.
+- `-LiveWeb`: the installed mod serves the page straight from this repository's `web\` folder, so a page change only needs F5 in the browser, not a game restart. Without it, the installed page is served, as players get it.
 - `-NoRegister`: copy only, without touching the mod lists.
 - `-GameDir "..."`: another game folder.
 
@@ -56,11 +56,13 @@ While the game is running its DLL is locked: close the game to install a new DLL
 
 In the DW2 Mod Launcher, the mod's settings have **Web page port** (4722 by default; a whole number from 1024 to 65535, used the next time the game starts).
 
-For development, an optional `overview.json` in the mod's folder; the keys it has win over the launcher's:
+For development, an optional `overview.json` in `<game>\data\Logs\DW2Overview\` (next to the log, outside the mod folder, so it is never published with the mod); the keys it has win over the launcher's:
 
 ```json
 { "port": 4722, "webRoot": "D:\\path\\to\\web" }
 ```
+
+A `webRoot` without `index.html` is ignored (logged), and the mod's own `web\` folder is served.
 
 ## How it works
 

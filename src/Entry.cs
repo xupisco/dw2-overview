@@ -19,10 +19,12 @@ public static class Entry
 }
 
 /// <summary>
-/// Settings: the launcher's (settings.schema.json: Port), then the optional overview.json in the mod folder,
+/// Settings: the launcher's (settings.schema.json: Port), then the optional overview.json for development,
 /// whose keys win over the launcher's:
 /// { "port": 4722, "webRoot": "D:\\path\\to\\Overview\\web" }
 /// webRoot lets the page be edited in place while the game runs (F5 in the browser picks it up).
+/// overview.json lives in data\Logs\DW2Overview, outside the mod folder: the launcher publishes the whole mod
+/// folder, and 0.1.0-0.1.3 went to the Workshop with a webRoot that only existed on the author's machine.
 /// </summary>
 internal sealed class Config
 {
@@ -48,7 +50,8 @@ internal static class Core
         initialized = true;
 
         string gameDir = Path.GetDirectoryName(typeof(DWGame).Assembly.Location) ?? AppContext.BaseDirectory;
-        ModDir = Path.GetDirectoryName(typeof(Core).Assembly.Location) ?? gameDir;
+        string location = typeof(Core).Assembly.Location;
+        ModDir = string.IsNullOrEmpty(location) ? Path.Combine(gameDir, "mods", "DW2Overview") : Path.GetDirectoryName(location);
         OutDir = Path.Combine(gameDir, "data", "Logs", "DW2Overview");
         Directory.CreateDirectory(OutDir);
         Log.Start(Path.Combine(OutDir, "DW2Overview.log"));
@@ -59,8 +62,7 @@ internal static class Core
         Install("Snapshot", Snapshot.Install);
         try
         {
-            string webRoot = string.IsNullOrWhiteSpace(Config.WebRoot) ? Path.Combine(ModDir, "web") : Config.WebRoot;
-            Server.Start(Config.Port, webRoot);
+            Server.Start(Config.Port, WebRoot());
         }
         catch (Exception e)
         {
@@ -90,10 +92,34 @@ internal static class Core
         }
     }
 
+    /// <summary>
+    /// The page's folder: the mod's own web folder, unless overview.json names another that has the page.
+    /// A webRoot without index.html is ignored, so a stray development setting cannot leave the page blank.
+    /// </summary>
+    private static string WebRoot()
+    {
+        string own = Path.Combine(ModDir, "web");
+        if (string.IsNullOrWhiteSpace(Config.WebRoot))
+        {
+            return own;
+        }
+        if (File.Exists(Path.Combine(Config.WebRoot, "index.html")))
+        {
+            return Config.WebRoot;
+        }
+        Log.Warn($"overview.json webRoot {Config.WebRoot} has no index.html; serving the mod's own page ({own}).");
+        return own;
+    }
+
     /// <summary>overview.json, for development: only the keys it has replace the launcher's values.</summary>
     private static void LoadConfig()
     {
-        string path = Path.Combine(ModDir, "overview.json");
+        string stray = Path.Combine(ModDir, "overview.json");
+        if (File.Exists(stray))
+        {
+            Log.Warn($"Ignoring {stray}: overview.json is now read from {OutDir}.");
+        }
+        string path = Path.Combine(OutDir, "overview.json");
         if (!File.Exists(path))
         {
             return;

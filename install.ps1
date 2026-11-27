@@ -1,7 +1,8 @@
 # Builds the mod and installs it into the game's mods folder.
 # Usage: .\install.ps1 [-GameDir "..."] [-NoRegister] [-LiveWeb]
-#   -LiveWeb: writes overview.json in the installed mod so the page is served from this repo's web\ folder
-#             (edit the page, press F5 in the browser, no game restart).
+#   -LiveWeb: writes data\Logs\DW2Overview\overview.json in the game folder so the page is served from this
+#             repo's web\ folder (edit the page, press F5 in the browser, no game restart). Without it,
+#             the installed page is served, as players get it.
 param(
     [string]$GameDir = 'D:\games\steam\steamapps\common\Distant Worlds 2',
     [switch]$NoRegister,
@@ -27,12 +28,23 @@ Get-ChildItem $outDir -Recurse -File | Where-Object Extension -ne '.pdb' | ForEa
 }
 Write-Host "Copied $modName $($manifest.version) to $target"
 
+# The development overview.json lives next to the log, never in the mod folder: the launcher publishes the
+# whole mod folder, and 0.1.0-0.1.3 went to the Workshop with a webRoot that only existed on this machine.
+$stray = Join-Path $target 'overview.json'
+if (Test-Path $stray) { Remove-Item $stray; Write-Host "Removed $stray (it would be published with the mod)" }
+$configDir = Join-Path $GameDir 'data\Logs\DW2Overview'
+$config = Join-Path $configDir 'overview.json'
+$settings = if (Test-Path $config) { Get-Content $config -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
 if ($LiveWeb) {
-    $config = Join-Path $target 'overview.json'
-    $settings = if (Test-Path $config) { Get-Content $config -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
     $settings | Add-Member -Force NoteProperty webRoot (Join-Path $projDir 'web')
+    New-Item -ItemType Directory -Force $configDir | Out-Null
     ($settings | ConvertTo-Json) | Set-Content $config -Encoding utf8NoBOM
     Write-Host "overview.json: page served from $(Join-Path $projDir 'web')"
+} elseif ($settings.PSObject.Properties['webRoot']) {
+    # A plain install serves the installed page, as players get it.
+    $settings.PSObject.Properties.Remove('webRoot')
+    if (@($settings.PSObject.Properties).Count -eq 0) { Remove-Item $config } else { ($settings | ConvertTo-Json) | Set-Content $config -Encoding utf8NoBOM }
+    Write-Host "overview.json: webRoot removed, the installed page is served"
 }
 
 if ($NoRegister) { return }

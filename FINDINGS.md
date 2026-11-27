@@ -110,3 +110,6 @@ Reconstruída em 2026-11-26 e conferida com o jogo (Fuel 1/0/0, Construction 15/
 - Recursos de construção também ficam Critical com `Very low excess supply at spaceports`: estoque abaixo do nível a manter (`CalculateTotalStockLevels`) e produção menor que o consumo (Carbonite, 1.014 contra 1.460, sem produção). O Steel, abaixo do nível mas produzindo mais do que usa, fica Adequate.
 - Não servem: comparar só produção e demanda (daria 31 luxos críticos); somar o gasto das obras (`ResourceRatesUnderConstruction`) quebra o Luxury; `DetermineCriticalResourceShortages()` veio vazio.
 - O `On Hand` de 488 da tela `Resources & Stock Levels` é de um lugar; o tooltip `Stockpile` da lista dá o total (1.446). `CalculateTotalCargoLevels` inclui a carga nas naves; o mod agora manda também colônias + bases (`onHand`) e naves (`onShips`).
+## Publicação
+- O DW2 Mod Launcher publica a pasta inteira do mod em `mods\<nome>`, inclusive arquivos que não vieram do build (2026-11-27: o `overview.json` de desenvolvimento foi para a Workshop da 0.1.0 à 0.1.3). Nada de configuração local dentro da pasta do mod.
+- A cópia da Workshop fica em `steamapps\workshop\content\1531540\<id>` (a pasta `web` vai junto); o `mods.json` a lista como `steam/<id>`.

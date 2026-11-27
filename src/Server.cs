@@ -43,6 +43,10 @@ internal static class Server
         new Thread(Loop) { IsBackground = true, Name = "DW2Overview server" }.Start();
         AppDomain.CurrentDomain.ProcessExit += (_, _) => Stop();
         Log.Info($"Server listening on http://localhost:{port}/ (web folder {root})");
+        if (!File.Exists(Path.Combine(root, "index.html")))
+        {
+            Log.Error($"No index.html in {root}: the page will answer \"Not found\". Reinstalling the mod should bring the web folder back.");
+        }
     }
 
     private static void Stop()
@@ -299,7 +303,9 @@ internal static class Server
         string full = Path.GetFullPath(Path.Combine(root, relative));
         if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
         {
-            Send(response, 404, "text/plain; charset=utf-8", "Not found.");
+            Send(response, 404, "text/plain; charset=utf-8", urlPath == "/index.html"
+                ? "Not found: the page is missing from the mod's web folder. The game's data\\Logs\\DW2Overview\\DW2Overview.log says which folder was used."
+                : "Not found.");
             return;
         }
         string type = contentTypes.GetValueOrDefault(Path.GetExtension(full), "application/octet-stream");
