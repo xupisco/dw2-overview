@@ -673,7 +673,7 @@
   /* A long game button (Take me to the location of ...) keeps one line: cut with an ellipsis, never squeezing the others */
   .tactions .abtn, .tactions .mute { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-block; line-height: 24px; flex: none; }
   .gbtns { display: contents; }
-  .toast > span { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .toast > span:not(.mres) { color: var(--mut); font-size: 12px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
   .toast .mute { height: 24px; padding: 0 10px; border: 0; background: var(--track); color: var(--mut); font-size: 12px; cursor: pointer; }
   .toast .mute:hover { background: var(--hover); color: var(--tx); }
 
