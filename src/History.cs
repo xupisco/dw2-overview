@@ -125,9 +125,10 @@ internal static class History
         w.Append("{\"d\":").Append(date);
         Field(w, "cash", Safe(() => empire.Economy.Money), 0);
         float flow = Safe(() => empire.CalculateCashflowActual(1f, true));
-        if (!(Math.Abs(flow) < 1e12f))
+        if (!(Math.Abs(flow) < 1e12f) || flow == 0f)
         {
-            flow = Safe(() => empire.CalculateCashflowActual(1f, false));   // the cached value is float.MaxValue right after a load
+            // Right after a load the cached value is float.MaxValue, or 0 (seen 2026-11-27 on the first point): not computed yet.
+            flow = Safe(() => empire.CalculateCashflowActual(1f, false));
         }
         Field(w, "flow", flow, 1);
         Field(w, "priv", Safe(() => empire.Economy.PrivateMoney), 0);

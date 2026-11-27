@@ -407,7 +407,13 @@
   .ttable td, .ttable th { padding: 3px 8px; text-align: right; } .ttable td:first-child, .ttable th:first-child { text-align: left; }
   .ttable th { cursor: default; }
   .rmchart { margin: 4px 0 6px; }
-  .rmchead { margin: 14px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .rmchead { margin: 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .rmcrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+  .rmtrend { margin-left: auto; height: 26px; border: 0; padding: 0 10px; font-size: 12px; cursor: pointer; background: var(--acc-d); color: var(--acc); display: inline-flex; align-items: center; gap: 6px; }
+  .rmtrend.on { background: var(--panel-h); color: var(--mut); }
+  .rmtrend.on:hover { color: var(--tx); }
+  .rmtrend i { width: 10px; height: 3px; border-radius: 2px; background: var(--c); }
+  .thint { color: var(--mut); font-size: 12px; align-self: center; margin-left: 4px; }
   .rmchead[hidden] { display: none; }
   .tlegend b { font-weight: 400; }
   .ttip .sup { max-width: 260px; line-height: 1.45; }
@@ -3166,7 +3172,7 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<h4 class="rmchead" hidden>Stock over the game</h4><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<div class="rmcrow"><h4 class="rmchead" hidden>Stock over the game</h4>${trendButton(id)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
   $('resModal').hidden = false;
   // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
   await loadHistory();
@@ -3178,6 +3184,10 @@ async function openResourceModal(id) {
       { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 153 });
   }
 }
+/** The details' button that adds the resource to the Resources tab's Trends chart, or takes it out (with its colour there). */
+const trendButton = id => trendSel && trendSel.has(id)
+  ? `<button type="button" class="tbtn rmtrend on" data-trend="${id}" style="--c:var(--s${trendSel.get(id) + 1})" title="Take it out of the Trends chart on the Resources tab"><i></i>Remove from Trends</button>`
+  : `<button type="button" class="tbtn rmtrend" data-trend="${id}" title="Add it to the Trends chart on the Resources tab, to compare it with others">+ Show in Trends</button>`;
 const closeResourceModal = () => { $('resModal').hidden = true; };
 /** A resource known only by name (ship cargo): its id from the resource list, loaded if needed. */
 async function openResourceByName(name) {
@@ -3192,6 +3202,8 @@ $('resModalClose').addEventListener('click', closeResourceModal);
 $('resModal').addEventListener('mousedown', e => { if (e.target.id === 'resModal') closeResourceModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('resModal').hidden) closeResourceModal(); });
 $('resModalBody').addEventListener('click', e => {
+  const tb = e.target.closest('[data-trend]');
+  if (tb) { const id = +tb.dataset.trend; if (trendAddRemove(id)) tb.outerHTML = trendButton(id); return; }
   const rs = e.target.closest('[data-res]');
   if (rs) { e.preventDefault(); openResourceModal(+rs.dataset.res); return; }
   const pl = e.target.closest('[data-orb]');
@@ -3276,10 +3288,25 @@ const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e)
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
 let trendMeasure = lsGet('overview.trendMeasure', 'level'), trendRange = lsGet('overview.trendRange', '10');
 let trendShow = lsGet('overview.trends', 'on') !== 'off', trendTable = false, trendAll = [], trendSig = '';
-/** Picked resources and their colour slot (0-7): a resource keeps its colour while picked, whatever else is turned on or off. */
-let trendSel = null;
+/**
+ * Resources added to the chart (from a resource's details, "Show in Trends") and their colour slot (0-7): a resource
+ * keeps its colour while added. trendOff: added ones hidden for now by their chip.
+ */
+let trendSel = null, trendOff = new Set();
 try { const s = JSON.parse(localStorage.getItem('overview.trendSel')); if (Array.isArray(s)) trendSel = new Map(s); } catch (e) { }
-const saveTrendSel = () => lsSet('overview.trendSel', JSON.stringify([...trendSel]));
+try { const o = JSON.parse(localStorage.getItem('overview.trendOff')); if (Array.isArray(o)) trendOff = new Set(o); } catch (e) { }
+const saveTrendSel = () => { lsSet('overview.trendSel', JSON.stringify([...trendSel])); lsSet('overview.trendOff', JSON.stringify([...trendOff])); };
+/** Add a resource to the chart, or take it out. False when the chart is full (8, one per colour). */
+function trendAddRemove(id) {
+  trendSel = trendSel || new Map();
+  if (trendSel.has(id)) { trendSel.delete(id); trendOff.delete(id); }
+  else if (trendSel.size >= 8) { notice('The Trends chart holds 8 resources: remove one first'); return false; }
+  else { let slot = 0; while ([...trendSel.values()].includes(slot)) slot++; trendSel.set(id, slot); trendOff.delete(id); }
+  saveTrendSel();
+  trendSig = '';
+  if (tab === 'resources') renderTrends(trendAll);
+  return true;
+}
 
 /** Nice round axis steps between lo and hi. */
 function niceTicks(lo, hi, n = 4) {
@@ -3307,7 +3334,7 @@ function drawChart(el, pts, series, opt) {
   const ticks = niceTicks(lo, hi), y = v => plotB - (v - lo) / (hi - lo) * (plotB - T);
   const path = vals => { let d = '', pen = false; vals.forEach((v, i) => { if (v == null || !isFinite(v)) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(pts[i].d).toFixed(1)},${y(v).toFixed(1)}`; pen = true; }); return d; };
   let svg = ticks.map(t => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${esc(opt.fmt(t))}</text>`).join('');
-  if (opt.ref != null && opt.ref >= lo && opt.ref <= hi) svg += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(opt.ref)}" y2="${y(opt.ref)}"/>` + (opt.refLabel ? `<text class="ax" x="${L + 4}" y="${y(opt.ref) - 4}">${esc(opt.refLabel)}</text>` : '');
+  if (opt.ref != null && opt.ref >= lo && opt.ref <= hi) svg += `<line class="ref" x1="${L}" x2="${W - R}" y1="${y(opt.ref)}" y2="${y(opt.ref)}"/>` + (opt.refLabel ? `<text class="ax" x="${W - R - 4}" y="${y(opt.ref) - 4}" text-anchor="end">${esc(opt.refLabel)}</text>` : '');
   // Years along the bottom: about one label per 90 px.
   const y0 = d0 / hist.yearUnits, y1 = d1 / hist.yearUnits, every = Math.max(1, Math.ceil((y1 - y0) / Math.max(1, (W - L - R) / 90)));
   for (let yr = Math.ceil(y0); yr <= y1; yr += every) svg += `<text class="ax" x="${x(yr * hist.yearUnits)}" y="${H - 4}" text-anchor="middle">${yr}</text>`;
@@ -3370,7 +3397,7 @@ function renderTrends(all) {
     saveTrendSel();
   }
   const sel = trendSel || new Map(), last = hist.points[hist.points.length - 1];
-  const sig = [trendShow, trendMeasure, trendRange, trendTable, JSON.stringify([...sel]), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
+  const sig = [trendShow, trendMeasure, trendRange, trendTable, JSON.stringify([...sel]), [...trendOff].join(), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
   if (sig === trendSig) return;   // the list redraws every few seconds; the chart only when its data changes (keeps the hover)
   trendSig = sig;
   const head = `<div class="thead"><h3>Trends</h3>${trendShow ? `<span class="seg">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" data-measure="${k}" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}">${v.label}</button>`).join('')}</span>`
@@ -3379,24 +3406,28 @@ function renderTrends(all) {
     + `<button type="button" class="tbtn" data-tshow>${trendShow ? 'Hide' : 'Show trends'}</button></div>`;
   if (!trendShow) { box.innerHTML = head; return; }
   const color = id => `var(--s${(sel.get(id) ?? 0) + 1})`;
-  const chips = [...all].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(r => {
-    const on = sel.has(r.id), off = trendMeasure === 'level' && !(r.maintain > 0);
-    return `<button type="button" class="tchip${on ? ' on' : ''}" data-tres="${r.id}" style="--c:${color(r.id)}${off && !on ? ';opacity:.5' : ''}" title="${on ? 'Hide' : 'Show'} ${esc(r.name)}${off ? ' (no level to keep: not on the % scale)' : ''}"><i></i>${esc(r.name)}</button>`;
-  }).join('');
+  // Only the added resources: a chip shows or hides its line; adding and removing is in a resource's details.
+  const nameOf = id => all.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id;
+  const chips = [...sel.keys()].sort((a, b) => sel.get(a) - sel.get(b)).map(id => {
+    const on = !trendOff.has(id), r = all.find(x => x.id === id), noLevel = trendMeasure === 'level' && r && !(r.maintain > 0);
+    return `<button type="button" class="tchip${on ? ' on' : ''}" data-tres="${id}" style="--c:${color(id)}" title="${on ? 'Hide' : 'Show'} ${esc(nameOf(id))}${noLevel ? ' (no level to keep, so not on the % scale)' : ''}; to remove it, open it and use Remove from Trends"><i></i>${esc(nameOf(id))}</button>`;
+  }).join('') + `<span class="thint">${sel.size ? 'Add more' : 'Add resources'} from a resource's details: open a row or card, then Show in Trends</span>`;
   let body;
   const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
   const pts = hist.points.filter(p => p.d >= from);
   if (pts.length < 2) {
     body = `<div class="tnote">${hist.game ? `Recording: the mod saves a point every game month (about 50 seconds at normal speed), page open or not. The chart starts after two.` : 'No history yet (it needs the mod version that records it, and a game running).'}</div>`;
   } else if (!sel.size) {
-    body = '<div class="tnote">Pick resources above to see them over time.</div>';
+    body = '<div class="tnote">No resource in the chart yet.</div>';
+  } else if ([...sel.keys()].every(id => trendOff.has(id))) {
+    body = '<div class="tnote">Every line is hidden: click a name above to show it.</div>';
   } else {
     body = '<div class="tchart" id="trChart"></div><div class="ttable" id="trTable"></div>';
   }
   box.innerHTML = head + `<div class="tchips">${chips}</div>` + body;
   if (!$('trChart')) return;
-  const ids = [...sel.keys()].sort((a, b) => sel.get(a) - sel.get(b));
-  const series = ids.map(id => ({ id, name: hist.res.get(id)?.name || all.find(r => r.id === id)?.name || '#' + id, color: color(id),
+  const ids = [...sel.keys()].filter(id => !trendOff.has(id)).sort((a, b) => sel.get(a) - sel.get(b));
+  const series = ids.map(id => ({ id, name: nameOf(id), color: color(id),
     values: pts.map(p => { const r = histRow(p, id); return r ? m.get(r) : (trendMeasure === 'stock' ? 0 : null); }) }));
   drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, supply: true, height: 260 });
   if (trendTable) {
@@ -3417,10 +3448,7 @@ $('resTrends').addEventListener('click', e => {
   else if (b.dataset.ttable != null) trendTable = !trendTable;
   else if (b.dataset.tres) {
     const id = +b.dataset.tres;
-    trendSel = trendSel || new Map();
-    if (trendSel.has(id)) trendSel.delete(id);
-    else if (trendSel.size >= 8) { notice('Up to 8 resources at once: turn one off first'); return; }
-    else { let slot = 0; while ([...trendSel.values()].includes(slot)) slot++; trendSel.set(id, slot); }
+    if (trendOff.has(id)) trendOff.delete(id); else trendOff.add(id);
     saveTrendSel();
   } else return;
   trendSig = '';
