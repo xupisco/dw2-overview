@@ -293,11 +293,19 @@
   .kpi .ktoggle { position: absolute; top: 6px; right: 8px; font: 500 12px Barlow, sans-serif; font-style: normal; color: var(--mut); background: var(--track); padding: 1px 7px; cursor: pointer; }
   .kpi .ktoggle:hover { color: var(--tx); }
   .kpi .ktoggle.on { color: var(--acc); background: var(--acc-d); }
-  .restypes { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
-  .restypes[hidden] { display: none; }
-  .restypes .lsep { width: 1px; align-self: stretch; background: var(--line-2); margin: 0 6px; }
-  .buildroles { background: var(--panel); padding: 8px 12px; margin-bottom: 8px; border-top: 0 !important; }
-  .buildroles[hidden] { display: none; }
+  #resTypes .lsep { width: 1px; align-self: stretch; background: var(--line-2); margin: 0 6px; }
+  /* A legend row with the Rows / Cards switch at its right, next to what it changes */
+  .legrow { display: flex; align-items: center; gap: 8px 16px; background: var(--panel); padding: 8px 12px; margin-bottom: 8px; }
+  .legrow[hidden] { display: none; }
+  .legrow > .slegend { flex: 1; min-width: 0; border-top: 0; padding-top: 0; }
+  .legrow > .seg { flex: none; margin-left: auto; background: var(--track); }
+  .legrow > .seg button { height: 26px; border: 0; background: transparent; color: var(--mut); padding: 0 10px; font-size: 12px; cursor: pointer; }
+  .legrow > .seg button:hover { color: var(--tx); }
+  .legrow > .seg button.on { background: var(--acc-d); color: var(--acc); }
+  /* Ships: the status panel keeps its layout; the switch sits by its last legend line */
+  .shiprow { align-items: flex-end; padding: 0; margin-bottom: 10px; }
+  .shiprow > .sstatus { flex: 1; min-width: 0; margin-bottom: 0; }
+  .shiprow > .seg { margin: 0 12px 10px 0; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
   /* Construction in the dashboard: the tab's table, four columns */
   .ovtable { width: 100%; border-collapse: collapse; }
@@ -361,7 +369,11 @@
   .reswrap { display: block; }
   .reswrap[hidden] { display: none; }
   .rlist { background: var(--panel); }
-  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 88px 160px minmax(220px, 2.2fr) 70px 70px; gap: 12px; align-items: center; padding: 7px 12px; }
+  .rhead, .rrow { display: grid; grid-template-columns: 34px minmax(120px, 1fr) 110px 88px 160px minmax(220px, 2.2fr) 70px 70px 16px; gap: 12px; align-items: center; padding: 7px 12px; }
+  /* In the Trends chart: a small line mark in the resource's colour there */
+  .tmark { display: inline-flex; width: 16px; height: 14px; color: var(--c); flex: none; }
+  .tmark svg { width: 16px; height: 14px; }
+  @media (max-width: 760px) { .rrow .tmark, .rhead .tmcol { display: none; } }
   /* A row's stock over the last years: the line, and the level to keep dashed */
   .spark { display: block; width: 88px; height: 24px; overflow: visible; }
   .spark .sl { fill: none; stroke: var(--tx); stroke-opacity: .75; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
@@ -872,7 +884,6 @@
     <option value="yard">One row per yard</option>
     <option value="flat">Every item</option>
   </select>
-  <span id="bview" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span>
   </span>
   <span id="rfilters" class="group" hidden>
   <select id="rstate">
@@ -885,7 +896,6 @@
   <span id="gfilters" class="group"></span>
   <span id="resfilters" class="group" hidden>
     <span id="resSort" class="seg" title="Order"><button type="button" data-sort="priority">Priority</button><button type="button" data-sort="name">Name</button></span>
-    <span id="resLayout" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span>
     <span id="resViews" class="seg" title="What to list"><button type="button" data-view="resources">Resources</button><button type="button" data-view="mined">Mined locations <em></em></button><button type="button" data-view="new">New locations <em></em></button></span>
   </span>
   <span id="colfilters" class="group" hidden>
@@ -895,7 +905,6 @@
     <span id="sgroupby" class="seg" title="Group the ships by">
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
     </span>
-    <span id="sview" class="seg" title="Rows or cards"><button type="button" data-view="rows">Rows</button><button type="button" data-view="cards">Cards</button></span>
   </span>
   <span id="mfilters" class="group" hidden>
   <select id="mprio">
@@ -924,10 +933,11 @@
     <div id="resSupply"></div>
   </div>
   <div id="resTrends" class="trends" hidden></div>
-  <div id="resTypes" class="slegend roles restypes"></div>
+  <div class="legrow"><div id="resTypes" class="slegend roles"></div>
+    <span id="resLayout" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span></div>
   <div id="resListWrap" class="reswrap">
     <div class="rlist">
-      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Stock over the last 5 years (dashed: the level to keep), from the history the mod records every game month">Trend</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span></div>
+      <div class="rhead"><span></span><span>Resource</span><span class="num" title="In stock, of what the empire wants to keep">Stock</span><span title="Stock over the last 5 years (dashed: the level to keep), from the history the mod records every game month">Trend</span><span title="Change per second (what comes in minus what is used), and how long the stock lasts at that pace">Rate</span><span title="Where it comes from, or where it could">Next step</span><span class="num" title="Known deposits: how many the empire mines, of how many it knows">Deposits</span><span></span><span class="tmcol"></span></div>
       <div id="resList"></div>
     </div>
   </div>
@@ -935,7 +945,8 @@
   <div id="resLocations" class="locs" hidden></div>
 </div>
 <div id="tab-ships" hidden>
-  <div id="shipStatus" class="sstatus"></div>
+  <div class="legrow shiprow"><div id="shipStatus" class="sstatus"></div>
+    <span id="sview" class="seg" title="Rows or cards"><button type="button" data-view="rows">Rows</button><button type="button" data-view="cards">Cards</button></span></div>
   <div id="shipList" class="slist"></div>
 </div>
 <div class="wrap" id="tab-other" hidden>
@@ -946,7 +957,8 @@
   <div id="oempty" class="empty" hidden></div>
 </div>
 <div id="colCards" class="colcards" hidden></div>
-<div id="buildRoles" class="slegend roles buildroles"></div>
+<div id="buildRow" class="legrow"><div id="buildRoles" class="slegend roles"></div>
+  <span id="bview" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span></div>
 <div id="buildCards" class="bcards" hidden></div>
 <div class="wrap" id="tab-construction">
   <table>
@@ -1295,7 +1307,7 @@ function setTab(name, fromHistory) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('tab-construction').hidden = tab !== 'construction';
   if (tab !== 'construction') $('buildCards').hidden = true;
-  $('buildRoles').hidden = tab !== 'construction';
+  $('buildRow').hidden = tab !== 'construction';
   $('tab-other').hidden = ['construction', 'ships', 'overview', 'resources'].includes(tab);
   $('tab-ships').hidden = tab !== 'ships';
   $('tab-overview').hidden = tab !== 'overview';
@@ -3156,7 +3168,7 @@ function resCard(r) {
   return `<div class="rcard st-${st}" data-res="${r.id}" title="Open: prices, where it is mined, known deposits">
     <div class="rchead"><span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
       <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
-      <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span></div>
+      <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span>${trendMark(r.id)}</div>
     <div class="rcnums"><span><small>Stock</small><span class="v"><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span></span>
       <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span></div>
     <div class="rctrend">${spark(r.id, true)}</div>
@@ -3296,6 +3308,10 @@ let trendSel = null, trendOff = new Set();
 try { const s = JSON.parse(localStorage.getItem('overview.trendSel')); if (Array.isArray(s)) trendSel = new Map(s); } catch (e) { }
 try { const o = JSON.parse(localStorage.getItem('overview.trendOff')); if (Array.isArray(o)) trendOff = new Set(o); } catch (e) { }
 const saveTrendSel = () => { lsSet('overview.trendSel', JSON.stringify([...trendSel])); lsSet('overview.trendOff', JSON.stringify([...trendOff])); };
+/** A resource in the Trends chart: a small line in its colour there (cards, top right; rows, the last column). */
+const trendMark = id => trendSel && trendSel.has(id)
+  ? `<span class="tmark" style="--c:var(--s${trendSel.get(id) + 1})" title="In the Trends chart${trendOff.has(id) ? ' (hidden there for now)' : ''}"><svg viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"${trendOff.has(id) ? ' opacity=".45"' : ''}><path d="M1 11 L5.5 6.5 L9 9 L15 2.5"/></svg></span>`
+  : '';
 /** Add a resource to the chart, or take it out. False when the chart is full (8, one per colour). */
 function trendAddRemove(id) {
   trendSel = trendSel || new Map();
@@ -3304,7 +3320,7 @@ function trendAddRemove(id) {
   else { let slot = 0; while ([...trendSel.values()].includes(slot)) slot++; trendSel.set(id, slot); trendOff.delete(id); }
   saveTrendSel();
   trendSig = '';
-  if (tab === 'resources') renderTrends(trendAll);
+  if (tab === 'resources') renderResources();   // the chart, and the marks on the rows and cards
   return true;
 }
 
@@ -3452,7 +3468,7 @@ $('resTrends').addEventListener('click', e => {
     saveTrendSel();
   } else return;
   trendSig = '';
-  renderTrends(trendAll);
+  renderResources();   // the chart, and the marks on the rows and cards (a hidden line's mark fades)
 });
 let trendResize;
 addEventListener('resize', () => { clearTimeout(trendResize); trendResize = setTimeout(() => { if (tab === 'resources') renderTrends(trendAll); }, 200); });
@@ -3535,6 +3551,7 @@ function renderResources() {
         <span class="rnext">${resNext(r)}</span>
         <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined ?? 0} of ${r.deposits ?? 0}</span>
         <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span>
+        ${trendMark(r.id) || '<span></span>'}
       </div>`;
   }).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet (needs the mod version with /api/resources).'}</div>`;
   $('count').textContent = `${rows.length} of ${all.length}`;
