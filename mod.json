@@ -8,6 +8,6 @@
   "descriptionFile": "description.bbcode",
   "shortDescription": "ALPHA. Your empire as a web page for a second screen: what needs you, what is being built and why, supply that matches the game, ships, colonies, alerts and a command palette. Click anything to go to it in the game.",
   "previewImage": "preview.jpg",
-  "version": "0.1.6-alpha",
+  "version": "0.1.7-alpha",
   "bundles": []
 }
