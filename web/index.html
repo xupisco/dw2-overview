@@ -307,7 +307,7 @@
   .legrow > .seg { white-space: nowrap; }
   .legrow > .seg + .seg { margin-left: 0; }
   .legrow > .seg[hidden] { display: none; }
-  .legrow > .seg button .sdir { margin-left: 4px; font-style: normal; font-size: 10px; }
+  .seg button .sdir { margin-left: 4px; font-style: normal; font-size: 10px; }
   .ovroles { padding: 6px 10px 2px; border-top: 0 !important; }
   /* Construction in the dashboard: the tab's table, four columns */
   .ovtable { width: 100%; border-collapse: collapse; }
@@ -654,6 +654,7 @@
   .seg { display: inline-flex; background: var(--panel); }
   .filters .seg button { background: transparent; color: var(--mut); padding: 0 12px; }
   .filters .seg button.on { background: var(--acc-d); color: var(--acc); }
+  .seg .seglbl { align-self: center; padding: 0 6px 0 10px; color: var(--mut); opacity: .75; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 
   /* Ships: status bar, groups, rows */
   .sstatus { background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
@@ -928,9 +929,10 @@
     <span id="colview" class="seg" title="Table or cards"><button type="button" data-view="cards">Cards</button><button type="button" data-view="rows">Table</button></span>
   </span>
   <span id="sfilters" class="group" hidden>
-    <span id="sgroupby" class="seg" title="Group the ships by">
+    <span id="sgroupby" class="seg" title="Group the ships by"><span class="seglbl">Group</span>
       <button type="button" data-by="role">Role</button><button type="button" data-by="mission">Mission</button><button type="button" data-by="system">System</button><button type="button" data-by="flat">Flat</button>
     </span>
+    <span id="ssort" class="seg" title="Order inside each group; click the chosen one again to reverse it"></span>
     <span id="sview" class="seg" title="Table or cards"><button type="button" data-view="rows">Table</button><button type="button" data-view="cards">Cards</button></span>
   </span>
   <span id="mfilters" class="group" hidden>
@@ -2481,6 +2483,43 @@ function energyLine(s) {
   return `<span class="mline" title="${tip}"><small class="mut">Energy</small><span class="fbar energy ${low ? 'low' : ''}"><i style="width:${pct}%"></i></span><span class="${low ? 'flag' : ''}">${pct}%</span></span>`;
 }
 
+// ---- List orders (Ships, and Resources' three lists) ----
+// An order: options, each with a key compared ascending element by element (strings by name; a null key goes last
+// whichever the direction) and the direction it starts in (1 ascending, -1 descending). The state is { k, dir };
+// a click on the chosen option turns its direction around. Ties go by name.
+const nameKey = x => x.name || '';
+const orderOf = (opts, s) => {
+  const o = opts.find(x => x.k === s?.k) || opts[0];
+  return { o, dir: s?.k === o.k && (s.dir === 1 || s.dir === -1) ? s.dir : o.dir };
+};
+const cmpKey = (x, y) => {
+  if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) { const c = cmpKey(x[i], y[i]); if (c) return c; } return 0; }
+  return typeof x === 'string' ? x.localeCompare(y) : x - y;
+};
+function sortedBy(opts, s, items, ctx = {}) {
+  const { o, dir } = orderOf(opts, s);
+  const byName = (a, b) => nameKey(a).localeCompare(nameKey(b));
+  return items.map(x => [x, o.key(x, ctx)]).sort(([a, ka], [b, kb]) =>
+    ka == null || kb == null ? (ka == null) - (kb == null) || byName(a, b) : dir * cmpKey(ka, kb) || byName(a, b)).map(([x]) => x);
+}
+function orderButtons(opts, s) {
+  const { o: cur, dir } = orderOf(opts, s);
+  return '<span class="seglbl">Order</span>' + opts.map(o => `<button type="button" data-sort="${o.k}" class="${o === cur ? 'on' : ''}" title="${esc(o.title)}${o === cur ? ' · click again to reverse' : ''}">${o.label}${o === cur ? `<i class="sdir">${dir === 1 ? '▲' : '▼'}</i>` : ''}</button>`).join('');
+}
+/** The state after a click on option k. */
+const orderClick = (opts, s, k) => { const { o, dir } = orderOf(opts, s); return { k, dir: k === o.k ? -dir : opts.find(x => x.k === k).dir }; };
+
+// Ships: one order inside every group (the groups keep theirs).
+const SHIP_ORDERS = [
+  { k: 'urgency', label: 'Urgency', dir: 1, title: 'Idle first, then low on fuel or energy or damaged, then the rest; within that, by mission', key: s => [shipUrgency(s), missionPhrase(s.mission) || ''] },
+  { k: 'mission', label: 'Mission', dir: 1, title: 'By what it is doing, in the game\'s words', key: s => missionPhrase(s.mission) || (s.isBase ? 'Base' : '') },
+  { k: 'fuel', label: 'Fuel', dir: 1, title: 'The least fuel first (bases and ships without fuel go last)', key: s => s.fuel ?? null },
+  { k: 'damage', label: 'Damage', dir: -1, title: 'The most hull damage first', key: s => s.damage ?? 0 },
+  { k: 'name', label: 'Name', dir: 1, title: 'By name', key: nameKey },
+];
+let shipSort = null;
+try { shipSort = JSON.parse(localStorage.getItem('overview.shipSort') || 'null'); } catch (e) { }
+
 function renderShips() {
   refreshResKnow();   // cargo pills colour their names by the production mark
   setTimeout(syncFilters, 0);
@@ -2509,8 +2548,7 @@ function renderShips() {
   const labelOf = k => shipGroupBy === 'mission' ? (SHIP_BUCKETS.find(b => b.key === k)?.label || k) : k;
   const order = k => shipGroupBy === 'role' ? CATEGORY_ORDER.indexOf(k) : shipGroupBy === 'mission' ? SHIP_BUCKETS.findIndex(b => b.key === k) : 0;
   const groups = new Map();
-  for (const s of [...rows].sort((a, b) => shipUrgency(a) - shipUrgency(b)
-      || (missionPhrase(a.mission) || '').localeCompare(missionPhrase(b.mission) || '') || (a.name || '').localeCompare(b.name || ''))) {
+  for (const s of sortedBy(SHIP_ORDERS, shipSort, rows)) {
     const k = keyOf(s);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(s);
@@ -2571,6 +2609,7 @@ function renderShips() {
   $('count').textContent = `${rows.length} of ${all.length}`;
   document.querySelectorAll('#sgroupby button').forEach(b => b.classList.toggle('on', b.dataset.by === shipGroupBy));
   document.querySelectorAll('#sview button').forEach(b => b.classList.toggle('on', b.dataset.view === shipView));
+  $('ssort').innerHTML = orderButtons(SHIP_ORDERS, shipSort);
 }
 let shipRowsShown = [];
 
@@ -2624,6 +2663,13 @@ $('sview').addEventListener('click', e => {
   if (!b) return;
   shipView = b.dataset.view;
   try { localStorage.setItem('overview.shipView', shipView); } catch (er) { }
+  renderShips();
+});
+$('ssort').addEventListener('click', e => {
+  const b = e.target.closest('[data-sort]');
+  if (!b) return;
+  shipSort = orderClick(SHIP_ORDERS, shipSort, b.dataset.sort);
+  try { localStorage.setItem('overview.shipSort', JSON.stringify(shipSort)); } catch (er) { }
   renderShips();
 });
 $('sgroupby').addEventListener('click', e => {
@@ -3155,11 +3201,8 @@ function resExpand(r, withNums = true) {
 // the mod's "priority"), then most needed: a critical resource there, then a low one, by how much of it.
 let resView = 'resources';
 const resTypeFilter = new Set();
-// The order of each view: its options, each with a key compared ascending element by element (strings by name; a
-// null key goes last whichever the direction) and the direction it starts in (1 ascending, -1 descending). A click
-// on the chosen option turns its direction around. Ties go by name.
-// ctx.need (places): [worst status of what is there, minus how much of that, minus how much of anything].
-const nameKey = x => x.name || '';
+// The order of each view (see "List orders" above). ctx.need (places): [worst status of what is there, minus how
+// much of that, minus how much of anything].
 const NEED_TITLE = 'Places with a critical resource first, then a low one; within that, the most of what is short';
 const RES_ORDERS = {
   resources: [
@@ -3184,25 +3227,8 @@ const RES_ORDERS = {
 };
 let resSort = {};   // view -> { k, dir }
 try { resSort = JSON.parse(localStorage.getItem('overview.resSort2') || '{}') || {}; } catch (e) { }
-const resOrder = view => {
-  const opts = RES_ORDERS[view], s = resSort[view], o = opts.find(x => x.k === s?.k) || opts[0];
-  return { o, dir: s?.k === o.k && (s.dir === 1 || s.dir === -1) ? s.dir : o.dir };
-};
-const cmpKey = (x, y) => {
-  if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) { const c = cmpKey(x[i], y[i]); if (c) return c; } return 0; }
-  return typeof x === 'string' ? x.localeCompare(y) : x - y;
-};
-/** A view's items in its chosen order; a null key last, ties by name. */
-function resSorted(view, items, ctx = {}) {
-  const { o, dir } = resOrder(view);
-  const byName = (a, b) => nameKey(a).localeCompare(nameKey(b));
-  return items.map(x => [x, o.key(x, ctx)]).sort(([a, ka], [b, kb]) =>
-    ka == null || kb == null ? (ka == null) - (kb == null) || byName(a, b) : dir * cmpKey(ka, kb) || byName(a, b)).map(([x]) => x);
-}
-function renderResSort() {
-  const { o: cur, dir } = resOrder(resView);
-  $('resSort').innerHTML = RES_ORDERS[resView].map(o => `<button type="button" data-sort="${o.k}" class="${o === cur ? 'on' : ''}" title="${esc(o.title)}${o === cur ? ' · click again to reverse' : ''}">${o.label}${o === cur ? `<i class="sdir">${dir === 1 ? '▲' : '▼'}</i>` : ''}</button>`).join('');
-}
+const resSorted = (view, items, ctx) => sortedBy(RES_ORDERS[view], resSort[view], items, ctx);
+const renderResSort = () => { $('resSort').innerHTML = orderButtons(RES_ORDERS[resView], resSort[resView]); };
 // Availability: mined somewhere, found but not mined, not found anywhere known (empty = all).
 const resAvailFilter = new Set();
 const resAvail = r => { const { mined, ships, building, free } = resSites(r); return mined.length || ships.length ? 'mined' : building.length || free.length ? 'found' : 'notfound'; };
@@ -3262,9 +3288,7 @@ function renderLocations(all, deps, q, known = deps.length) {
 $('resSort').addEventListener('click', e => {
   const b = e.target.closest('[data-sort]');
   if (!b) return;
-  const { o, dir } = resOrder(resView);
-  const k = b.dataset.sort;
-  resSort[resView] = { k, dir: k === o.k ? -dir : RES_ORDERS[resView].find(x => x.k === k).dir };
+  resSort[resView] = orderClick(RES_ORDERS[resView], resSort[resView], b.dataset.sort);
   try { localStorage.setItem('overview.resSort2', JSON.stringify(resSort)); } catch (er) { }
   renderResources();
 });

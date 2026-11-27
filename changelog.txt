@@ -22,6 +22,9 @@ Empire Overview - changelog
   second click reverses it. Resources: priority, runs out, net rate, name.
   Mined locations: most needed, type, system, name. New locations: the game's
   priority, most needed, richest, system, name.
+- Ships: an order inside every group (urgency, mission, fuel, damage, name),
+  reversible like the others.
+- The menu has Resources before Colonies.
 - Rows / Cards is now Table / Cards everywhere; on Resources and
   Construction it sits next to the list it changes.
 
