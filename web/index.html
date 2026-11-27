@@ -384,10 +384,11 @@
   .locrow .lname b { font-weight: 500; }
   .locrow .lname small { color: var(--mut); font-size: 12px; }
   .lres { display: flex; flex-wrap: wrap; gap: 4px; }
-  /* A resource chip: its type as a small square (as in the type filters), the game's production mark as the outline */
-  .lchip { font-size: 12px; background: var(--track); padding: 1px 7px; white-space: nowrap; }
-  .lchip .catsq { width: 7px; height: 7px; margin-right: 5px; vertical-align: 1px; }
-  .lchip .catsq[data-cat=""] { background: var(--mut); }
+  /* A resource pill (resPill): the type as the left stripe, the name coloured by the game's production mark */
+  .lchip { font-size: 12.5px; background: var(--track); padding: 1px 6px 1px 5px; white-space: nowrap; border-left: 3px solid var(--mut); }
+  .lchip[data-cat="construction"] { border-left-color: var(--acc); }
+  .lchip[data-cat="fuel"] { border-left-color: var(--warn); }
+  .lchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
   .lchip.unused { opacity: .45; }
   /* A message's place and its resources (a suggested mining station's site) */
   .mres { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
@@ -395,12 +396,12 @@
   .mresblock { margin-top: 10px; }
   /* The place modal (palette, Shift+Enter) */
   #resModalBody .pltags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  .lchip[data-res] { cursor: pointer; }
-  .lchip[data-res]:hover { background: var(--hover); filter: brightness(1.25); }
+  .lchip[data-res], .lchip[data-resname] { cursor: pointer; }
+  .lchip[data-res]:hover, .lchip[data-resname]:hover { background: var(--hover); }
   #resModalBody .plgo { margin-top: 16px; }
   .lchip b { font-weight: 500; }
-  .lchip.st-short { box-shadow: inset 0 0 0 1px var(--bad); color: var(--bad); }
-  .lchip.st-over { box-shadow: inset 0 0 0 1px var(--warn); }
+  .lchip.st-short .rn { color: var(--bad); }
+  .lchip.st-over .rn { color: var(--warn); }
   .rexp { --pl: 58px; background: var(--panel-h); padding: 10px 12px 12px var(--pl); display: flex; flex-direction: column; gap: 6px; box-shadow: inset 2px 0 0 var(--acc); }
   .rexp h4 { margin: 6px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rexp .rdnums { display: flex; flex-wrap: wrap; gap: 8px 40px; }
@@ -629,11 +630,6 @@
   .sname.one { flex-direction: row; align-items: baseline; gap: 8px; }
   .sname.one small { flex: none; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-  .cchip { background: var(--track); padding: 0 6px 0 5px; white-space: nowrap; border-left: 3px solid var(--mut); }
-  .cchip[data-cat="construction"] { border-left-color: var(--acc); }
-  .cchip[data-cat="fuel"] { border-left-color: var(--warn); }
-  .cchip[data-cat="luxury"] { border-left-color: oklch(var(--L) 0.11 330); }
-  .cchip b { font-weight: 500; }
   .swarncol { font-size: 12px; }
   .swarncol .swarn { flex-direction: column; align-items: flex-start; gap: 2px; }
   .sfuel .mline { display: flex; align-items: center; gap: 6px; }
@@ -1774,16 +1770,23 @@ function chipMark(surplus) {
     : { cls: 'st-over', note: `Production oversupply ${surplus.toFixed(2)}/sec` };
 }
 /**
+ * A resource pill, the same everywhere (ship cargo, places, suggestions): the type as the left stripe, the name
+ * coloured by the game's production mark (red short, yellow oversupply), then a value ("97%", "× 123").
+ * A click opens the resource (data-res, or data-resname when only the name is known; see the handler on document).
+ */
+function resPill(name, value, { id, cat, note, unused } = {}) {
+  const mk = chipMark(resSurplus.get(name)), st = resKnow.get(name) || 'adequate';
+  const tip = [name, human(cat || resCat.get(name) || ''), mk.note, st !== 'adequate' ? 'supply ' + st : '', note].filter(Boolean).join(' · ');
+  return `<span class="lchip ${mk.cls}${unused && !mk.cls ? ' unused' : ''}" data-cat="${esc(cat || resCat.get(name) || '')}"${id != null ? ` data-res="${id}"` : ` data-resname="${esc(name)}"`} title="${esc(tip)}"><span class="rn">${esc(name)}</span> ${value}</span>`;
+}
+/**
  * The resources at the places a message's task names (the site of a suggested mining station...), as the game's
- * suggestion dialog shows them: chips with the resource's type colour and how short the empire is of it.
+ * suggestion dialog shows them.
  */
 function placeResources(m) {
   return (m.places || []).filter(p => p.type === 'orb' && (p.resources || []).length).map(p =>
-    `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
-      const st = resKnow.get(x.name) || 'adequate', mk = chipMark(resSurplus.get(x.name));
-      const note = [mk.note, st !== 'adequate' ? 'supply ' + st : ''].filter(Boolean).join(' · ');
-      return `<span class="lchip ${mk.cls}" data-res="${x.id}" title="${esc(x.name)}${note ? ' · ' + esc(note) : ''}"><i class="catsq" data-cat="${esc(resCat.get(x.name) || '')}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
-    }).join('')}</span>`).join('');
+    `<span class="mres"><span class="mres-at">${esc(p.name)}</span>${[...p.resources].sort((a, b) => b.abundance - a.abundance)
+      .map(x => resPill(x.name, `<b>${x.abundance}%</b>`, { id: x.id })).join('')}</span>`).join('');
 }
 async function refreshResKnow() {
   if (Date.now() - resKnowAt < 5000) return;
@@ -2328,7 +2331,7 @@ function miniBar(rows) {
  * damage. A full, healthy, empty ship shows nothing here.
  */
 function shipState(s) {
-  const cargo = (s.cargo || []).slice(0, 3).map(c => `<span class="cchip" data-cat="${esc(c.category || '')}" title="Cargo${c.category ? ' · ' + esc(c.category) : ''}">${esc(c.name)} <span class="mut">×</span> <b>${fmt.big(c.amount)}</b></span>`).join('')
+  const cargo = (s.cargo || []).slice(0, 3).map(c => resPill(c.name, `<span class="mut">×</span> <b>${fmt.big(c.amount)}</b>`, { cat: c.category, note: 'cargo' })).join('')
     + ((s.cargo || []).length > 3 ? `<span class="mut" title="${esc(s.cargo.slice(3).map(c => c.name + ' × ' + fmt.big(c.amount)).join(', '))}">+${s.cargo.length - 3}</span>` : '');
   const warn = [];
   const inYard = shipBucket(s) === 'yard';   // being built or repaired: no fuel yet is no news
@@ -2367,6 +2370,7 @@ function energyLine(s) {
 }
 
 function renderShips() {
+  refreshResKnow();   // cargo pills colour their names by the production mark
   setTimeout(syncFilters, 0);
   const all = other.rows;
   const q = $('search').value.trim().toLowerCase();
@@ -2967,10 +2971,10 @@ async function refreshResBuilds() {
  */
 function depChips(d, byId) {
   return [...d.resources].sort((a, b) => b.abundance - a.abundance).map(x => {
-    const r = byId.get(x.id), st = r ? resStatus(r) : 'adequate', mk = chipMark(r?.surplus);
+    const r = byId.get(x.id);
     const used = r && ((r.rateRequired ?? 0) > 0 || (r.rateBuilding ?? 0) > 0);
-    const note = [r ? human(r.category) : '', mk.note, st !== 'adequate' ? 'supply ' + st : '', used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire'].filter(Boolean).join(' · ');
-    return `<span class="lchip ${mk.cls}${used || mk.cls ? '' : ' unused'}" data-res="${x.id}" title="${esc(x.name)} · ${esc(note)}"><i class="catsq" data-cat="${r ? esc(r.category) : ''}"></i>${esc(x.name)} <b>${x.abundance}%</b></span>`;
+    return resPill(x.name, `<b>${x.abundance}%</b>`, { id: x.id, cat: r?.category, unused: !used,
+      note: used ? `used ${(r.rateRequired ?? 0).toFixed(2)}/s` : 'not used by the empire' });
   }).join('');
 }
 /** Who is on a place: mining ships there (no station needed), a station being built, a ship on its way, an order. */
@@ -3057,6 +3061,15 @@ async function openResourceModal(id) {
   $('resModal').hidden = false;
 }
 const closeResourceModal = () => { $('resModal').hidden = true; };
+/** A resource known only by name (ship cargo): its id from the resource list, loaded if needed. */
+async function openResourceByName(name) {
+  let r = (resData.items || []).find(x => x.name === name);
+  if (!r) {
+    try { const d = await getJson('/api/resources'); resData = { items: d.items || [], deposits: d.deposits || [] }; learnResources(resData.items); } catch (e) { return; }
+    r = resData.items.find(x => x.name === name);
+  }
+  if (r) openResourceModal(r.id);
+}
 $('resModalClose').addEventListener('click', closeResourceModal);
 $('resModal').addEventListener('mousedown', e => { if (e.target.id === 'resModal') closeResourceModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('resModal').hidden) closeResourceModal(); });
@@ -3476,12 +3489,13 @@ document.addEventListener('keydown', e => {
 // ---- A resource chip anywhere (location cards, palette, suggestions, toasts, modals) opens that resource. Caught
 // first (capture), so the card, row or toast around it does not also act (go to the place, dismiss...).
 document.addEventListener('click', e => {
-  const chip = e.target.closest?.('.lchip[data-res]');
+  const chip = e.target.closest?.('.lchip[data-res], .lchip[data-resname]');
   if (!chip) return;
   e.preventDefault();
   e.stopPropagation();
   if (palette.open) closePalette();
-  openResourceModal(+chip.dataset.res);
+  if (chip.dataset.res) openResourceModal(+chip.dataset.res);
+  else openResourceByName(chip.dataset.resname);
 }, true);
 
 // ---- Tooltip: the page's own, in place of the browser's. Any element with a title gets it: on the first hover
