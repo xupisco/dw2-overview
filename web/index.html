@@ -407,6 +407,12 @@
   .ttable td, .ttable th { padding: 3px 8px; text-align: right; } .ttable td:first-child, .ttable th:first-child { text-align: left; }
   .ttable th { cursor: default; }
   .rmchart { margin: 4px 0 6px; }
+  .rmchead { margin: 14px 0 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
+  .rmchead[hidden] { display: none; }
+  .tlegend b { font-weight: 400; }
+  .ttip .sup { max-width: 260px; line-height: 1.45; }
+  .rcnums .rctrend { margin-left: auto; flex: none; }
+  .rcnums .rctrend .spark { width: 70px; margin-top: 2px; }
   .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
   .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
   .rrow:focus-visible { outline: 1px solid var(--acc); outline-offset: -1px; }
@@ -3137,7 +3143,8 @@ function resCard(r) {
       <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
       <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span></div>
     <div class="rcnums"><span><small>Stock</small><span class="v"><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span></span>
-      <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span></div>
+      <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span>
+      <span class="rctrend"><small>Trend</small>${spark(r.id)}</span></div>
     <div class="rcnext">${resNext(r)}</div>
   </div>`;
 }
@@ -3150,13 +3157,14 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div><div class="tchart rmchart" id="rmChart"></div>${resExpand(r)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div><h4 class="rmchead" hidden>Stock over the game</h4><div class="tchart rmchart" id="rmChart"></div>${resExpand(r)}`;
   $('resModal').hidden = false;
   // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
   await loadHistory();
   const pts = hist.points;
   if (pts.length >= 2 && $('rmChart')) {
     const maint = (pts[pts.length - 1].r?.[id] || [])[3] || r.maintain || null;
+    document.querySelector('#resModalBody .rmchead').hidden = false;
     drawChart($('rmChart'), pts, [{ name: 'Stock', color: 'var(--s1)', values: pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)) }],
       { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 170 });
   }
@@ -3218,14 +3226,14 @@ function histRow(p, id) {
 }
 /** Low and critical resources at a point (the Resources tab's supply rule, on what was recorded then). */
 function histSupply(p) {
-  let low = 0, critical = 0;
+  const low = [], critical = [];
   for (const id of Object.keys(p.r || {})) {
     const r = histRow(p, id);
     if (!r || !((r.stock ?? 0) > 0 || (r.rateRequired ?? 0) > 0 || (r.rateCurrent ?? 0) > 0 || inCat(r, 'construction') || inCat(r, 'fuel'))) continue;
     const st = resStatus(r);
-    if (st === 'critical') critical++; else if (st === 'low') low++;
+    if (st === 'critical') critical.push(r.name || '#' + id); else if (st === 'low') low.push(r.name || '#' + id);
   }
-  return { low, critical };
+  return { low: low.length, critical: critical.length, lowNames: low.sort(), criticalNames: critical.sort() };
 }
 
 /** A row's stock over the last 5 years, with the level to keep dashed; a resource missing from a point had none. */
@@ -3278,7 +3286,8 @@ function niceTicks(lo, hi, n = 4) {
  */
 function drawChart(el, pts, series, opt) {
   const W = Math.max(280, el.clientWidth || 600), stripH = opt.supply ? 34 : 0, H = opt.height || 220;
-  const labels = series.length <= 4, L = 54, R = labels ? 104 : 14, T = 8, B = 20, plotB = H - B - (stripH ? stripH + 18 : 0);
+  // Names at the line ends for 2-4 series; one series is named by its heading, and the chart takes the full width.
+  const labels = series.length > 1 && series.length <= 4, L = 54, R = labels ? 104 : 14, T = 8, B = 20, plotB = H - B - (stripH ? stripH + 18 : 0);
   const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R);
   const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
   let lo = Math.min(0, ...all), hi = Math.max(...all, opt.ref ?? -Infinity, lo + 1e-9);
@@ -3314,7 +3323,7 @@ function drawChart(el, pts, series, opt) {
   svg += `<g class="hov" visibility="hidden"><line class="xh" y1="${T}" y2="${plotB + (stripH ? stripH + 18 : 0)}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
     + `<rect x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent" class="hit"/>`;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`
-    + (stripH ? '<div class="tlegend"><span style="--c:var(--bad)">Critical</span><span style="--c:var(--warn)">Low</span><span style="--c:transparent">resources each month</span></div>' : '');
+    + (stripH ? '<div class="tlegend"><b>Under the chart: how many of all the resources were</b><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span><b>each month (hover for which)</b></div>' : '');
   const root = el.querySelector('svg'), hov = root.querySelector('.hov'), tip = el.querySelector('.ttip');
   root.querySelector('.hit').addEventListener('mousemove', e => {
     const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
@@ -3326,7 +3335,9 @@ function drawChart(el, pts, series, opt) {
     hov.querySelectorAll('.dot').forEach((c, k) => { const v = series[k].values[i]; c.setAttribute('visibility', v == null || !isFinite(v) || v > hi ? 'hidden' : 'visible'); c.setAttribute('cx', xx); c.setAttribute('cy', y(v ?? 0)); });
     const rows = series.map(s => ({ s, v: s.values[i] })).sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity));
     tip.innerHTML = `<b>${histDate(pts[i].d)}</b>` + rows.map(r => `<div style="--c:${r.s.color}"><i></i>${esc(r.s.name)}<em>${r.v == null || !isFinite(r.v) ? '–' : esc(opt.fmt(r.v))}</em></div>`).join('')
-      + (supply ? `<div class="sup">${supply[i].critical} critical · ${supply[i].low} low</div>` : '');
+      + (supply ? `<div class="sup">${supply[i].critical || supply[i].low
+        ? [['Critical', supply[i].criticalNames], ['Low', supply[i].lowNames]].filter(([, n]) => n.length).map(([k, n]) => `${k}: ${esc(n.join(', '))}`).join('<br>')
+        : 'No resource low or critical'}</div>` : '');
     tip.hidden = false;
     const px = xx * box.width / W;
     tip.style.left = (px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
