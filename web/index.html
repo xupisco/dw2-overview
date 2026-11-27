@@ -354,7 +354,15 @@
   .catsq[data-cat="fuel"] { background: var(--warn); }
   .catsq[data-cat="luxury"] { background: oklch(var(--L) 0.11 330); }
   .catsq[data-cat="other"] { background: var(--mut); }
-  .restop { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+  /* Supply table (and its months below) on the left, the Trends chart on the right; stacked on narrow screens */
+  .restop { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; margin-bottom: 10px; }
+  .restop .trends { margin-bottom: 0; }
+  @media (max-width: 1000px) { .restop { grid-template-columns: minmax(0, 1fr); } }
+  .supcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .supplyhist { background: var(--panel); padding: 8px 10px 4px; }
+  .supplyhist[hidden] { display: none; }
+  .suphead { display: flex; align-items: center; gap: 12px; color: var(--mut); font: 600 11px var(--cond); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  .suphead .tlegend { margin: 0 0 0 auto; text-transform: none; letter-spacing: 0; font: 11.5px var(--sans, inherit); }
   .supply { border-collapse: separate; border-spacing: 2px; width: auto; }
   .supply th { background: transparent; font-size: 12px; padding: 2px 10px; cursor: default; text-align: center; }
   .supply th:first-child { text-align: left; }
@@ -604,6 +612,7 @@
   .rcard.st-low { box-shadow: inset 3px 0 0 var(--warn); }
   .rchead { display: flex; align-items: center; gap: 10px; }
   .rchead .rname { flex: 1; }
+  .rchead .rname b { font-size: 15px; }
   .rcnums { display: flex; gap: 24px; font-size: 12px; }
   .rcnums > span { display: flex; flex-direction: column; }
   .rcnums small { font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: var(--mut); }
@@ -931,9 +940,9 @@
 </div>
 <div id="tab-resources" hidden>
   <div class="restop">
-    <div id="resSupply"></div>
+    <div class="supcol"><div id="resSupply"></div><div id="resSupplyHist" class="tchart supplyhist" hidden></div></div>
+    <div id="resTrends" class="trends" hidden></div>
   </div>
-  <div id="resTrends" class="trends" hidden></div>
   <div class="legrow"><div id="resTypes" class="slegend roles"></div>
     <span id="resLayout" class="seg" title="Rows or cards"><button type="button" data-layout="rows">Rows</button><button type="button" data-layout="cards">Cards</button></span></div>
   <div id="resListWrap" class="reswrap">
@@ -3336,13 +3345,13 @@ function niceTicks(lo, hi, n = 4) {
 
 /**
  * A line chart over recorded points, one y scale (never two). series: [{ name, color, values }] aligned with pts.
- * opt: fmt, ref, refLabel, cap (values above run off the top; the tooltip still says them), supply (the
- * low/critical strip under it), height. Hovering shows a crosshair and every value at that month.
+ * opt: fmt, ref, refLabel, cap (values above run off the top; the tooltip still says them), height.
+ * Hovering shows a crosshair and every value at that month.
  */
 function drawChart(el, pts, series, opt) {
-  const W = Math.max(280, el.clientWidth || 600), stripH = opt.supply ? 34 : 0, H = opt.height || 220;
+  const W = Math.max(280, el.clientWidth || 600), H = opt.height || 220;
   // Names at the line ends for 2-4 series; one series is named by its heading, and the chart takes the full width.
-  const labels = series.length > 1 && series.length <= 4, L = 54, R = labels ? 104 : 14, T = 8, B = 20, plotB = H - B - (stripH ? stripH + 18 : 0);
+  const labels = series.length > 1 && series.length <= 4, L = 54, R = labels ? 104 : 14, T = 8, B = 20, plotB = H - B;
   const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R);
   const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
   let lo = Math.min(0, ...all), hi = Math.max(...all, opt.ref ?? -Infinity, lo + 1e-9);
@@ -3365,20 +3374,9 @@ function drawChart(el, pts, series, opt) {
     svg += ends.map(e => (e.above ? '' : `<circle class="dot" cx="${e.xx}" cy="${e.cy}" r="3.5" style="fill:${e.s.color}"/>`)
       + `<text class="lbl" x="${W - R + 8}" y="${e.yy + 4}">${e.above ? `<title>Above the top of the scale: ${esc(opt.fmt(e.s.values[e.s.values.length - 1] ?? 0))}</title>` : ''}${esc(e.s.name)}${e.above ? ' ↑' : ''}</text>`).join('');
   }
-  // The supply strip: how many resources were low or critical each month (critical at the bottom).
-  let supply = null;
-  if (stripH) {
-    supply = pts.map(histSupply);
-    const top = plotB + 18, max = Math.max(1, ...supply.map(s => s.low + s.critical)), sy = v => top + stripH - v / max * stripH;
-    const area = (a, b) => `M${x(pts[0].d)},${sy(a(0))}` + pts.map((p, i) => `L${x(p.d).toFixed(1)},${sy(b(i)).toFixed(1)}`).join('') + pts.map((p, i) => `L${x(p.d).toFixed(1)},${sy(a(i)).toFixed(1)}`).reverse().join('') + 'Z';
-    svg += `<text class="ax" x="${L - 6}" y="${top + 9}" text-anchor="end">${max}</text><text class="ax" x="${L - 6}" y="${top + stripH}" text-anchor="end">0</text>`
-      + `<line class="grid" x1="${L}" x2="${W - R}" y1="${top + stripH}" y2="${top + stripH}"/>`
-      + `<path class="crit" d="${area(() => 0, i => supply[i].critical)}"/><path class="low" d="${area(i => supply[i].critical, i => supply[i].critical + supply[i].low)}"/>`;
-  }
-  svg += `<g class="hov" style="display:none"><line class="xh" y1="${T}" y2="${plotB + (stripH ? stripH + 18 : 0)}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
+  svg += `<g class="hov" style="display:none"><line class="xh" y1="${T}" y2="${plotB}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
     + `<rect x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent" class="hit"/>`;
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`
-    + (stripH ? '<div class="tlegend"><b>Under the chart: how many of all the resources were</b><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span><b>each month (hover for which)</b></div>' : '');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`;
   const root = el.querySelector('svg'), hov = root.querySelector('.hov'), tip = el.querySelector('.ttip');
   root.querySelector('.hit').addEventListener('mousemove', e => {
     const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
@@ -3389,15 +3387,57 @@ function drawChart(el, pts, series, opt) {
     hov.querySelector('.xh').setAttribute('x1', xx); hov.querySelector('.xh').setAttribute('x2', xx);
     hov.querySelectorAll('.dot').forEach((c, k) => { const v = series[k].values[i]; c.setAttribute('visibility', v == null || !isFinite(v) || v > hi ? 'hidden' : 'visible'); c.setAttribute('cx', xx); c.setAttribute('cy', y(v ?? 0)); });
     const rows = series.map(s => ({ s, v: s.values[i] })).sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity));
-    tip.innerHTML = `<b>${histDate(pts[i].d)}</b>` + rows.map(r => `<div style="--c:${r.s.color}"><i></i>${esc(r.s.name)}<em>${r.v == null || !isFinite(r.v) ? '–' : esc(opt.fmt(r.v))}</em></div>`).join('')
-      + (supply ? `<div class="sup">${supply[i].critical || supply[i].low
-        ? [['Critical', supply[i].criticalNames], ['Low', supply[i].lowNames]].filter(([, n]) => n.length).map(([k, n]) => `${k}: ${esc(n.join(', '))}`).join('<br>')
-        : 'No resource low or critical'}</div>` : '');
+    tip.innerHTML = `<b>${histDate(pts[i].d)}</b>` + rows.map(r => `<div style="--c:${r.s.color}"><i></i>${esc(r.s.name)}<em>${r.v == null || !isFinite(r.v) ? '–' : esc(opt.fmt(r.v))}</em></div>`).join('');
     tip.hidden = false;
     const px = xx * box.width / W;
     tip.style.left = (px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
   });
   root.querySelector('.hit').addEventListener('mouseleave', () => { hov.style.display = "none"; tip.hidden = true; });
+}
+
+/**
+ * Under the supply table: how many of all the resources were critical (bottom) or low (on top) each month, over
+ * the Trends range. Hovering names them.
+ */
+let supplySig = '';
+function renderSupplyHist() {
+  const el = $('resSupplyHist'), last = hist.points[hist.points.length - 1];
+  const from = trendRange === 'all' || !last ? -Infinity : last.d - +trendRange * hist.yearUnits;
+  const pts = hist.points.filter(p => p.d >= from);
+  const sig = [hist.epoch, hist.points.length, last?.d, trendRange, el.clientWidth, resData.items?.length].join('|');
+  if (sig === supplySig) return;
+  supplySig = sig;
+  el.hidden = pts.length < 2;
+  if (el.hidden) { el.innerHTML = ''; return; }
+  const sup = pts.map(histSupply), max = Math.max(1, ...sup.map(s => s.low + s.critical));
+  const W = Math.max(200, el.clientWidth || 400), H = 62, L = 22, R = 4, T = 4, B = 15;
+  const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R), y = v => H - B - v / max * (H - B - T);
+  const area = (a, b) => `M${x(d0)},${y(a(0))}` + pts.map((p, i) => `L${x(p.d).toFixed(1)},${y(b(i)).toFixed(1)}`).join('') + pts.map((p, i) => `L${x(p.d).toFixed(1)},${y(a(i)).toFixed(1)}`).reverse().join('') + 'Z';
+  const yr0 = Math.ceil(d0 / hist.yearUnits), yr1 = Math.floor(d1 / hist.yearUnits);
+  const years = yr1 > yr0 ? [yr0, yr1] : [yr0].filter(v => v * hist.yearUnits <= d1);
+  el.innerHTML = `<div class="suphead">Low or critical, each month <span class="tlegend"><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span></span></div>`
+    + `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="How many resources were low or critical each month">`
+    + `<text class="ax" x="${L - 5}" y="${T + 8}" text-anchor="end">${max}</text><text class="ax" x="${L - 5}" y="${H - B}" text-anchor="end">0</text>`
+    + `<line class="grid" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`
+    + `<path class="crit" d="${area(() => 0, i => sup[i].critical)}"/><path class="low" d="${area(i => sup[i].critical, i => sup[i].critical + sup[i].low)}"/>`
+    + years.map(v => `<text class="ax" x="${x(v * hist.yearUnits)}" y="${H - 2}" text-anchor="middle">${v}</text>`).join('')
+    + `<line class="xh" y1="${T}" y2="${H - B}" style="display:none"/><rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="ttip" hidden></div>`;
+  const root = el.querySelector('svg'), xh = root.querySelector('.xh'), tip = el.querySelector('.ttip');
+  root.querySelector('.hit').addEventListener('mousemove', e => {
+    const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
+    let i = 0, best = Infinity;
+    pts.forEach((p, k) => { const dd = Math.abs(x(p.d) - mx); if (dd < best) { best = dd; i = k; } });
+    xh.setAttribute('x1', x(pts[i].d)); xh.setAttribute('x2', x(pts[i].d)); xh.style.display = '';
+    const s = sup[i];
+    tip.innerHTML = `<b>${histDate(pts[i].d)}</b><div class="sup">${s.critical || s.low
+      ? [['Critical', s.criticalNames], ['Low', s.lowNames]].filter(([, n]) => n.length).map(([k, n]) => `${k}: ${esc(n.join(', '))}`).join('<br>')
+      : 'No resource low or critical'}</div>`;
+    tip.hidden = false;
+    const px = x(pts[i].d) * box.width / W;
+    tip.style.left = Math.max(0, px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
+    tip.style.top = (H + 18) + 'px';
+  });
+  root.querySelector('.hit').addEventListener('mouseleave', () => { xh.style.display = 'none'; tip.hidden = true; });
 }
 
 /** The Trends panel of the Resources tab: chips turn resources on and off, the chart and the supply strip follow. */
@@ -3447,7 +3487,7 @@ function renderTrends(all) {
   const ids = [...sel.keys()].filter(id => !trendOff.has(id)).sort((a, b) => sel.get(a) - sel.get(b));
   const series = ids.map(id => ({ id, name: nameOf(id), color: color(id),
     values: pts.map(p => { const r = histRow(p, id); return r ? m.get(r) : (trendMeasure === 'stock' ? 0 : null); }) }));
-  drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, supply: true, height: 260 });
+  drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 200 });
   if (trendTable) {
     // One row a year, newest first: the first month of each year, and the latest point.
     const rows = pts.map((p, i) => ({ p, i })).filter(({ p, i }) => i === pts.length - 1 || histDate(p.d).endsWith('.01')).reverse();
@@ -3473,7 +3513,7 @@ $('resTrends').addEventListener('click', e => {
   renderResources();   // the chart, and the marks on the rows and cards (a hidden line's mark fades)
 });
 let trendResize;
-addEventListener('resize', () => { clearTimeout(trendResize); trendResize = setTimeout(() => { if (tab === 'resources') renderTrends(trendAll); }, 200); });
+addEventListener('resize', () => { clearTimeout(trendResize); trendResize = setTimeout(() => { if (tab === 'resources') { renderTrends(trendAll); renderSupplyHist(); } }, 200); });
 
 function renderResources() {
   setTimeout(syncFilters, 0);
@@ -3494,6 +3534,7 @@ function renderResources() {
   const critical = all.filter(r => resStatus(r) === 'critical').length;
   $('psub').textContent = critical ? `${critical} critical` : '';
   renderTrends(all);
+  renderSupplyHist();
 
   const deps = resData.deposits || [];
   // Places: in a view (mined or new), matching the search (place or resource name), having a resource of the
