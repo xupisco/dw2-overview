@@ -2534,13 +2534,13 @@ function renderShips() {
   // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
   const lit = (set, k) => !set.size || set.has(k);
   const roles = CATEGORY_ORDER.filter(c => all.some(s => shipCategory(s) === c));
-  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend sline">${roles.map(c => {
-    const n = all.filter(s => shipCategory(s) === c).length;
-    return `<button type="button" data-role="${esc(c)}" class="${lit(shipRoleFilter, c) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(c, 12)}${esc(c)} <em>${n}</em></button>`;
-  }).join('')}<span class="lsep"></span>${SHIP_BUCKETS.map(b => {
+  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend sline">${SHIP_BUCKETS.map(b => {
     const c = all.filter(s => shipBucket(s) === b.key).length;
     return `<button type="button" data-bucket="${b.key}" class="${lit(shipBucketFilter, b.key) ? '' : 'off'}${!c ? ' zero' : ''}" title="Show these; click more to add; none chosen shows all">
       <i style="background:${b.color}"></i>${b.label} <em>${c}</em></button>`;
+  }).join('')}<span class="lsep"></span>${roles.map(c => {
+    const n = all.filter(s => shipCategory(s) === c).length;
+    return `<button type="button" data-role="${esc(c)}" class="${lit(shipRoleFilter, c) ? '' : 'off'}" title="Show these; click more to add; none chosen shows all">${icon(c, 12)}${esc(c)} <em>${n}</em></button>`;
   }).join('')}</div>`;
 
   // Groups
