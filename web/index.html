@@ -297,7 +297,7 @@
   /* A legend row with the Rows / Cards switch at its right, next to what it changes */
   .legrow { display: flex; align-items: center; gap: 8px 16px; background: var(--panel); padding: 8px 12px; margin-bottom: 8px; }
   .legrow[hidden] { display: none; }
-  .legrow > .slegend { flex: 1; min-width: 0; border-top: 0; padding-top: 0; }
+  .legrow > .slegend, .legrow > .slegend.roles { flex: 1; min-width: 0; border-top: 0; padding-top: 0; }
   .legrow > .seg { flex: none; margin-left: auto; background: var(--track); }
   .legrow > .seg button { height: 26px; border: 0; background: transparent; color: var(--mut); padding: 0 10px; font-size: 12px; cursor: pointer; }
   .legrow > .seg button:hover { color: var(--tx); }
