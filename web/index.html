@@ -317,6 +317,10 @@
   .ovsort { margin-left: auto; margin-right: 10px; }
   .ovsort button { height: 20px; border: 0; background: transparent; color: var(--mut); padding: 0 6px; font-size: 12px; cursor: pointer; }
   .ovsort button.on { background: var(--acc-d); color: var(--acc); }
+  .ovtctl { display: flex; gap: 8px; margin-left: auto; margin-right: 10px; }
+  .ovtctl .ovsort { margin: 0; }
+  .sizes button:disabled { opacity: .3; cursor: default; }
+  .sizes button:disabled:hover { color: var(--mut); }
   .ovfoot { display: flex; justify-content: flex-end; padding-top: 4px; }
   .ovfoot .ovlink { font-size: 12px; color: var(--mut); }
   .ovdrawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 8; width: min(400px, 100%); background: var(--panel); box-shadow: -10px 0 30px rgba(0,0,0,.4);
@@ -2651,7 +2655,7 @@ const OV_BLOCKS = [
   { id: 'attention', name: 'Needs attention', note: 'What is waiting for you', size: 'S', on: true },
   { id: 'supply', name: 'Supply', note: 'Fuel, construction and luxury resources: adequate, low, critical, as the game shows it', size: 'S', on: true },
   { id: 'construction', name: 'Construction', note: 'What the yards are building, by role, sorted, a few lines', size: 'M', on: true },
-  { id: 'trends', name: 'Trends', note: 'The resources in the Resources tab\'s Trends chart, over time (picked there)', size: 'M', on: true },
+  { id: 'trends', name: 'Trends', note: 'The resources in the Resources tab\'s Trends chart, over time (picked there)', size: 'M', on: true, sizes: ['M', 'L'] },
   { id: 'research', name: 'Research', note: 'Active project and queue', size: 'S', on: false },
   { id: 'colonies', name: 'Colonies', note: 'Population, approval, revenue', size: 'S', on: false },
   { id: 'messages', name: 'Latest messages', note: 'Newest five from the log (Q opens the whole log)', size: 'M', on: false },
@@ -2668,6 +2672,8 @@ try {
       const after = i > 0 ? ovLayout.findIndex(s => s.id === OV_BLOCKS[i - 1].id) : -1;
       ovLayout.splice(after < 0 ? ovLayout.length : after + 1, 0, { id: def.id, size: def.size, on: def.on });
     });
+    // A size the block no longer allows (Trends is too wide for S) goes back to its default.
+    ovLayout.forEach(s => { const def = OV_BLOCKS.find(b => b.id === s.id); if (def.sizes && !def.sizes.includes(s.size)) s.size = def.size; });
   }
 } catch (e) { }
 const saveLayout = () => { try { localStorage.setItem('overview.layout4', JSON.stringify(ovLayout)); } catch (e) { } };
@@ -2869,8 +2875,13 @@ function blockHtml(id) {
   }
   if (id === 'trends') {
     // The chart itself is drawn after the grid is in the page (it needs its width): see fillOvTrends.
-    const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level, range = (TREND_RANGES.find(([k]) => k === trendRange) || [])[1] || '';
-    const head = `<span class="ovnote" title="Change them in the Resources tab">${esc(m.label)} · ${esc(range)}</span>${linkTo('Resources', 'resources')}`;
+    // The same measure and range as the Resources tab's chart: changing them here changes them there too.
+    const pick = (key, value) => () => {
+      if (key === 'measure') { trendMeasure = value; lsSet('overview.trendMeasure', value); } else { trendRange = value; lsSet('overview.trendRange', value); }
+      trendSig = ''; supplySig = ''; renderOverview();
+    };
+    const head = `<span class="ovtctl"><span class="seg ovsort">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}" ${act(pick('measure', k))}>${v.label}</button>`).join('')}</span>`
+      + `<span class="seg ovsort">${TREND_RANGES.map(([k, v]) => `<button type="button" class="${k === trendRange ? 'on' : ''}" ${act(pick('range', k))}>${v}</button>`).join('')}</span></span>${linkTo('Resources', 'resources')}`;
     const why = ovTrendsEmpty();
     return panel('Trends', 'var(--acc)', head, why ? `<div class="ovempty">${why}</div>` : '<div class="ovtrends"><div class="tchart" id="ovTrChart"></div><div class="tlegend ovtlegend"></div></div>');
   }
@@ -2910,7 +2921,9 @@ function renderCustomize() {
     return `<div class="ovitem${b.on ? '' : ' off'}" data-i="${i}">
       <label class="switch"><input type="checkbox" data-on ${b.on ? 'checked' : ''}><i></i></label>
       <span><b>${esc(def.name)}</b><small>${esc(def.note)}</small></span>
-      <span class="sizes">${['S', 'M', 'L'].map(s => `<button type="button" data-size="${s}" title="${{ S: 'Narrow left column', M: 'Wide right column', L: 'Whole width' }[s]}" class="${b.size === s ? 'on' : ''}">${s}</button>`).join('')}</span>
+      <span class="sizes">${['S', 'M', 'L'].map(s => (def.sizes || ['S', 'M', 'L']).includes(s)
+        ? `<button type="button" data-size="${s}" title="${{ S: 'Narrow left column', M: 'Wide right column', L: 'Whole width' }[s]}" class="${b.size === s ? 'on' : ''}">${s}</button>`
+        : `<button type="button" disabled title="Too narrow for this block">${s}</button>`).join('')}</span>
       <span class="moves"><button type="button" data-move="-1" title="Up">▴</button><button type="button" data-move="1" title="Down">▾</button></span>
     </div>`;
   }).join('');
