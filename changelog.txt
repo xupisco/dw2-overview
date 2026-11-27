@@ -1,6 +1,6 @@
 Empire Overview - changelog
 
-0.1.5-alpha (not released yet)
+0.1.5-alpha (2026-11-27)
 - Trends: the mod records the empire every game month, page open or not
   (data\Logs\DW2Overview\history, one file per game). Loading an earlier
   save drops the months after it.

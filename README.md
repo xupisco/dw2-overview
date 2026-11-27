@@ -16,7 +16,8 @@ Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetail
 - **Construction:** everything being built or queued in yards, bases built in place, construction ships on their way to build, bases ordered and still waiting for a ship, and idle yards. A mining base says what its site holds, coloured by how short the empire is of it. Filters by state, kind, work and role.
 - **Ships:** every ship and base with its mission in the game's own words (the places in it are links), what it carries, and fuel or energy only when they are low. Grouped by role, mission or system; rows or cards; idle ships, ships short of fuel and damaged ships first.
 - **Colonies:** cards with a planet drawn from the game's own colours, population and its growth, development, corruption, tax, approval, the planet's resources, and colonies in trouble first.
-- **Resources:** the supply table (Adequate / Low / Critical, matching the game's rule), each resource with its stock, how long it lasts at the current pace, and the next step: where it is mined, a station being built or ordered, the best known deposit, or none known. Mined and new mining locations (in the game's own priority, with who is already going there). Rows or cards; details in a modal.
+- **Resources:** the supply table (Adequate / Low / Critical, matching the game's rule), each resource with its stock, how long it lasts at the current pace, and the next step: where it is mined, a station being built or ordered, the best known deposit, or none known. Mined and new mining locations (in the game's own priority, with who is already going there). Table or cards; details in a modal.
+- **Trends:** the mod records the empire every game month, page open or not (`data\Logs\DW2Overview\history`, one JSON Lines file per game; an earlier save drops the later months). Each resource has a 5-year line of its stock; a chart beside the supply table compares up to 8 resources as % of the level to keep, stock, net rate or price; a strip under the supply table shows how many were low or critical each month; a resource's details chart it over the whole game.
 - **Research:** the queue and the projects available; a click opens the project in the game's research screen.
 - **Messages:** the game's message log; a message opens whole in a modal, with the game's own buttons (Accept, Dismiss, "Take me to…").
 
@@ -33,7 +34,7 @@ Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetail
 
 - **Nothing leaves your computer.** The server answers only on this machine (`localhost`), so other machines cannot reach it, and the page loads nothing from the internet (fonts and scripts are in the mod). No telemetry, no accounts.
 - **Other websites can't use it:** they cannot read its answers, and commands need a per-session token (details under [How it works](#how-it-works)).
-- **Light on the game:** it reads the game at most once a second, and only while a page is open; with no page open it does nothing. Early in a game a read takes a few milliseconds (each list's time is in the log). Big late games are not measured yet: if you notice a slowdown, please [say so](https://github.com/xupisco/dw2-overview/issues).
+- **Light on the game:** it reads the game at most once a second, and only while a page is open; with no page open it only records one small point a game month for the trends. Early in a game a read takes a few milliseconds (each list's time is in the log). Big late games are not measured yet: if you notice a slowdown, please [say so](https://github.com/xupisco/dw2-overview/issues).
 
 ## Install (development)
 
@@ -69,6 +70,7 @@ A `webRoot` without `index.html` is ignored (logged), and the mod's own `web\` f
 | Part | What it does |
 |---|---|
 | `src/Snapshot.cs` | A postfix on `DWGame.Update` reads the game's data on the game thread, at most once a second and only while a page has asked for it recently, and keeps it as ready-made JSON |
+| `src/History.cs` | One point a game month (cash, population, and each resource's stock, rates, level to keep and price), recorded whether or not a page is open, in a JSON Lines file per game; an earlier save drops the later points |
 | `src/Views.cs`, `src/Resources.cs` | What each list holds: colonies, research, messages, ships, the index for the palette, resources and deposits |
 | `src/Server.cs` | `HttpListener` on `http://localhost:<port>/` only; serves `web\` and the JSON, never touches game objects |
 | `src/Commands.cs` | Commands from the page are queued and run on the game thread in the next frame |

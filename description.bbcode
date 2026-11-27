@@ -37,6 +37,8 @@ Everything being built or queued in your yards, bases built in place, constructi
 [h3]Resources[/h3]
 [list]
 [*]Each resource with its stock, how long it lasts at the current pace (in game months and years) and the [b]next step[/b]: where it is mined, a station being built or ordered, the best known deposit, or none known.
+[*][b]Trends:[/b] the mod records your empire every game month, so you can see what the game only shows as "now". Each resource has a small line of its stock over the last years; a chart compares up to 8 of them as a share of the level to keep (so any two fit on one scale), or by stock, net rate or price; and a strip shows how many resources were low or critical each month, and which.
+[*]A resource's details: stock, rate and how long it lasts, prices, and the same chart for that resource over the whole game.
 [*][b]Mined and new mining locations[/b], new ones in the game's own priority, with who is already going there.
 [*]Filters by type and by availability (mined, not mined, not found).
 [/list]
@@ -64,13 +66,14 @@ Everything being built or queued in your yards, bases built in place, constructi
 [list]
 [*][b]Nothing leaves your computer.[/b] The server answers only on this machine (localhost), so other machines cannot reach it, and the page loads nothing from the internet. No telemetry, no accounts.
 [*][b]Other websites can't use it:[/b] they cannot read its answers, and commands need a per-session token.
-[*][b]Light on the game:[/b] it reads the game at most once a second, and only while a page is open; with no page open it does nothing. Early in a game a read takes a few milliseconds. Big late games are not measured yet: if you notice a slowdown, please tell me.
+[*][b]Light on the game:[/b] it reads the game at most once a second, and only while a page is open. With no page open it only records one small point a game month for the trends. Early in a game a read takes a few milliseconds. Big late games are not measured yet: if you notice a slowdown, please tell me.
 [/list]
 
 [h2]/========== GOOD TO KNOW ==========\[/h2]
 [list]
 [*][b]Port:[/b] 4722. If another program already uses it, change [i]Web page port[/i] in the mod's settings in the DW2 Mod Launcher.
 [*][b]Log:[/b] data\Logs\DW2Overview\DW2Overview.log, in the game folder.
+[*][b]Trends history:[/b] data\Logs\DW2Overview\history, one small file per game, next to the log. Delete it to start over; the game's saves are not touched. Loading an earlier save drops the months after it, since that future did not happen.
 [/list]
 
 [h2]/========== COMPATIBILITY ==========\[/h2]
