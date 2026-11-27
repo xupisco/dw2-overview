@@ -361,7 +361,7 @@
   /* The left column is as tall as the chart beside it: the months strip takes what the table leaves */
   .supcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .supcol .supply { width: 100%; }
-  .supcol .supply button { width: 100%; }
+  .supcol .supply button { width: 100%; height: 34px; }
   .supplyhist { background: var(--panel); padding: 8px 10px 4px; flex: 1; min-height: 96px; display: flex; flex-direction: column; }
   .supplyhist[hidden] { display: none; }
   .supplyhist .shbody { flex: 1; min-height: 0; position: relative; }
@@ -427,10 +427,6 @@
   .tnote { color: var(--mut); font-size: 12px; padding: 18px 0 8px; }
   .tlegend { display: flex; gap: 14px; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
   .tlegend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
-  .ttable { margin-top: 8px; max-height: 260px; overflow: auto; }
-  .ttable table { width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
-  .ttable td, .ttable th { padding: 3px 8px; text-align: right; } .ttable td:first-child, .ttable th:first-child { text-align: left; }
-  .ttable th { cursor: default; }
   .rmchart { margin: 4px 0 6px; }
   .rmchead { margin: 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rmcrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
@@ -3315,7 +3311,7 @@ const TREND_RANGES = [['2', '2 yr'], ['10', '10 yr'], ['all', 'All']];
 const lsGet = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } };
 let trendMeasure = lsGet('overview.trendMeasure', 'level'), trendRange = lsGet('overview.trendRange', '10');
-let trendShow = lsGet('overview.trends', 'on') !== 'off', trendTable = false, trendAll = [], trendSig = '';
+let trendAll = [], trendSig = '';
 /**
  * Resources added to the chart (from a resource's details, "Show in Trends") and their colour slot (0-7): a resource
  * keeps its colour while added. trendOff: added ones hidden for now by their chip.
@@ -3462,14 +3458,11 @@ function renderTrends(all) {
     saveTrendSel();
   }
   const sel = trendSel || new Map(), last = hist.points[hist.points.length - 1];
-  const sig = [trendShow, trendMeasure, trendRange, trendTable, JSON.stringify([...sel]), [...trendOff].join(), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
+  const sig = [trendMeasure, trendRange, JSON.stringify([...sel]), [...trendOff].join(), all.map(r => r.id).join(), hist.epoch, hist.points.length, last?.d, box.clientWidth, document.documentElement.dataset.theme].join('|');
   if (sig === trendSig) return;   // the list redraws every few seconds; the chart only when its data changes (keeps the hover)
   trendSig = sig;
-  const head = `<div class="thead"><h3>Trends</h3>${trendShow ? `<span class="seg">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" data-measure="${k}" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}">${v.label}</button>`).join('')}</span>`
-    + `<span class="seg">${TREND_RANGES.map(([k, v]) => `<button type="button" data-range="${k}" class="${k === trendRange ? 'on' : ''}">${v}</button>`).join('')}</span>`
-    + `<button type="button" class="tbtn${trendTable ? ' on' : ''}" data-ttable title="The same numbers as a table, one row a year">Table</button>` : ''}`
-    + `<button type="button" class="tbtn" data-tshow>${trendShow ? 'Hide' : 'Show trends'}</button></div>`;
-  if (!trendShow) { box.innerHTML = head; return; }
+  const head = `<div class="thead"><h3>Trends</h3><span class="seg">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" data-measure="${k}" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}">${v.label}</button>`).join('')}</span>`
+    + `<span class="seg">${TREND_RANGES.map(([k, v]) => `<button type="button" data-range="${k}" class="${k === trendRange ? 'on' : ''}">${v}</button>`).join('')}</span></div>`;
   const color = id => `var(--s${(sel.get(id) ?? 0) + 1})`;
   // Only the added resources: a chip shows or hides its line; adding and removing is in a resource's details.
   const nameOf = id => all.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id;
@@ -3487,7 +3480,7 @@ function renderTrends(all) {
   } else if ([...sel.keys()].every(id => trendOff.has(id))) {
     body = '<div class="tnote">Every line is hidden: click a name above to show it.</div>';
   } else {
-    body = '<div class="tchart" id="trChart"></div><div class="ttable" id="trTable"></div>';
+    body = '<div class="tchart" id="trChart"></div>';
   }
   box.innerHTML = head + `<div class="tchips">${chips}</div>` + body;
   if (!$('trChart')) return;
@@ -3495,22 +3488,12 @@ function renderTrends(all) {
   const series = ids.map(id => ({ id, name: nameOf(id), color: color(id),
     values: pts.map(p => { const r = histRow(p, id); return r ? m.get(r) : (trendMeasure === 'stock' ? 0 : null); }) }));
   drawChart($('trChart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 200 });
-  if (trendTable) {
-    // One row a year, newest first: the first month of each year, and the latest point.
-    const rows = pts.map((p, i) => ({ p, i })).filter(({ p, i }) => i === pts.length - 1 || histDate(p.d).endsWith('.01')).reverse();
-    $('trTable').innerHTML = `<table><thead><tr><th>Date</th>${series.map(s => `<th>${esc(s.name)}</th>`).join('')}<th>Critical · low</th></tr></thead><tbody>${rows.map(({ p, i }) => {
-      const sp = histSupply(p);
-      return `<tr><td>${histDate(p.d)}</td>${series.map(s => `<td>${s.values[i] == null || !isFinite(s.values[i]) ? '–' : esc(m.fmt(s.values[i]))}</td>`).join('')}<td>${sp.critical} · ${sp.low}</td></tr>`;
-    }).join('')}</tbody></table>`;
-  }
 }
 $('resTrends').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.tshow != null) { trendShow = !trendShow; lsSet('overview.trends', trendShow ? 'on' : 'off'); }
-  else if (b.dataset.measure) { trendMeasure = b.dataset.measure; lsSet('overview.trendMeasure', trendMeasure); }
+  if (b.dataset.measure) { trendMeasure = b.dataset.measure; lsSet('overview.trendMeasure', trendMeasure); }
   else if (b.dataset.range) { trendRange = b.dataset.range; lsSet('overview.trendRange', trendRange); }
-  else if (b.dataset.ttable != null) trendTable = !trendTable;
   else if (b.dataset.tres) {
     const id = +b.dataset.tres;
     if (trendOff.has(id)) trendOff.delete(id); else trendOff.add(id);

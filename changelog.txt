@@ -8,7 +8,7 @@ Empire Overview - changelog
   keep), and a Trends chart: pick up to 8 resources and see them as % of the
   level to keep (so any two compare), stock, net rate or price, over 2 years,
   10 years or the whole game, with how many resources were low or critical
-  each month. A table view gives the same numbers.
+  each month.
 - A resource's details show its stock over the whole game.
 
 0.1.4-alpha (2026-11-27)
