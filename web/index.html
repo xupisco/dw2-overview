@@ -2910,7 +2910,6 @@ $('ovList').addEventListener('change', e => {
 // Resources tab: one list of what the empire uses, most urgent first, each with what to do about it.
 // A row opens in place to show the numbers behind it, the prices, where it is mined and the known deposits.
 let resSupply = null, resData = { items: [], deposits: [] };
-const resOpen = new Set();   // rows opened, by resource id
 let resPick = null;          // set by the palette: open this one and bring it into view
 const RES_CATS = [['fuel', 'Fuel'], ['construction', 'Construction'], ['luxury', 'Luxury']];
 /** Net change per second, as the game shows it: current minus required. */
@@ -3497,10 +3496,9 @@ function renderResources() {
     if (resPick != null) { openResourceModal(resPick); resPick = null; }
     return;
   }
-  if (resPick != null) resOpen.add(resPick);
   $('resList').innerHTML = rows.map(r => {
-    const st = resStatus(r), open = resOpen.has(r.id);
-    return `<div class="rrow${open ? ' on' : ''}" data-res="${r.id}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? 'Close' : 'Open: prices, where it is mined, known deposits'}">
+    const st = resStatus(r);
+    return `<div class="rrow" data-res="${r.id}" role="button" tabindex="0" title="Open: stock over the game, prices, where it is mined, known deposits">
         <span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span>
         <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
         <span class="num">${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? `<small class="mut"> / ${fmt.big(Math.round(r.maintain))}</small>` : ''}</span>
@@ -3509,11 +3507,12 @@ function renderResources() {
         <span class="rnext">${resNext(r)}</span>
         <span class="num" style="color:${r.mined ? 'var(--tx)' : r.deposits ? 'var(--warn)' : 'var(--mut)'}">${r.mined ?? 0} of ${r.deposits ?? 0}</span>
         <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span>
-      </div>${open ? resExpand(r) : ''}`;
+      </div>`;
   }).join('') || `<div class="empty">${all.length ? 'Nothing matches.' : 'No resource data yet (needs the mod version with /api/resources).'}</div>`;
   $('count').textContent = `${rows.length} of ${all.length}`;
   if (resPick != null) {
     document.querySelector(`#resList .rrow[data-res="${resPick}"]`)?.scrollIntoView({ block: 'center' });
+    openResourceModal(resPick);
     resPick = null;
   }
 }
@@ -3526,15 +3525,12 @@ $('resSupply').addEventListener('click', e => {
   resView = 'resources';
   renderResources();
 });
-// A place (in the next step or the opened row) goes there in the game; anywhere else on a row opens or closes it.
+// A place (in the next step) goes there in the game; anywhere else on a row opens the resource's details, as the cards do.
 $('resList').addEventListener('click', e => {
   const place = e.target.closest('[data-orb]');
   if (place) { e.preventDefault(); goTo('orb', +place.dataset.orb); return; }
   const row = e.target.closest('.rrow[data-res]');
-  if (!row) return;
-  const id = +row.dataset.res;
-  if (resOpen.has(id)) resOpen.delete(id); else resOpen.add(id);
-  renderResources();
+  if (row) openResourceModal(+row.dataset.res);
 });
 $('resList').addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.rrow[data-res]')) { e.preventDefault(); e.stopPropagation(); e.target.click(); }
