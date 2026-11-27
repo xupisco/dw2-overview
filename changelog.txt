@@ -15,7 +15,7 @@ Empire Overview - changelog
 - A resource's details: stock, rate (and how long the stock lasts) and
   prices as cards, and its stock over the whole game. Rows open the details
   too, as cards do.
-- The Rows / Cards switch sits next to the list it changes (Resources,
+- The Table / Cards switch (was Rows / Cards) sits next to the list it changes (Resources,
   Construction, Ships).
 
 0.1.4-alpha (2026-11-27)
