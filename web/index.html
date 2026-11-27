@@ -821,8 +821,8 @@
       <button type="button" data-tab="overview">Overview <em></em></button>
       <button type="button" data-tab="construction">Construction <em></em></button>
       <button type="button" data-tab="ships">Ships <em></em></button>
-      <button type="button" data-tab="colonies">Colonies <em></em></button>
       <button type="button" data-tab="resources">Resources <em></em></button>
+      <button type="button" data-tab="colonies">Colonies <em></em></button>
       <button type="button" data-tab="research">Research <em></em></button>
       <button type="button" data-tab="messages">Messages <em></em></button>
       <div id="menuTools" class="menutools"></div>
@@ -4145,7 +4145,7 @@ addEventListener('blur', hideTip);
 // ---- Start (last, so every declaration above exists before the first render) ----
 setFavicon(false, 0);
 // The tab is in the address (#ships…): Back and Forward move between tabs; a link to a tab opens it.
-const TABS = ['overview', 'construction', 'ships', 'colonies', 'resources', 'research', 'messages'];
+const TABS = ['overview', 'construction', 'ships', 'resources', 'colonies', 'research', 'messages'];
 let startTab = location.hash.slice(1);
 if (!TABS.includes(startTab)) { try { startTab = localStorage.getItem('overview.tab') || 'overview'; } catch (e) { startTab = 'overview'; } }
 if (!TABS.includes(startTab)) startTab = 'overview';
