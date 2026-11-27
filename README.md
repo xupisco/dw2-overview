@@ -19,7 +19,7 @@ Get it on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetail
 - **Trends:** the mod records the empire every game month, page open or not (`data\Logs\DW2Overview\history`, one JSON Lines file per game; an earlier save drops the later months). Each resource has a 5-year line of its stock; a chart beside the supply table compares up to 8 resources as % of the level to keep, stock, net rate or price; a strip under the supply table shows how many were low or critical each month; a resource's details chart it over the whole game.
 - **Colonies:** cards with a planet drawn from the game's own colours, population and its growth, development, corruption, tax, approval, the planet's resources, and colonies in trouble first.
 - **Research:** the queue and the projects available; a click opens the project in the game's research screen.
-- **Messages:** the game's message log; a message opens whole in a modal, with the game's own buttons (Accept, Dismiss, "Take me to…").
+- **Messages:** the game's message log; a message opens whole in a modal, with the game's own buttons (Accept, Dismiss, "Take me to…"). The log drawer () has a search and a type filter.
 
 ## Playing with it
 

@@ -576,6 +576,12 @@
   .ldhead b { font: 600 14px var(--cond); letter-spacing: .1em; text-transform: uppercase; color: var(--acc); margin-right: auto; }
   .ldhead .seg button { height: 24px; border: 0; background: transparent; color: var(--mut); padding: 0 8px; font-size: 12px; cursor: pointer; }
   .ldhead .seg button.on { background: var(--acc-d); color: var(--acc); }
+  .ldfilters { display: flex; gap: 6px; padding: 8px 8px 0; }
+  .ldfilters input, .ldfilters select { height: 28px; background: var(--panel-h); border: 0; padding: 0 8px; min-width: 0; }
+  .ldfilters input { flex: 1 1 auto; }
+  .ldfilters select { flex: 0 1 150px; }
+  .ldfilters select:hover { background: var(--hover); }
+  .ldfilters .active { outline: 1px solid var(--acc); outline-offset: -1px; color: var(--acc); }
   .loglist { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
   .lrow { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; cursor: pointer; background: var(--panel-h); flex: none; }
   .lrow:hover { background: var(--hover); }
@@ -1022,6 +1028,7 @@
   <div class="ldhead"><b>Message log</b>
     <span class="seg" id="logPrio"><button type="button" data-p="0">All</button><button type="button" data-p="1">Normal+</button><button type="button" data-p="2">High+</button></span>
     <button type="button" class="ovlink" id="logClose">Close ✕</button></div>
+  <div class="ldfilters"><input id="logSearch" type="search" placeholder="Search the messages…" title="Title and text"><select id="logType" title="Only this kind of message"><option value="">All types</option></select></div>
   <div id="logList" class="loglist"></div>
 </aside>
 <div id="msgModal" class="modal" hidden>
@@ -1982,8 +1989,8 @@ function richText(s) {
 // ---- Message log drawer ----
 // The log on the right side, refreshed with the page; on a wide screen it pushes the page aside so both stay
 // in view. Pending suggestions first (with Accept / Decline), then the newest messages; click opens one whole.
-let logOpen = false, logPrio = 0, logShown = [], logSig = '';
-try { logOpen = localStorage.getItem('overview.log') === '1'; logPrio = +(localStorage.getItem('overview.logPrio') || 0); } catch (e) { }
+let logOpen = false, logPrio = 0, logShown = [], logSig = '', logQuery = '', logType = '', logTypesSig = '';
+try { logOpen = localStorage.getItem('overview.log') === '1'; logPrio = +(localStorage.getItem('overview.logPrio') || 0); logType = localStorage.getItem('overview.logType') || ''; } catch (e) { }
 function setLog(open) {
   logOpen = open;
   $('logDrawer').hidden = !open;
@@ -2016,12 +2023,29 @@ document.addEventListener('keydown', e => {
 let logMessages = null;
 function renderLog(messages) {
   logMessages = messages;
-  const sig = logPrio + JSON.stringify(messages.slice(0, 80).map(m => m.key));
+  // The type list: the kinds in the log now, most frequent first (a chosen kind stays even with none left).
+  const counts = new Map();
+  for (const m of messages) if (m.type) counts.set(m.type, (counts.get(m.type) || 0) + 1);
+  if (logType && !counts.has(logType)) counts.set(logType, 0);
+  const types = [...counts].sort((a, b) => b[1] - a[1] || human(a[0]).localeCompare(human(b[0])));
+  const typesSig = JSON.stringify(types);
+  if (typesSig !== logTypesSig && document.activeElement !== $('logType')) {
+    logTypesSig = typesSig;
+    $('logType').innerHTML = '<option value="">All types</option>' + types.map(([t, n]) => `<option value="${esc(t)}">${esc(human(t))} (${n})</option>`).join('');
+    $('logType').value = logType;
+  }
+  $('logType').classList.toggle('active', !!logType);
+  $('logSearch').classList.toggle('active', !!logQuery);
+  const q = logQuery.toLowerCase();
+  const sig = logPrio + '|' + logType + '|' + q + JSON.stringify(messages.slice(0, 80).map(m => m.key));
   if (sig === logSig) return;
   logSig = sig;
   document.querySelectorAll('#logPrio button').forEach(b => b.classList.toggle('on', +b.dataset.p === logPrio));
   const color = p => p === 'Critical' ? 'var(--bad)' : p === 'High' ? 'var(--warn)' : p === 'Low' ? 'var(--mut)' : 'var(--acc)';
-  logShown = messages.filter(m => (m.pending && m.advisor) || (priorityRank[m.priority] ?? 0) >= logPrio).slice(0, 80);
+  // Search and type narrow everything (pending suggestions too); the priority keeps a pending suggestion in view.
+  logShown = messages.filter(m => (!logType || m.type === logType)
+    && (!q || ((m.title || '') + ' ' + plain(m.text || '') + ' ' + plain(m.task || '')).toLowerCase().includes(q))
+    && ((m.pending && m.advisor) || (priorityRank[m.priority] ?? 0) >= logPrio)).slice(0, 80);
   $('logList').innerHTML = logShown.map((m, n) => {
     const waiting = !isAnswered(m);
     const suggestion = ((m.pending && m.advisor) || m.onScreen) && waiting;
@@ -2030,7 +2054,7 @@ function renderLog(messages) {
       <b>${esc(m.title || '')}</b><span>${esc(plain(suggestion && m.task ? m.task : m.text))}</span>
       ${hasGameButtons(m) ? `<div class="tactions">${gameButtons(m)}</div>` : ''}
     </div>`;
-  }).join('') || '<div class="ovempty">No messages (or no game loaded).</div>';
+  }).join('') || `<div class="ovempty">${messages.length && (q || logType) ? 'No message matches the search.' : 'No messages (or no game loaded).'}</div>`;
 }
 $('logBtn').addEventListener('click', () => setLog(!logOpen));
 $('logClose').addEventListener('click', () => setLog(false));
@@ -2041,6 +2065,12 @@ $('logPrio').addEventListener('click', e => {
   try { localStorage.setItem('overview.logPrio', String(logPrio)); } catch (er) { }
   logSig = '';
   refresh();
+});
+$('logSearch').addEventListener('input', e => { logQuery = e.target.value.trim(); if (logMessages) renderLog(logMessages); });
+$('logType').addEventListener('change', e => {
+  logType = e.target.value;
+  try { localStorage.setItem('overview.logType', logType); } catch (er) { }
+  if (logMessages) renderLog(logMessages);
 });
 $('logList').addEventListener('click', e => {
   const row = e.target.closest('.lrow');

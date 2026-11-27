@@ -5,6 +5,8 @@ Empire Overview - changelog
   row or as a group, selects the whole fleet in the game.
 - Ships table: the name stays whole; the fleet is cut instead (whole on
   hover) and Manual is a hand.
+- Message log (Q): a search (title and text) and a type filter (the kinds in
+  the log, most frequent first).
 
 0.1.5-alpha (2026-11-27)
 - Trends: the mod records the empire every game month, page open or not
