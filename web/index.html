@@ -718,7 +718,7 @@
   .sgroup em { font-style: normal; color: var(--mut); font-size: 12px; }
   .sgroup .sicon { color: var(--acc); }
   .caret2 { color: var(--mut); width: 10px; }
-  .srow { display: grid; grid-template-columns: 30px minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(200px, 1.2fr) 110px 40px; gap: 10px; align-items: center;
+  .srow { display: grid; grid-template-columns: 30px minmax(170px, 1fr) minmax(260px, 1.6fr) minmax(200px, 1.2fr) 170px 40px; gap: 10px; align-items: center;
     padding: 5px 10px; background: var(--panel); cursor: pointer; }
   .srow:hover { background: var(--hover); }
   .srow.flash { background: var(--acc-d); }
@@ -739,7 +739,7 @@
   .sname.one small { flex: none; }
   .scargo, .swarn { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
   .swarncol { font-size: 12px; }
-  .swarncol .swarn { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .swarncol .swarn { flex-wrap: nowrap; gap: 10px; white-space: nowrap; }
   .sfuel .mline { display: flex; align-items: center; gap: 6px; }
   .sfuel .mline small { width: 40px; }
   .fbar { width: 46px; height: 3px; background: var(--track); position: relative; }
@@ -2531,10 +2531,10 @@ function renderShips() {
     (!q || [s.name, s.kind && kindText(s), s.design, missionPhrase(s.mission), s.missionText, s.target, s.heading, s.system, s.fleet, ...(s.cargo || []).map(c => c.name)]
       .some(v => v && v.toLowerCase().includes(q))));
 
-  // Status bar: the whole fleet, whatever the filters, so it always tells the full story.
+  // Filters: the whole fleet's counts, whatever the filters, so they always tell the full story.
   const lit = (set, k) => !set.size || set.has(k);
   const roles = CATEGORY_ORDER.filter(c => all.some(s => shipCategory(s) === c));
-  $('shipStatus').innerHTML = `<div class="sbar">${miniBar(all)}</div><div class="slegend sline">${SHIP_BUCKETS.map(b => {
+  $('shipStatus').innerHTML = `<div class="slegend sline">${SHIP_BUCKETS.map(b => {
     const c = all.filter(s => shipBucket(s) === b.key).length;
     return `<button type="button" data-bucket="${b.key}" class="${lit(shipBucketFilter, b.key) ? '' : 'off'}${!c ? ' zero' : ''}" title="Show these; click more to add; none chosen shows all">
       <i style="background:${b.color}"></i>${b.label} <em>${c}</em></button>`;
