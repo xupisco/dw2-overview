@@ -3397,9 +3397,9 @@ function drawChart(el, pts, series, opt) {
 }
 
 /**
- * Under the supply table, over the Trends range: one lane per resource that was low or critical, coloured month by
- * month (each month a step: a count of months, never a slope). Short now first, then the most recent shortages; the
- * lanes that do not fit become "+N more". Hover says the month and how long it lasted; a click opens the resource.
+ * Under the supply table, over the Trends range: how many of all the resources were critical (bottom) or low (on
+ * top) each month. Drawn in steps, one flat block a month (a count of resources never slopes between months).
+ * Hovering names them.
  */
 let supplySig = '';
 function renderSupplyHist() {
@@ -3409,77 +3409,50 @@ function renderSupplyHist() {
   el.hidden = pts.length < 2;
   if (el.hidden) { el.innerHTML = ''; supplySig = ''; return; }
   // Drawn to fill the space the column leaves it (the column is as tall as the Trends panel beside it).
-  if (!el.querySelector('.shbody')) el.innerHTML = `<div class="suphead">Low or critical, month by month <span class="tlegend"><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span></span></div><div class="shbody"></div>`;
+  if (!el.querySelector('.shbody')) el.innerHTML = `<div class="suphead">Low or critical, each month <span class="tlegend"><span style="--c:var(--bad)">critical</span><span style="--c:var(--warn)">low</span></span></div><div class="shbody"></div>`;
   const body = el.querySelector('.shbody');
   const sig = [hist.epoch, hist.points.length, last?.d, trendRange, body.clientWidth, body.clientHeight, resData.items?.length].join('|');
   if (sig === supplySig) return;
   supplySig = sig;
-  const W = Math.max(200, body.clientWidth || 400), H = Math.max(50, body.clientHeight || 62), L = 92, R = 4, B = 15;
-  const short = pts.map(histShort), n = pts.length;
-  // Lanes: every resource short at some point in the range, with its status per month.
-  const lanes = [];
-  for (const id of new Set(short.flatMap(m => [...m.keys()]))) {
-    const st = short.map(m => m.get(id) || null);
-    const lastShort = st.findLastIndex(s => s);
-    lanes.push({ id, st, now: st[n - 1], lastShort, months: st.filter(Boolean).length, name: resData.items?.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id });
-  }
-  const rank = s => s === 'critical' ? 0 : s === 'low' ? 1 : 2;
-  lanes.sort((a, b) => rank(a.now) - rank(b.now) || b.lastShort - a.lastShort || b.months - a.months || a.name.localeCompare(b.name));
-  if (!lanes.length) { body.innerHTML = '<div class="tnote">No resource was low or critical in this period.</div>'; return; }
-  const month = hist.yearUnits / 12, d0 = pts[0].d, d1 = pts[n - 1].d + month;   // the last month has its width too
-  const x = d => L + (d - d0) / (d1 - d0) * (W - L - R);
-  const plotH = H - B, laneH = Math.min(18, Math.max(12, plotH / lanes.length));
-  const fit = Math.floor(plotH / laneH), shown = lanes.length > fit ? lanes.slice(0, fit - 1) : lanes, more = lanes.length - shown.length;
-  const cut = (s, max) => s.length > max ? s.slice(0, max - 1) + '…' : s;
-  let svg = '';
-  shown.forEach((ln, k) => {
-    const top = k * laneH, h = laneH - 3;
-    svg += `<rect x="${L}" y="${top}" width="${W - L - R}" height="${h}" fill="var(--track)" rx="1"/>`
-      + `<text class="lbl" x="${L - 6}" y="${top + h / 2 + 4}" text-anchor="end"><title>${esc(ln.name)}</title>${esc(cut(ln.name, 13))}</text>`;
-    // Runs of the same status as one rectangle each, from the first month of the run to the end of its last.
-    for (let i = 0; i < n;) {
-      let j = i;
-      while (j + 1 < n && ln.st[j + 1] === ln.st[i]) j++;
-      if (ln.st[i]) svg += `<rect class="${ln.st[i] === 'critical' ? 'crit' : 'low'}" x="${x(pts[i].d).toFixed(1)}" y="${top}" width="${Math.max(1, x(j + 1 < n ? pts[j + 1].d : d1) - x(pts[i].d)).toFixed(1)}" height="${h}"/>`;
-      i = j + 1;
-    }
-  });
-  if (more) svg += `<text class="ax" x="${L - 6}" y="${shown.length * laneH + laneH / 2 + 2}" text-anchor="end">+${more} more</text>`;
+  const n = pts.length, short = pts.map(histShort), names = (m, st) => [...m].filter(([, s]) => s === st)
+    .map(([id]) => resData.items?.find(r => r.id === id)?.name || hist.res.get(id)?.name || '#' + id).sort();
+  const crit = short.map(m => [...m.values()].filter(s => s === 'critical').length), low = short.map(m => [...m.values()].filter(s => s === 'low').length);
+  const max = Math.max(1, ...crit.map((c, i) => c + low[i]));
+  const W = Math.max(200, body.clientWidth || 400), H = Math.max(50, body.clientHeight || 62), L = 22, R = 4, T = 4, B = 15;
+  // Month i covers [its date, the next one); the last month gets its width too.
+  const month = hist.yearUnits / 12, d0 = pts[0].d, d1 = pts[n - 1].d + month;
+  const x = d => L + (d - d0) / (d1 - d0) * (W - L - R), xe = i => x(i + 1 < n ? pts[i + 1].d : d1), y = v => H - B - v / max * (H - B - T);
+  const step = (a, b) => {   // the band between a(i) (below) and b(i) (above), month by month
+    let top = '', bottom = '';
+    for (let i = 0; i < n; i++) top += `${i ? 'L' : 'M'}${x(pts[i].d).toFixed(1)},${y(b(i)).toFixed(1)}L${xe(i).toFixed(1)},${y(b(i)).toFixed(1)}`;
+    for (let i = n - 1; i >= 0; i--) bottom += `L${xe(i).toFixed(1)},${y(a(i)).toFixed(1)}L${x(pts[i].d).toFixed(1)},${y(a(i)).toFixed(1)}`;
+    return top + bottom + 'Z';
+  };
   const yr0 = Math.ceil(d0 / hist.yearUnits), yr1 = Math.floor(pts[n - 1].d / hist.yearUnits);
   const years = yr1 > yr0 ? [yr0, yr1] : [yr0].filter(v => v * hist.yearUnits <= pts[n - 1].d);
-  svg += years.map(v => `<text class="ax" x="${x(v * hist.yearUnits)}" y="${H - 2}" text-anchor="middle">${v}</text>`).join('');
-  body.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Resources low or critical, month by month: ${esc(lanes.map(l => l.name).join(', '))}">${svg}`
-    + `<line class="xh" y1="0" y2="${plotH}" style="display:none"/><rect class="hit" x="0" y="0" width="${W}" height="${shown.length * laneH}" fill="transparent" style="cursor:pointer"/></svg><div class="ttip" hidden></div>`;
-  const root = body.querySelector('svg'), xh = root.querySelector('.xh'), tip = body.querySelector('.ttip'), hit = root.querySelector('.hit');
-  const at = e => {
-    const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width, my = (e.clientY - box.top) * H / box.height;
-    const ln = shown[Math.min(shown.length - 1, Math.max(0, Math.floor(my / laneH)))];
+  body.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="How many resources were low or critical each month">`
+    + `<text class="ax" x="${L - 5}" y="${T + 8}" text-anchor="end">${max}</text><text class="ax" x="${L - 5}" y="${H - B}" text-anchor="end">0</text>`
+    + `<line class="grid" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`
+    + `<path class="crit" d="${step(() => 0, i => crit[i])}"/><path class="low" d="${step(i => crit[i], i => crit[i] + low[i])}"/>`
+    + years.map(v => `<text class="ax" x="${x(v * hist.yearUnits)}" y="${H - 2}" text-anchor="middle">${v}</text>`).join('')
+    + `<line class="xh" y1="${T}" y2="${H - B}" style="display:none"/><rect class="hit" x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="ttip" hidden></div>`;
+  const root = body.querySelector('svg'), xh = root.querySelector('.xh'), tip = body.querySelector('.ttip');
+  root.querySelector('.hit').addEventListener('mousemove', e => {
+    const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
     let i = 0;
     while (i + 1 < n && x(pts[i + 1].d) <= mx) i++;
-    return { ln, i, box, onName: mx < L };
-  };
-  hit.addEventListener('mousemove', e => {
-    const { ln, i, box, onName } = at(e);
-    if (onName) {
-      xh.style.display = 'none';
-      tip.innerHTML = `<b>${esc(ln.name)}</b><div class="sup">${ln.now ? `${ln.now} now` : 'not short now'} · ${ln.months} of ${n} months short · click to open</div>`;
-    } else {
-      const s = ln.st[i];
-      let a = i, b = i;
-      if (s) { while (a > 0 && ln.st[a - 1] === s) a--; while (b + 1 < n && ln.st[b + 1] === s) b++; }
-      const xm = x(pts[i].d) + (x(i + 1 < n ? pts[i + 1].d : d1) - x(pts[i].d)) / 2;
-      xh.setAttribute('x1', xm); xh.setAttribute('x2', xm); xh.style.display = '';
-      tip.innerHTML = `<b>${esc(ln.name)} · ${histDate(pts[i].d)}</b><div class="sup">${s
-        ? `<span style="color:${s === 'critical' ? 'var(--bad)' : 'var(--warn)'}">${s}</span> from ${histDate(pts[a].d)}${b === n - 1 ? ' until now' : ` to ${histDate(pts[b].d)}`} (${b - a + 1} month${b === a ? '' : 's'})`
-        : 'adequate this month'}</div>`;
-    }
+    const xm = (x(pts[i].d) + xe(i)) / 2;
+    xh.setAttribute('x1', xm); xh.setAttribute('x2', xm); xh.style.display = '';
+    const c = names(short[i], 'critical'), l = names(short[i], 'low');
+    tip.innerHTML = `<b>${histDate(pts[i].d)}</b><div class="sup">${c.length || l.length
+      ? [['Critical', c], ['Low', l]].filter(([, v]) => v.length).map(([k, v]) => `${k}: ${esc(v.join(', '))}`).join('<br>')
+      : 'No resource low or critical'}</div>`;
     tip.hidden = false;
-    const px = (e.clientX - box.left);
+    const px = xm * box.width / W;
     tip.style.left = Math.max(0, px + 14 + tip.offsetWidth > box.width ? px - 14 - tip.offsetWidth : px + 14) + 'px';
-    tip.style.top = Math.min(box.height - tip.offsetHeight, (e.clientY - box.top) + 14) + 'px';
+    tip.style.top = '4px';
   });
-  hit.addEventListener('mouseleave', () => { xh.style.display = 'none'; tip.hidden = true; });
-  hit.addEventListener('click', e => openResourceModal(at(e).ln.id));
+  root.querySelector('.hit').addEventListener('mouseleave', () => { xh.style.display = 'none'; tip.hidden = true; });
 }
 
 /** The Trends panel of the Resources tab: chips turn resources on and off, the chart and the supply strip follow. */
