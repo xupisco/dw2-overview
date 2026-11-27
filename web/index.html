@@ -3176,7 +3176,7 @@ async function openResourceModal(id) {
     const maint = (pts[pts.length - 1].r?.[id] || [])[3] || r.maintain || null;
     document.querySelector('#resModalBody .rmchead').hidden = false;
     drawChart($('rmChart'), pts, [{ name: 'Stock', color: 'var(--s1)', values: pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)) }],
-      { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 170 });
+      { fmt: v => fmt.big(Math.round(v)), ref: maint, refLabel: maint ? 'level to keep' : null, height: 153 });
   }
 }
 const closeResourceModal = () => { $('resModal').hidden = true; };
