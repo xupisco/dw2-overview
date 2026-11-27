@@ -1,8 +1,8 @@
 Empire Overview - changelog
 
 0.1.7-alpha (not released yet)
-- Trends: every line is named at its end, up to the 8 the chart takes (it
-  stopped at 4); a name pushed away from its line has a thin leader to it.
+- Trends: a legend under the chart names every line (the names at the line
+  ends stopped at 4 and then vanished); the chart takes the full width.
 
 0.1.6-alpha (2026-11-27)
 - Ships: Group by Fleet (ships without one at the end); a fleet's name, in a

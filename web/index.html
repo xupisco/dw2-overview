@@ -423,7 +423,6 @@
   .tchart .ref { stroke: var(--mut); stroke-dasharray: 3 4; }
   .tchart .ax { fill: var(--mut); font: 11px var(--cond); font-variant-numeric: tabular-nums; }
   .tchart .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .tchart .lead { fill: none; stroke-width: 1; opacity: .6; }
   .tchart .lbl { fill: var(--tx); font-size: 11.5px; }
   .tchart .xh { stroke: var(--mut); stroke-width: 1; }
   .tchart .dot { stroke: var(--panel); stroke-width: 2; }
@@ -435,11 +434,11 @@
   .ttip i { width: 10px; height: 3px; border-radius: 2px; background: var(--c); flex: none; }
   .ttip .sup { color: var(--mut); margin-top: 4px; }
   .tnote { color: var(--mut); font-size: 12px; padding: 18px 0 8px; }
-  .tlegend { display: flex; gap: 14px; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+  .tlegend { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+  .tchart .tlegend { margin: 6px 0 0 54px; }
   .tlegend span::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; background: var(--c); vertical-align: -1px; }
   .rmchart { margin: 4px 0 6px; }
   .ovtrends { padding: 10px 12px 8px; }
-  .ovtlegend:empty { display: none; }
   .rmchead { margin: 0; font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .1em; color: var(--mut); }
   .rmcrow { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
   .rmseg { background: var(--track); margin-left: 8px; }
@@ -2988,7 +2987,7 @@ function blockHtml(id) {
     const head = `<span class="ovtctl"><span class="seg ovsort">${Object.entries(TREND_MEASURES).map(([k, v]) => `<button type="button" class="${k === trendMeasure ? 'on' : ''}" title="${esc(v.title)}" ${act(pick('measure', k))}>${v.label}</button>`).join('')}</span>`
       + `<span class="seg ovsort">${TREND_RANGES.map(([k, v]) => `<button type="button" class="${k === trendRange ? 'on' : ''}" ${act(pick('range', k))}>${v}</button>`).join('')}</span></span>${linkTo('Resources', 'resources')}`;
     const why = ovTrendsEmpty();
-    return panel('Trends', 'var(--acc)', head, why ? `<div class="ovempty">${why}</div>` : '<div class="ovtrends"><div class="tchart" id="ovTrChart"></div><div class="tlegend ovtlegend"></div></div>');
+    return panel('Trends', 'var(--acc)', head, why ? `<div class="ovempty">${why}</div>` : '<div class="ovtrends"><div class="tchart" id="ovTrChart"></div></div>');
   }
   if (id === 'idle') {
     const rows = ov.ships.filter(s => shipBucket(s) === 'idle');
@@ -3559,9 +3558,9 @@ function niceTicks(lo, hi, n = 4) {
  */
 function drawChart(el, pts, series, opt) {
   const W = Math.max(280, el.clientWidth || 600), H = opt.height || 220;
-  // Names at the line ends for 2-8 series (Trends takes 8 at most), nudged apart; one series is named by its
-  // heading, and the chart takes the full width.
-  const labels = series.length > 1 && series.length <= 8, L = 54, R = labels ? 124 : 14, T = 8, B = 20, plotB = H - B;
+  // Two or more series are named in a legend under the chart (one is named by its heading); the plot takes the
+  // full width either way.
+  const L = 54, R = 14, T = 8, B = 20, plotB = H - B;
   const d0 = pts[0].d, d1 = pts[pts.length - 1].d, x = d => L + (d - d0) / (d1 - d0 || 1) * (W - L - R);
   const all = series.flatMap(s => s.values).filter(v => v != null && isFinite(v));
   let lo = Math.min(0, ...all), hi = Math.max(...all, opt.ref ?? -Infinity, lo + 1e-9);
@@ -3577,20 +3576,18 @@ function drawChart(el, pts, series, opt) {
   for (let yr = Math.ceil(y0); yr <= y1; yr += every) svg += `<text class="ax" x="${x(yr * hist.yearUnits)}" y="${H - 4}" text-anchor="middle">${yr}</text>`;
   svg += `<clipPath id="tclip${el.id}"><rect x="${L}" y="${T - 2}" width="${W - L - R}" height="${plotB - T + 4}"/></clipPath><g clip-path="url(#tclip${el.id})">`
     + series.map(s => `<path class="ln" style="stroke:${s.color}" d="${path(s.values)}"/>`).join('') + '</g>';
-  // Names at the ends of the lines (8 or fewer), nudged apart so they do not overlap.
-  if (labels) {
-    const ends = series.map(s => { let i = s.values.length - 1; while (i >= 0 && (s.values[i] == null || !isFinite(s.values[i]))) i--; return i < 0 ? null : { s, above: s.values[i] > hi, cy: y(s.values[i]), yy: Math.max(T, y(s.values[i])), xx: x(pts[i].d) }; }).filter(Boolean).sort((a, b) => a.yy - b.yy);
-    for (let i = 1; i < ends.length; i++) ends[i].yy = Math.max(ends[i].yy, ends[i - 1].yy + 13);
-    // Lines ending together at the bottom: push the names back up so the last one stays inside the chart.
-    for (let i = ends.length - 1; i >= 0; i--) ends[i].yy = Math.min(ends[i].yy, i === ends.length - 1 ? plotB : ends[i + 1].yy - 13);
-    // A name pushed away from its line's end gets a thin leader in the line's colour back to it.
-    svg += ends.map(e => (e.above ? '' : `<circle class="dot" cx="${e.xx}" cy="${e.cy}" r="3.5" style="fill:${e.s.color}"/>`)
-      + (!e.above && Math.abs(e.yy - e.cy) > 3 ? `<path class="lead" style="stroke:${e.s.color}" d="M${(e.xx + 4).toFixed(1)},${e.cy.toFixed(1)} L${W - R + 20},${e.yy.toFixed(1)} H${W - R + 24}"/>` : '')
-      + `<text class="lbl" x="${W - R + 27}" y="${e.yy + 4}">${e.above ? `<title>Above the top of the scale: ${esc(opt.fmt(e.s.values[e.s.values.length - 1] ?? 0))}</title>` : ''}${esc(e.s.name)}${e.above ? ' ↑' : ''}</text>`).join('');
+  // A dot at the end of each line; the legend under the chart names them, in the order the lines end (top first).
+  let legend = '';
+  if (series.length > 1) {
+    const ends = series.map(s => { let i = s.values.length - 1; while (i >= 0 && (s.values[i] == null || !isFinite(s.values[i]))) i--; return { s, v: i < 0 ? null : s.values[i], i }; })
+      .sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity));
+    svg += ends.filter(e => e.v != null && e.v <= hi).map(e => `<circle class="dot" cx="${x(pts[e.i].d)}" cy="${y(e.v)}" r="3.5" style="fill:${e.s.color}"/>`).join('');
+    // Above the cap a line runs off the top: its name says so with ↑ (the tooltip gives the value).
+    legend = `<div class="tlegend">${ends.map(e => `<span style="--c:${e.s.color}"${e.v > hi ? ` title="Above the top of the scale: ${esc(opt.fmt(e.v))}"` : ''}>${esc(e.s.name)}${e.v > hi ? ' ↑' : ''}</span>`).join('')}</div>`;
   }
   svg += `<g class="hov" style="display:none"><line class="xh" y1="${T}" y2="${plotB}"/>${series.map(s => `<circle class="dot" r="4" style="fill:${s.color}"/>`).join('')}</g>`
     + `<rect x="${L}" y="0" width="${W - L - R}" height="${H - B}" fill="transparent" class="hit"/>`;
-  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg><div class="ttip" hidden></div>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${esc(series.map(s => s.name).join(', '))} over time">${svg}</svg>${legend}<div class="ttip" hidden></div>`;
   const root = el.querySelector('svg'), hov = root.querySelector('.hov'), tip = el.querySelector('.ttip');
   root.querySelector('.hit').addEventListener('mousemove', e => {
     const box = root.getBoundingClientRect(), mx = (e.clientX - box.left) * W / box.width;
@@ -3749,8 +3746,6 @@ function fillOvTrends() {
   if (sig === ovTrendSig && ovTrendNode) { slot.replaceWith(ovTrendNode); return; }
   const m = TREND_MEASURES[trendMeasure] || TREND_MEASURES.level, series = trendSeries(pts, all);
   drawChart(slot.querySelector('.tchart'), pts, series, { fmt: m.fmt, ref: m.ref, refLabel: m.refLabel, cap: m.cap, height: 190 });
-  // More than 8 lines would have no names at their ends: a legend then (Trends takes 8, so a safeguard).
-  slot.querySelector('.ovtlegend').innerHTML = series.length > 8 ? series.map(s => `<span style="--c:${s.color}">${esc(s.name)}</span>`).join('') : '';
   ovTrendNode = slot;
   ovTrendSig = sig;
 }
