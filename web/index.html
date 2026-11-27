@@ -411,8 +411,13 @@
   .rmchead[hidden] { display: none; }
   .tlegend b { font-weight: 400; }
   .ttip .sup { max-width: 260px; line-height: 1.45; }
-  .rcnums .rctrend { margin-left: auto; flex: none; }
-  .rcnums .rctrend .spark { width: 70px; margin-top: 2px; }
+  /* A card's trend: its own line, the card's full width (the line keeps its thickness when stretched) */
+  .rctrend .spark { width: 100%; height: 28px; }
+  .spark.wide .sl, .spark.wide .sm { vector-effect: non-scaling-stroke; }
+  /* The resource's details: stock, rates and prices as three cards across the top */
+  .rdnums.rmnums { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+  .rdnums.rmnums > span { background: var(--panel-h); padding: 10px 12px; gap: 2px; min-width: 0; }
+  @media (max-width: 520px) { .rdnums.rmnums { grid-template-columns: 1fr; } }
   .rhead { background: var(--panel-h); color: var(--mut); font: 600 12px var(--cond); text-transform: uppercase; letter-spacing: .08em; }
   .rrow { width: 100%; border: 0; background: transparent; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
   .rrow:focus-visible { outline: 1px solid var(--acc); outline-offset: -1px; }
@@ -3017,21 +3022,26 @@ function resRateCell(r) {
 }
 
 /** The opened row: the numbers behind it, the prices, where it is mined and the known deposits. */
-function resExpand(r) {
+/** Stock, rates and prices: inline in an opened row, as cards across the top of the resource's details. */
+function resNums(r, cls = 'rdnums') {
+  const n = v => v != null ? fmt.num(v) : '–';
+  const perSec = v => v != null ? (+v).toFixed(2) : '–';
+  return `<div class="${cls}">
+      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small title="Cargo on freighters and mining ships, not counted in the stock until it is delivered">+ ${fmt.big(Math.round(r.onShips))} on ships</small>` : ''}</span>
+      <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
+      <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
+    </div>`;
+}
+
+function resExpand(r, withNums = true) {
   const { mined, ships, building, free } = resSites(r);
   const site = x => `<button type="button" class="scard" data-orb="${x.d.orbId}" title="Go to ${esc(x.d.name)}">
     <span class="sctop"><b>${esc(x.d.name)}</b><span class="go">Go to ›</span></span>
     <small>${esc(human(x.d.kind))}${x.d.system ? ' · ' + esc(x.d.system) : ''}${x.d.minedBy ? ' · ' + x.d.minedBy : ''}${x.ships.length ? ' · by ' + esc(x.ships.map(s => s.name).join(', ')) : ''}${x.d.stationBuilding != null ? ` · <span class="mk-warn">building ${Math.round(x.d.stationBuilding * 100)}%</span>` : ''}</small>
     <span class="scab"><i class="pb"><i style="width:${x.ab}%"></i></i><em>${x.ab}%</em></span></button>`;
   const cards = list => `<div class="scards">${list.map(site).join('')}</div>`;
-  const n = v => v != null ? fmt.num(v) : '–';
-  const perSec = v => v != null ? (+v).toFixed(2) : '–';
   return `<div class="rexp">
-    <div class="rdnums">
-      <span><small>Stock / maintain</small><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}${r.maintain ? ' / ' + fmt.big(Math.round(r.maintain)) : ''}</b>${r.onShips ? `<small title="Cargo on freighters and mining ships, not counted in the stock until it is delivered">+ ${fmt.big(Math.round(r.onShips))} on ships</small>` : ''}</span>
-      <span><small>In / used per second</small><b>${perSec(r.rateCurrent)} / ${perSec(r.rateRequired)}</b></span>
-      <span><small>Buy / sell price</small><b>${n(r.priceBuy)} / ${n(r.priceSell)}</b></span>
-    </div>
+    ${withNums ? resNums(r) : ''}
     <h4>Mined at · ${mined.length}</h4>${mined.length ? cards(mined) : `<div class="none">${ships.length ? 'No station mines it.' : 'Not mined anywhere.'}</div>`}
     ${ships.length ? `<h4>Mined by ships, no station · ${ships.length}</h4>${cards(ships)}` : ''}
     ${building.length ? `<h4>Station being built · ${building.length}</h4>${cards(building)}` : ''}
@@ -3143,8 +3153,8 @@ function resCard(r) {
       <span class="rname"><b>${esc(r.name)}</b><small>${esc(human(r.category))}</small></span>
       <span class="rstat" style="color:${STATUS_COLOR[st]}">${st === 'adequate' ? '' : st}</span></div>
     <div class="rcnums"><span><small>Stock</small><span class="v"><b>${stockOf(r) != null ? fmt.big(Math.round(stockOf(r))) : '–'}</b>${r.maintain ? `<em> / ${fmt.big(Math.round(r.maintain))}</em>` : ''}</span></span>
-      <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span>
-      <span class="rctrend"><small>Trend</small>${spark(r.id)}</span></div>
+      <span><small>Rate</small><span class="v">${resRateCell(r)}</span></span></div>
+    <div class="rctrend">${spark(r.id, true)}</div>
     <div class="rcnext">${resNext(r)}</div>
   </div>`;
 }
@@ -3157,7 +3167,7 @@ async function openResourceModal(id) {
   if (!r) return;
   const st = resStatus(r);
   $('resModalMeta').innerHTML = `<span class="rico" data-cat="${r.category}">${esc(resAbbr(r.name))}</span> ${esc(human(r.category))}${st !== 'adequate' ? ` · <span style="color:${STATUS_COLOR[st]}">${st}</span>` : ''}`;
-  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div><h4 class="rmchead" hidden>Stock over the game</h4><div class="tchart rmchart" id="rmChart"></div>${resExpand(r)}`;
+  $('resModalBody').innerHTML = `<h3>${esc(r.name)}</h3><div class="rmrate">${resRateCell(r)}</div><div class="rmnext">${resNext(r)}</div>${resNums(r, 'rdnums rmnums')}<h4 class="rmchead" hidden>Stock over the game</h4><div class="tchart rmchart" id="rmChart"></div>${resExpand(r, false)}`;
   $('resModal').hidden = false;
   // Its stock over the whole game, with the level to keep: one series, so the heading names it and no legend.
   await loadHistory();
@@ -3237,19 +3247,20 @@ function histSupply(p) {
 }
 
 /** A row's stock over the last 5 years, with the level to keep dashed; a resource missing from a point had none. */
-function spark(id) {
+function spark(id, wide = false) {
   const n = hist.points.length;
   if (n < 2) return `<span class="sparknone" title="The mod records a point every game month (about 50 s at normal speed)">${hist.game ? 'recording…' : ''}</span>`;
   const last = hist.points[n - 1].d, pts = hist.points.filter(p => p.d >= last - 5 * hist.yearUnits);
   if (pts.length < 2) return '';
   const vals = pts.map(p => (p.r && p.r[id] ? p.r[id][0] : 0)), maint = (pts[pts.length - 1].r?.[id] || [])[3] || 0;
-  const hi = Math.max(...vals, maint, 1), d0 = pts[0].d, span = last - d0 || 1, W = 88, H = 24;
+  // Wide (a card's own line): stretched to the card, so no end dot (it would turn oval).
+  const hi = Math.max(...vals, maint, 1), d0 = pts[0].d, span = last - d0 || 1, W = wide ? 300 : 88, H = wide ? 28 : 24;
   const x = d => 1 + (d - d0) / span * (W - 4), y = v => H - 2 - v / hi * (H - 4);
   const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.d).toFixed(1)},${y(vals[i]).toFixed(1)}`).join('');
   const tip = `Stock ${histDate(d0)} to ${histDate(last)}: ${fmt.big(Math.round(vals[0]))} → ${fmt.big(Math.round(vals[vals.length - 1]))}${maint ? ` · level to keep ${fmt.big(Math.round(maint))}` : ''}`;
-  return `<svg class="spark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title>`
+  return `<svg class="spark${wide ? ' wide' : ''}" viewBox="0 0 ${W} ${H}"${wide ? ' preserveAspectRatio="none"' : ''} role="img" aria-label="${esc(tip)}"><title>${esc(tip)}</title>`
     + (maint ? `<line class="sm" x1="0" x2="${W}" y1="${y(maint).toFixed(1)}" y2="${y(maint).toFixed(1)}"/>` : '')
-    + `<path class="sl" d="${path}"/><circle class="se" cx="${x(last).toFixed(1)}" cy="${y(vals[vals.length - 1]).toFixed(1)}" r="2"/></svg>`;
+    + `<path class="sl" d="${path}"/>${wide ? '' : `<circle class="se" cx="${x(last).toFixed(1)}" cy="${y(vals[vals.length - 1]).toFixed(1)}" r="2"/>`}</svg>`;
 }
 
 // Trends: what each line shows. "Stock vs level" puts resources of any size on one scale (100% = at the level the
